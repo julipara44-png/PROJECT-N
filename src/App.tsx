@@ -1,0 +1,5272 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { 
+  BarChart3, 
+  TrendingUp, 
+  ArrowRight, 
+  Shield, 
+  Zap, 
+  Globe,
+  Database,
+  Search,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  Cpu,
+  Lock,
+  MessageSquare,
+  MessageCircle,
+  Facebook,
+  Send,
+  Trash2,
+  Copy,
+  UserPlus,
+  X,
+  ChevronLeft,
+  ExternalLink,
+  Layers,
+  Network,
+  Eye,
+  Crosshair,
+  Users,
+  Mail,
+  Key,
+  Calendar,
+  CreditCard,
+  History,
+  LayoutDashboard,
+  Package,
+  Brain,
+  Sparkles,
+  AlertTriangle,
+  FileText,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  ArrowUpDown,
+  Filter,
+  Settings,
+  Building2,
+  Phone,
+  MapPin,
+  User,
+  Hash,
+  Upload,
+  Image as ImageIcon,
+  Download,
+  List,
+  Scale,
+  QrCode,
+  Bell,
+  Container,
+  BarChart as BarChartIcon
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Sphere, OrbitControls, Float, Stars, Points, PointMaterial } from '@react-three/drei';
+import * as THREE from 'three';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  LineChart, 
+  Line,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
+import Papa from 'papaparse';
+import { getPredictiveAnalytics, AnalyticsInsight, generateCustomerReply } from './services/geminiService';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+// --- MOCK DATA ---
+const OVERVIEW_BAR_DATA = [
+  { name: 'JAN', inflow: 4000, outflow: 2400 },
+  { name: 'FEB', inflow: 3000, outflow: 1398 },
+  { name: 'MAR', inflow: 2000, outflow: 9800 },
+  { name: 'APR', inflow: 2780, outflow: 3908 },
+  { name: 'MAY', inflow: 1890, outflow: 4800 },
+  { name: 'JUN', inflow: 2390, outflow: 3800 },
+];
+
+const OVERVIEW_PIE_DATA = [
+  { name: 'Equities', value: 400 },
+  { name: 'Real Estate', value: 300 },
+  { name: 'Commodities', value: 300 },
+  { name: 'Crypto', value: 200 },
+];
+
+const PIE_COLORS = ['#00f2ff', '#dc143c', '#ffffff', '#333333'];
+
+// --- TYPES ---
+
+type PlatformTab = 'Overview' | 'P&L Statement' | 'Cash Flow' | 'Balance Sheet' | 'Transactions' | 'Inventory' | 'Data Entry' | 'Customer Queries' | 'Team Management' | 'Settings' | 'Financial Summary';
+
+interface Transaction {
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+  type: 'Inflow' | 'Outflow';
+}
+
+// --- 3D COMPONENTS ---
+
+function GlobeNode({ position, intensity = 1, color = "#00f2ff" }: { position: THREE.Vector3, intensity?: number, color?: string }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  
+  useFrame((state) => {
+    if (meshRef.current) {
+      const pulse = 1 + Math.sin(state.clock.elapsedTime * 4 + position.x * 5) * 0.4;
+      meshRef.current.scale.set(pulse, pulse, pulse);
+    }
+  });
+
+  return (
+    <mesh position={position} ref={meshRef}>
+      <sphereGeometry args={[0.025, 16, 16]} />
+      <meshStandardMaterial 
+        color={color} 
+        emissive={color} 
+        emissiveIntensity={6 * intensity} 
+        transparent 
+        opacity={0.9}
+      />
+    </mesh>
+  );
+}
+
+function DataStream({ start, end, color = "#00f2ff" }: { start: THREE.Vector3, end: THREE.Vector3, color?: string }) {
+  const curve = useMemo(() => {
+    const mid = start.clone().lerp(end, 0.5).normalize().multiplyScalar(2.6);
+    return new THREE.CatmullRomCurve3([start, mid, end]);
+  }, [start, end]);
+
+  const lineRef = useRef<THREE.Mesh>(null);
+  const [offset, setOffset] = useState(0);
+
+  useFrame((state) => {
+    if (lineRef.current) {
+      (lineRef.current.material as THREE.MeshStandardMaterial).opacity = 0.3 + Math.sin(state.clock.elapsedTime * 3) * 0.2;
+    }
+    setOffset((prev) => (prev + 0.01) % 1);
+  });
+
+  return (
+    <mesh ref={lineRef}>
+      <tubeGeometry args={[curve, 40, 0.006, 8, false]} />
+      <meshStandardMaterial 
+        color={color} 
+        transparent 
+        opacity={0.4} 
+        emissive={color} 
+        emissiveIntensity={4} 
+      />
+      {/* Moving Signal Pulse */}
+      <mesh>
+         <sphereGeometry args={[0.02, 8, 8]} />
+         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={10} />
+      </mesh>
+    </mesh>
+  );
+}
+
+function WorldGlobe() {
+  const globeRef = useRef<THREE.Group>(null);
+  
+  // Generating a dense dot-matrix globe pattern
+  const dots = useMemo(() => {
+    const pts = [];
+    const count = 3000;
+    for (let i = 0; i < count; i++) {
+      const phi = Math.acos(-1 + (2 * i) / count);
+      const theta = Math.sqrt(count * Math.PI) * phi;
+      const x = 2 * Math.cos(theta) * Math.sin(phi);
+      const y = 2 * Math.sin(theta) * Math.sin(phi);
+      const z = 2 * Math.cos(phi);
+      pts.push(new THREE.Vector3(x, y, z));
+    }
+    return pts;
+  }, []);
+
+  const activeNodes = useMemo(() => {
+    const pts = [];
+    for (let i = 0; i < 20; i++) {
+      pts.push({
+        pos: dots[Math.floor(Math.random() * dots.length)],
+        color: Math.random() > 0.5 ? "#00f2ff" : "#dc143c"
+      });
+    }
+    return pts;
+  }, [dots]);
+
+  const streams = useMemo(() => {
+    const s = [];
+    for (let i = 0; i < 8; i++) {
+      const start = activeNodes[Math.floor(Math.random() * activeNodes.length)];
+      const end = activeNodes[Math.floor(Math.random() * activeNodes.length)];
+      if (start.pos !== end.pos) s.push({ start: start.pos, end: end.pos, color: start.color });
+    }
+    return s;
+  }, [activeNodes]);
+
+  useFrame((state) => {
+    if (globeRef.current) {
+      globeRef.current.rotation.y += 0.0015;
+      globeRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.05) * 0.1;
+    }
+  });
+
+  return (
+    <group ref={globeRef}>
+      <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+      
+      {/* Glass Core */}
+      <Sphere args={[1.95, 64, 64]}>
+        <meshPhysicalMaterial 
+          color="#000" 
+          transmission={0.9} 
+          thickness={1} 
+          roughness={0} 
+          envMapIntensity={2} 
+        />
+      </Sphere>
+      
+      {/* Dot Matrix Surface */}
+      <group>
+        {dots.map((p, i) => (
+          <mesh key={i} position={p}>
+            <sphereGeometry args={[0.008, 6, 6]} />
+            <meshStandardMaterial 
+              color={i % 50 === 0 ? "#00f2ff" : "#111"} 
+              emissive={i % 50 === 0 ? "#00f2ff" : "#000"}
+              emissiveIntensity={i % 50 === 0 ? 2 : 0}
+            />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Corporate & Financial Activity Nodes */}
+      {activeNodes.map((n, i) => <GlobeNode key={i} position={n.pos} color={n.color} intensity={2} />)}
+      
+      {/* Intelligence Streams */}
+      {streams.map((s, i) => <DataStream key={i} start={s.start} end={s.end} color={s.color} />)}
+      
+      {/* Atmospheric Glare */}
+      <Sphere args={[2.02, 64, 64]}>
+        <meshStandardMaterial 
+          color="#00f2ff" 
+          transparent 
+          opacity={0.02} 
+          side={THREE.BackSide} 
+          wireframe
+        />
+      </Sphere>
+    </group>
+  );
+}
+
+function IntelligenceHero() {
+  return (
+    <div className="h-full w-full relative">
+      <Canvas camera={{ position: [0, 0, 7], fov: 35 }}>
+        <color attach="background" args={["#05070a"]} />
+        <ambientLight intensity={0.2} />
+        <pointLight position={[10, 10, 10]} intensity={3} color="#00f2ff" />
+        <pointLight position={[-10, -10, -10]} intensity={1} color="#dc143c" />
+        <WorldGlobe />
+        <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.5} rotateSpeed={0.4} />
+      </Canvas>
+      
+      {/* HUD Elements */}
+      <div className="absolute inset-0 pointer-events-none p-8 z-10 flex flex-col justify-between">
+        <div className="flex justify-between items-start">
+          <div className="space-y-1">
+            <p className="text-[10px] font-mono text-intelligence font-bold tracking-[0.3em] uppercase">Status: Live Monitoring</p>
+            <p className="text-[10px] font-mono text-gray-500 font-bold tracking-[0.2em] uppercase">Region: Global Cluster Alpha</p>
+          </div>
+          <div className="text-right space-y-1">
+             <div className="flex items-center gap-2 justify-end">
+               <span className="w-1.5 h-1.5 bg-brand rounded-full animate-ping"></span>
+               <p className="text-[10px] font-mono text-brand font-bold tracking-[0.3em] uppercase">Anomaly Detected</p>
+             </div>
+             <p className="text-[10px] font-mono text-gray-500 font-bold tracking-[0.2em] uppercase">Vector: Hong Kong Stock Exchange</p>
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-end">
+          <div className="border-l-2 border-intelligence pl-4 py-2">
+             <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Encryption Level</p>
+             <p className="text-sm font-mono text-intelligence font-bold">AES-256-GCM READY</p>
+          </div>
+          <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden">
+             <motion.div 
+               className="h-full bg-intelligence"
+               initial={{ width: "30%" }}
+               animate={{ width: "80%" }}
+               transition={{ duration: 10, repeat: Infinity, repeatType: "mirror" }}
+             />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- LOGIN PAGE ---
+
+function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBack: () => void, onRegister: () => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthenticating(true);
+    // Simulate biometric/quantum handshake
+    setTimeout(() => {
+      onLogin();
+    }, 2000);
+  };
+
+  return (
+    <div className="min-h-screen bg-dark-bg text-white font-sans flex items-center justify-center relative p-6 noise scanlines">
+      {/* Background 3D elements could be simplified here or just show a glow */}
+      <div className="absolute inset-0 z-0 opacity-30 select-none">
+         <IntelligenceHero />
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="w-full max-w-md glass p-10 border-white/10 relative z-10 box-shadow-[0_0_100px_rgba(0,242,255,0.1)]"
+      >
+        <div className="flex flex-col items-center mb-10 text-center">
+           <div className="w-16 h-16 border-2 border-intelligence rounded-sm flex items-center justify-center mb-6 cyan-glow relative">
+              <Activity className="text-intelligence w-10 h-10" />
+              <div className="absolute inset-0 bg-intelligence/20 animate-pulse"></div>
+           </div>
+           <h2 className="text-4xl font-black italic tracking-tighter uppercase mb-2 glow-text">SYSTEM ACCESS</h2>
+           <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em]">Biometric & Quantum Handshake Required</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+           <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Identifier</label>
+              <div className="relative group">
+                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                 <input 
+                   type="email" 
+                   required
+                   value={email}
+                   onChange={(e) => setEmail(e.target.value)}
+                   className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                   placeholder="AGENT_ID@NEURALIS.SYS"
+                 />
+              </div>
+           </div>
+
+           <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Access Key</label>
+              <div className="relative group">
+                 <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                 <input 
+                   type="password" 
+                   required
+                   value={password}
+                   onChange={(e) => setPassword(e.target.value)}
+                   className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                   placeholder="••••••••••••"
+                 />
+              </div>
+           </div>
+
+           <div className="pt-4">
+              <button 
+                type="submit"
+                disabled={isAuthenticating}
+                className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-5 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none outline-none"
+              >
+                <span className="relative z-10">
+                {isAuthenticating ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="w-2 h-2 bg-black rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-black rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                    <span className="w-2 h-2 bg-black rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                  </div>
+                ) : (
+                  "INITIATE HANDSHAKE"
+                )}
+                </span>
+                <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              </button>
+           </div>
+        </form>
+
+        <div className="mt-8 pt-8 border-t border-white/5 flex flex-col items-center gap-6">
+           <div className="flex gap-8">
+             <button 
+               onClick={onBack}
+               className="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] hover:text-white transition-colors"
+             >
+               RETURN TO PERIMETER
+             </button>
+             <button 
+               onClick={onRegister}
+               className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] hover:text-white transition-colors"
+             >
+               REGISTER_NEW_AGENT
+             </button>
+           </div>
+           
+           <div className="flex items-center gap-3">
+              <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>
+              <p className="text-[8px] font-mono text-gray-600 uppercase">Warning: All Access Attempts Are Logged & Tracked</p>
+           </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => void, onBack: () => void, onLogin: () => void }) {
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    businessName: '',
+    businessType: 'Retail'
+  });
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsRegistering(true);
+    // Simulate node initialization
+    setTimeout(() => {
+      setIsRegistering(false);
+      setSuccess(true);
+      setTimeout(() => {
+        onRegistered();
+      }, 2000);
+    }, 2500);
+  };
+
+  return (
+    <div className="min-h-screen bg-dark-bg text-white font-sans flex items-center justify-center relative p-6 noise scanlines">
+      <div className="absolute inset-0 z-0 opacity-30 select-none">
+         <IntelligenceHero />
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="w-full max-w-2xl glass p-10 border-white/10 relative z-10 box-shadow-[0_0_100px_rgba(0,242,255,0.1)]"
+      >
+        <AnimatePresence mode="wait">
+          {success ? (
+            <motion.div 
+              key="success"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12 space-y-8"
+            >
+               <div className="w-20 h-20 bg-intelligence/20 border-2 border-intelligence flex items-center justify-center mx-auto rounded-full cyan-glow">
+                  <CheckCircle2 className="text-intelligence w-12 h-12" />
+               </div>
+               <div>
+                  <h2 className="text-4xl font-black italic uppercase italic glow-text mb-4">NODE INITIALIZED</h2>
+                  <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em] leading-loose">
+                    Your credentials have been verified and encrypted. <br />
+                    Redirecting to terminal for handshake...
+                  </p>
+               </div>
+               <div className="flex justify-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce [animation-delay:0.4s]"></div>
+               </div>
+            </motion.div>
+          ) : (
+            <motion.div key="form">
+              <div className="flex flex-col items-center mb-10 text-center">
+                 <div className="w-16 h-16 border-2 border-intelligence rounded-sm flex items-center justify-center mb-6 cyan-glow relative">
+                    <UserPlus className="text-intelligence w-10 h-10" />
+                    <div className="absolute inset-0 bg-intelligence/20 animate-pulse"></div>
+                 </div>
+                 <h2 className="text-4xl font-black italic tracking-tighter uppercase mb-2 glow-text">NODE REGISTRATION</h2>
+                 <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em]">Establish New Neutralis Identity</p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-8">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Full Name</label>
+                       <div className="relative group">
+                          <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                          <input 
+                            type="text" 
+                            required
+                            value={formData.fullName}
+                            onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                            placeholder="AGENT_NAME"
+                          />
+                       </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Identifier (Email)</label>
+                       <div className="relative group">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                          <input 
+                            type="email" 
+                            required
+                            value={formData.email}
+                            onChange={(e) => setFormData({...formData, email: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                            placeholder="AGENT_ID@NEURALIS.SYS"
+                          />
+                       </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Access Key (Password)</label>
+                       <div className="relative group">
+                          <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                          <input 
+                            type="password" 
+                            required
+                            value={formData.password}
+                            onChange={(e) => setFormData({...formData, password: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                            placeholder="••••••••••••"
+                          />
+                       </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Name</label>
+                       <div className="relative group">
+                          < Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                          <input 
+                            type="text" 
+                            required
+                            value={formData.businessName}
+                            onChange={(e) => setFormData({...formData, businessName: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                            placeholder="ENTITY_DESIGNATION"
+                          />
+                       </div>
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Sector Protocol</label>
+                       <div className="relative group">
+                          <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence transition-colors" size={18} />
+                          <select 
+                            value={formData.businessType}
+                            onChange={(e) => setFormData({...formData, businessType: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                          >
+                            <option value="Hotel">Hotel</option>
+                            <option value="Restaurant">Restaurant</option>
+                            <option value="Retail">Retail</option>
+                            <option value="Manufacturing">Manufacturing</option>
+                            <option value="Service">Service</option>
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="pt-4">
+                    <button 
+                      type="submit"
+                      disabled={isRegistering}
+                      className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-5 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none outline-none"
+                    >
+                      <span className="relative z-10">
+                      {isRegistering ? (
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="w-2 h-2 bg-black rounded-full animate-pulse"></div>
+                          <p className="text-[10px] font-black uppercase">COMMITTING_ENCRYPTION...</p>
+                        </div>
+                      ) : (
+                        "INITIALIZE_IDENTITY_NODE"
+                      )}
+                      </span>
+                      <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                    </button>
+                 </div>
+              </form>
+
+              <div className="mt-8 pt-8 border-t border-white/5 flex flex-col items-center gap-6">
+                 <div className="flex gap-8">
+                   <button 
+                     onClick={onBack}
+                     className="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] hover:text-white transition-colors"
+                   >
+                     ABORT_REGISTRATION
+                   </button>
+                   <button 
+                     onClick={onLogin}
+                     className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] hover:text-white transition-colors"
+                   >
+                     EXISTING_HANDSHAKE
+                   </button>
+                 </div>
+                 
+                 <p className="text-[8px] font-mono text-gray-600 uppercase text-center max-w-xs">Warning: Providing false registry data may result in immediate node suspension and cluster blacklist.</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  );
+}
+
+function OnboardingPage({ onComplete }: { onComplete: () => void }) {
+  const [step, setStep] = useState(1);
+  const [data, setData] = useState({
+    businessName: localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL',
+    currency: 'NPR',
+    fiscalYearStart: 'Shrawan'
+  });
+
+  const nextStep = () => setStep(s => s + 1);
+
+  const handleFinish = () => {
+    localStorage.setItem('onboarding_completed', 'true');
+    localStorage.setItem('business_name', data.businessName);
+    localStorage.setItem('primary_currency', data.currency);
+    localStorage.setItem('fiscal_year_start', data.fiscalYearStart);
+    onComplete();
+  };
+
+  const steps = [
+    {
+      id: 1,
+      title: "WELCOME_AGENT",
+      desc: "Establishing Node Connection",
+      icon: Activity
+    },
+    {
+      id: 2,
+      title: "MONETARY_PROTOCOL",
+      desc: "Define Primary Exchange Asset",
+      icon: CreditCard
+    },
+    {
+      id: 3,
+      title: "TEMPORAL_ALIGNMENT",
+      desc: "Synchronize Fiscal Cycles",
+      icon: Calendar
+    },
+    {
+      id: 4,
+      title: "PROTOCOL_VERIFIED",
+      desc: "Committing Configuration",
+      icon: Shield
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-dark-bg text-white font-sans flex items-center justify-center p-6 noise scanlines relative overflow-hidden">
+      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
+        <IntelligenceHero />
+      </div>
+
+      {/* Progress Bar */}
+      <div className="fixed top-0 left-0 w-full h-1 bg-white/5 z-[100]">
+        <motion.div 
+          className="h-full bg-intelligence"
+          initial={{ width: '0%' }}
+          animate={{ width: `${(step / 4) * 100}%` }}
+        />
+      </div>
+
+      <motion.div 
+        key={step}
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -50 }}
+        className="w-full max-w-2xl glass p-12 border-white/10 relative z-10 box-shadow-[0_0_150px_rgba(0,242,255,0.05)]"
+      >
+        <div className="flex items-center gap-6 mb-12">
+          {(() => {
+            const Icon = steps[step - 1].icon;
+            return (
+              <div className="w-16 h-16 border-2 border-intelligence rounded-sm flex items-center justify-center cyan-glow relative">
+                <Icon className="text-intelligence w-10 h-10" />
+                <div className="absolute inset-0 bg-intelligence/20 animate-pulse"></div>
+              </div>
+            );
+          })()}
+          <div>
+            <p className="text-[10px] font-black text-intelligence uppercase tracking-[0.4em] mb-1">Onboarding Phase {step}/4</p>
+            <h2 className="text-4xl font-black italic uppercase italic glow-text">{steps[step - 1].title}</h2>
+          </div>
+        </div>
+
+        <div className="min-h-[200px]">
+          {step === 1 && (
+            <div className="space-y-8">
+              <p className="text-gray-400 font-mono text-sm leading-relaxed uppercase tracking-widest border-l-2 border-intelligence pl-6 italic">
+                Greetings, personnel. You are initializing the control node for <span className="text-white font-bold">{data.businessName}</span>. 
+                Verify the entity designation before we proceed with the neural sync.
+              </p>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Confirmed Entity Identity</label>
+                <input 
+                  type="text" 
+                  value={data.businessName}
+                  onChange={(e) => setData({...data, businessName: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 px-8 py-5 text-white font-mono text-lg focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-widest"
+                />
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-8">
+              <p className="text-gray-400 font-mono text-sm leading-relaxed uppercase tracking-widest border-l-2 border-intelligence pl-6 italic">
+                Define the base monetary unit for this node's cluster. NPR is synchronized as the primary regional protocol.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { id: 'NPR', label: 'NEPALESE RUPEE (NPR)', sub: 'Primary Regional Protocol' },
+                  { id: 'USD', label: 'US DOLLAR (USD)', sub: 'Global Reserve Protocol' },
+                  { id: 'EUR', label: 'EURO (EUR)', sub: 'Continental Protocol' },
+                  { id: 'GBP', label: 'BRITISH POUND (GBP)', sub: 'Tier-1 Protocol' }
+                ].map((cur) => (
+                  <button
+                    key={cur.id}
+                    onClick={() => setData({...data, currency: cur.id})}
+                    className={cn(
+                      "p-6 border text-left transition-all group",
+                      data.currency === cur.id ? "bg-intelligence/10 border-intelligence" : "bg-white/5 border-white/10 hover:border-white/30"
+                    )}
+                  >
+                    <p className={cn("text-xs font-black uppercase tracking-widest mb-1", data.currency === cur.id ? "text-intelligence" : "text-white")}>{cur.label}</p>
+                    <p className="text-[9px] font-mono text-gray-600 uppercase italic">{cur.sub}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-8">
+              <p className="text-gray-400 font-mono text-sm leading-relaxed uppercase tracking-widest border-l-2 border-intelligence pl-6 italic">
+                Synchronize the fiscal rotation. Shrawan is the standard for Nepalese regulatory reporting.
+              </p>
+              <div className="relative group">
+                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence transition-colors" size={20} />
+                <select 
+                  value={data.fiscalYearStart}
+                  onChange={(e) => setData({...data, fiscalYearStart: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 px-14 py-5 text-white font-mono text-lg focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                >
+                  <option value="Shrawan">SHRAWAN (NEPAL STANDARD)</option>
+                  <option value="January">JANUARY (INTERNATIONAL STANDARD)</option>
+                  <option value="April">APRIL</option>
+                  <option value="July">JULY</option>
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={20} />
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-8">
+              <div className="p-8 bg-intelligence/5 border border-intelligence/20 border-l-4 border-l-intelligence">
+                <div className="space-y-4 font-mono text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 uppercase tracking-widest">Entity Designation:</span>
+                    <span className="text-white font-bold">{data.businessName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 uppercase tracking-widest">Base Protocol:</span>
+                    <span className="text-white font-bold">{data.currency}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 uppercase tracking-widest">Temporal Start:</span>
+                    <span className="text-white font-bold">{data.fiscalYearStart}</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] font-mono text-gray-600 uppercase tracking-[0.3em] text-center italic">
+                By committing these parameters, you are initializing the PROJECT-N intelligence layer for this specific node. 
+                Data mapping will begin immediately upon confirmation.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-12 pt-8 border-t border-white/5 flex justify-between items-center">
+          <button 
+            disabled={step === 1}
+            onClick={() => setStep(s => s - 1)}
+            className="text-[10px] font-black text-gray-600 uppercase tracking-widest hover:text-white transition-colors disabled:opacity-0"
+          >
+            PREVIOUS_PHASE
+          </button>
+          
+          <button 
+            onClick={step === 4 ? handleFinish : nextStep}
+            className="group relative overflow-hidden px-12 py-4 bg-intelligence text-black font-black text-[11px] tracking-[0.3em] uppercase transition-all hover:scale-105"
+          >
+            <span className="relative z-10 flex items-center gap-3">
+              {step === 4 ? "INITIALIZE_DASHBOARD" : "NEXT_PHASE"} 
+              <ArrowRight size={14} />
+            </span>
+            <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// --- LANDING PAGE ---
+
+function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister: () => void }) {
+  const [activeFeature, setActiveFeature] = useState(0);
+  
+  const features = [
+    { 
+      title: "CORPORATE INTELLIGENCE", 
+      desc: "Deep mapping of corporate hierarchies, ownership webs, and M&A signals across 180+ jurisdictions.",
+      icon: Database,
+      color: "text-intelligence"
+    },
+    { 
+      title: "FINANCIAL INTELLIGENCE", 
+      desc: "Real-time capital flow analysis, institutional ownership tracking, and algorithmic risk profiling.",
+      icon: TrendingUp,
+      color: "text-brand"
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-dark-bg text-white font-sans selection:bg-intelligence selection:text-black overflow-hidden relative noise scanlines">
+      
+      {/* Navbar */}
+      <nav className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-2xl z-[100] px-12 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 border-2 border-intelligence rounded-sm flex items-center justify-center relative group overflow-hidden">
+             <div className="absolute inset-0 bg-intelligence/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+             <Activity className="text-intelligence w-6 h-6 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-bold tracking-[-0.05em] leading-none text-white glow-text">PROJECT-N</h1>
+            <span className="text-[9px] text-intelligence font-black tracking-[0.4em] uppercase mt-1">Intelligence Ecosystem</span>
+          </div>
+        </div>
+
+        <div className="hidden lg:flex items-center gap-12">
+          {['SURVEILLANCE', 'NETWORKS', 'CAPITAL', 'RESOURCES'].map((link) => (
+            <button key={link} className="text-[10px] font-black tracking-[0.25em] text-gray-400 hover:text-white transition-all cursor-pointer relative group uppercase">
+              {link}
+              <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-intelligence group-hover:w-full transition-all duration-300 shadow-[0_0_10px_#00f2ff]"></span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={onRegister}
+            className="text-[10px] font-black text-gray-400 hover:text-white uppercase tracking-widest transition-colors hidden md:block"
+          >
+            SYS_REGISTRY
+          </button>
+          <button 
+            onClick={onLogin}
+            className="group relative overflow-hidden px-10 py-3 bg-intelligence text-black font-black text-[11px] tracking-[0.2em] uppercase transition-all hover:scale-105 active:scale-95"
+          >
+            <span className="relative z-10">ENTER SYSTEM</span>
+            <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+          </button>
+        </div>
+      </nav>
+
+      {/* Main Layout */}
+      <main className="relative pt-20">
+        
+        {/* HERO SECTION */}
+        <section className="h-screen flex items-center relative">
+          <div className="max-w-[1700px] mx-auto px-16 w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-20">
+            
+            {/* Left Content */}
+            <div className="lg:col-span-5 space-y-12">
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 1, ease: "circOut" }}
+              >
+                <div className="inline-flex items-center gap-4 px-4 py-1.5 rounded-sm bg-intelligence/10 border border-intelligence/20 mb-8 cyan-glow">
+                  <Cpu className="text-intelligence w-4 h-4 animate-pulse" />
+                  <span className="text-intelligence font-mono text-[10px] font-black uppercase tracking-[0.35em]">Quantum Intelligence Core Active</span>
+                </div>
+                
+                <h1 className="text-[90px] md:text-[120px] font-black tracking-[-0.08em] leading-[0.8] mb-8 uppercase italic font-mono scale-y-110 origin-left">
+                  PROJECT-N <br /> 
+                  <span className="text-intelligence glow-text">INTELLIGENCE</span> <br />
+                  <span className="text-white">UNIFIED</span>
+                </h1>
+                
+                <p className="text-xl text-gray-400 font-light max-w-lg leading-relaxed mb-10 border-l-2 border-brand/50 pl-8 font-mono">
+                  Transform fragmented financial, ownership, and corporate data into actionable, predictive intelligence for elite analysts.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-8 items-center">
+                  <button 
+                    onClick={onLogin}
+                    className="w-full sm:w-auto bg-intelligence text-black px-12 py-6 rounded-none font-black text-[13px] uppercase tracking-[0.35em] hover:shadow-[0_0_50px_rgba(0,242,255,0.4)] transition-all flex items-center justify-center group"
+                  >
+                    EXPLORE DATA <Search className="ml-3 group-hover:scale-125 transition-transform" size={18} />
+                  </button>
+                  <button 
+                    onClick={onRegister}
+                    className="w-full sm:w-auto border border-white/10 text-white/50 hover:text-white px-12 py-6 rounded-none font-black text-[13px] uppercase tracking-[0.35em] transition-all relative group overflow-hidden"
+                  >
+                    <span className="relative z-10">INITIALIZE NODE</span>
+                    <div className="absolute inset-0 bg-white/5 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* Stats Strip */}
+              <div className="grid grid-cols-2 gap-8 pt-8">
+                <div>
+                   <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 font-mono">Mapped Entities</p>
+                   <p className="text-4xl font-black text-white font-mono tracking-tighter">84.2<span className="text-intelligence">M</span></p>
+                </div>
+                <div>
+                   <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 font-mono">Daily Alerts</p>
+                   <p className="text-4xl font-black text-white font-mono tracking-tighter">12.5<span className="text-brand">K</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: The 3D Masterpiece */}
+            <div className="lg:col-span-7 h-[85vh] relative group cursor-crosshair">
+              <div className="absolute inset-0 bg-intelligence/5 blur-[180px] rounded-full group-hover:bg-intelligence/10 transition-all duration-1000"></div>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 opacity-20">
+                 <div className="w-[110%] h-[1px] bg-gradient-to-r from-transparent via-intelligence/20 to-transparent rotate-45"></div>
+                 <div className="w-[110%] h-[1px] bg-gradient-to-r from-transparent via-intelligence/20 to-transparent -rotate-45"></div>
+              </div>
+              <IntelligenceHero />
+              
+              {/* Floating Intelligence Panels */}
+              <motion.div 
+                animate={{ y: [0, -20, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute top-1/4 right-0 glass p-6 border-intelligence/30 w-64 z-20"
+              >
+                 <div className="flex items-center gap-3 mb-4">
+                    <Shield className="text-intelligence w-4 h-4" />
+                    <p className="text-[10px] font-black tracking-widest text-white uppercase">Identity Profile</p>
+                 </div>
+                 <div className="space-y-3">
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                       <div className="w-3/4 h-full bg-intelligence shadow-[0_0_10px_#00f2ff]"></div>
+                    </div>
+                    <p className="text-[10px] font-mono text-gray-500 italic">Vulnerability: 12% Low Risk</p>
+                 </div>
+              </motion.div>
+
+              <motion.div 
+                animate={{ y: [0, 20, 0] }}
+                transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute bottom-1/4 left-10 glass p-6 border-brand/30 w-72 z-20"
+              >
+                 <div className="flex items-center gap-3 mb-4">
+                    <Zap className="text-brand w-4 h-4" />
+                    <p className="text-[10px] font-black tracking-widest text-white uppercase">Market Anomaly</p>
+                 </div>
+                 <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                       <span className="text-[9px] font-mono text-gray-500">HSI Index</span>
+                       <span className="text-[9px] font-mono text-brand font-bold">-4.52%</span>
+                    </div>
+                    <div className="h-6 w-full bg-brand/10 border border-brand/20 flex items-end gap-1 px-2 py-1">
+                       {[0.2, 0.5, 0.3, 0.8, 0.4, 0.9, 0.6].map((h, i) => (
+                         <div key={i} className="flex-1 bg-brand" style={{ height: `${h * 100}%` }}></div>
+                       ))}
+                    </div>
+                 </div>
+              </motion.div>
+            </div>
+          </div>
+          
+          {/* Decals & Decorative elements */}
+          <div className="absolute top-0 right-0 w-32 h-screen border-l border-white/5 opacity-20 pointer-events-none"></div>
+          <div className="absolute top-0 left-0 w-32 h-screen border-r border-white/5 opacity-20 pointer-events-none"></div>
+        </section>
+
+        {/* ECOSYSTEM SECTION */}
+        <section className="py-32 relative bg-dark-bg">
+          <div className="max-w-[1700px] mx-auto px-16">
+            <div className="flex flex-col items-center mb-24 text-center">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-[1px] bg-intelligence"></div>
+                <p className="text-[12px] font-black text-intelligence tracking-[0.5em] uppercase">Unified Intelligence Graph</p>
+                <div className="w-12 h-[1px] bg-intelligence"></div>
+              </div>
+              <h2 className="text-7xl font-black tracking-tight uppercase mb-8 italic">MERGING CORPORATE & FINANCIAL DATA</h2>
+              <p className="text-gray-500 max-w-2xl font-mono">The PROJECT-N ecosystem bridges two previously isolated domains of high-stakes information into a single cinematic visualization platform.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+              {/* Corporate Card */}
+              <div className="group relative">
+                <div className="absolute inset-0 bg-intelligence/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
+                <div className="glass p-12 border-white/5 group-hover:border-intelligence/30 transition-all duration-700 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-intelligence/10 -mr-16 -mt-16 rounded-full blur-3xl"></div>
+                  <Database className="text-intelligence w-16 h-16 mb-8 translate-x-[-10px] group-hover:translate-x-0 transition-transform" />
+                  <h3 className="text-4xl font-black mb-6 uppercase italic">CORPORATE INTELLIGENCE</h3>
+                  <div className="space-y-6">
+                    {[
+                      { icon: Network, title: "Ownership Structures", desc: "Complex UBO mapping and offshore structures" },
+                      { icon: Users, title: "Executive Tracking", desc: "Cross-border management & director networks" },
+                      { icon: Layers, title: "Subsidiary Mapping", desc: "Full entity tree extraction across jurisdictions" }
+                    ].map((item, i) => (
+                      <div key={i} className="flex gap-6 items-start">
+                        <div className="p-3 bg-white/5 border border-white/10 text-intelligence shrink-0"><item.icon size={20} /></div>
+                        <div>
+                          <p className="text-base font-bold text-white uppercase tracking-wider mb-1">{item.title}</p>
+                          <p className="text-gray-500 text-sm font-mono">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Card */}
+              <div className="group relative">
+                <div className="absolute inset-0 bg-brand/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
+                <div className="glass p-12 border-white/5 group-hover:border-brand/30 transition-all duration-700 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 -mr-16 -mt-16 rounded-full blur-3xl"></div>
+                   <TrendingUp className="text-brand w-16 h-16 mb-8 translate-x-[-10px] group-hover:translate-x-0 transition-transform" />
+                   <h3 className="text-4xl font-black mb-6 uppercase italic">FINANCIAL INTELLIGENCE</h3>
+                   <div className="space-y-6">
+                    {[
+                      { icon: BarChartIcon, title: "Market Analytics", desc: "Deep sector metrics & algorithmic forecasting" },
+                      { icon: Shield, title: "Risk Profiling", desc: "Credit, liquidity, and operational risk models" },
+                      { icon: Zap, title: "Capital Movement", desc: "Live cross-border institution flow tracking" }
+                    ].map((item, i) => (
+                      <div key={i} className="flex gap-6 items-start">
+                        <div className="p-3 bg-white/5 border border-white/10 text-brand shrink-0"><item.icon size={20} /></div>
+                        <div>
+                          <p className="text-base font-bold text-white uppercase tracking-wider mb-1">{item.title}</p>
+                          <p className="text-gray-500 text-sm font-mono">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* DASHBOARD PREVIEW */}
+        <section className="py-32 bg-black/40">
+           <div className="max-w-[1700px] mx-auto px-16">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+                 <div className="lg:col-span-4 sticky top-32">
+                    <p className="text-[11px] font-black text-intelligence tracking-[0.4em] uppercase mb-4">The Interface</p>
+                    <h2 className="text-6xl font-black uppercase mb-10 leading-tight italic">CINEMATIC COMMAND DESK</h2>
+                    <p className="text-gray-500 font-mono text-lg mb-12">Designed for the world's most sophisticated analysts. A terminal experience that prioritizes rapid data assimilation and predictive clarity.</p>
+                    <div className="space-y-0 relative border border-white/10">
+                       {['ALPHA TERMINAL', 'QUANTUM FEED', 'GEOPOLITICAL MAPPING', 'RISK HUD'].map((t, i) => (
+                         <div key={i} className={cn(
+                           "p-8 border-b border-white/10 flex justify-between items-center transition-all cursor-pointer group hover:bg-white/5",
+                           i === 0 ? "bg-intelligence/10 border-l-4 border-l-intelligence" : ""
+                         )}>
+                            <span className={cn("text-sm font-black uppercase tracking-widest", i === 0 ? "text-white" : "text-gray-600 group-hover:text-white")}>{t}</span>
+                            <ChevronRight className={i === 0 ? "text-intelligence" : "text-gray-700"} size={18} />
+                         </div>
+                       ))}
+                    </div>
+                 </div>
+
+                 <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Live Cards */}
+                    <motion.div 
+                      whileHover={{ y: -10 }}
+                      className="glass p-8 border-white/5 space-y-8"
+                    >
+                       <div className="flex justify-between items-center">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-intelligence">Market Pulse</p>
+                          <Activity className="text-intelligence/40" size={16} />
+                       </div>
+                       <div className="h-48 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                             <AreaChart data={[
+                               {v: 400}, {v: 600}, {v: 500}, {v: 800}, {v: 750}, {v: 900}, {v: 850}, {v: 1100}
+                             ]}>
+                                <defs>
+                                  <linearGradient id="colorV" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#00f2ff" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#00f2ff" stopOpacity={0}/>
+                                  </linearGradient>
+                                </defs>
+                                <Area type="monotone" dataKey="v" stroke="#00f2ff" fillOpacity={1} fill="url(#colorV)" strokeWidth={3} />
+                             </AreaChart>
+                          </ResponsiveContainer>
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-white/5 p-4 rounded-sm border border-white/5">
+                             <p className="text-[9px] text-gray-500 uppercase mb-1">Spread</p>
+                             <p className="text-lg font-mono font-bold text-white">0.024</p>
+                          </div>
+                          <div className="bg-white/5 p-4 rounded-sm border border-white/5">
+                             <p className="text-[9px] text-gray-500 uppercase mb-1">Volume</p>
+                             <p className="text-lg font-mono font-bold text-white">8.4B</p>
+                          </div>
+                       </div>
+                    </motion.div>
+
+                    <motion.div 
+                      whileHover={{ y: -10 }}
+                      className="glass p-8 border-white/5 space-y-8"
+                    >
+                       <div className="flex justify-between items-center">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-brand">Risk Matrix</p>
+                          <Shield className="text-brand/40" size={16} />
+                       </div>
+                       <div className="space-y-6 pt-4">
+                          {[
+                            { l: "Liquidity", v: 84, c: "intelligence" },
+                            { l: "Leverage", v: 42, c: "brand" },
+                            { l: "Counterparty", v: 21, c: "intelligence" }
+                          ].map((r, i) => (
+                             <div key={i}>
+                                <div className="flex justify-between items-center mb-2">
+                                   <span className="text-[9px] text-gray-400 font-mono uppercase">{r.l}</span>
+                                   <span className="text-[9px] text-white font-mono">{r.v}%</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                   <div className={cn("h-full", r.c === 'brand' ? 'bg-brand' : 'bg-intelligence')} style={{ width: `${r.v}%` }}></div>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                       <div className="p-4 bg-brand/10 border border-brand/20 rounded-sm">
+                          <p className="text-[9px] text-brand font-black uppercase tracking-widest mb-1">Alert: High Signal Concentration</p>
+                          <p className="text-[11px] text-gray-400 font-mono">Unusual derivative activity detected in Cayman Cluster 4.</p>
+                       </div>
+                    </motion.div>
+
+                    <motion.div 
+                      whileHover={{ y: -10 }}
+                      className="glass p-8 border-white/5 md:col-span-2 space-y-8"
+                    >
+                       <div className="flex justify-between items-center">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-white">Registry Surveillance Feed</p>
+                          <Eye className="text-white/40" size={16} />
+                       </div>
+                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {[
+                            { t: "Executive Flight Tracking", s: "Live", d: "G-V, Falcon 8X crossing Atlantic" },
+                            { t: "Registry Delta Scan", s: "Active", d: "14 changes in Bermuda offshore" },
+                            { t: "UBO Deep Verification", s: "Syncing", d: "Verifying multi-layer shell structures" }
+                          ].map((f, i) => (
+                            <div key={i} className="p-5 border border-white/5 hover:border-white/10 transition-colors">
+                               <div className="flex items-center gap-2 mb-3">
+                                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse"></div>
+                                  <span className="text-[9px] font-black text-intelligence uppercase">{f.s}</span>
+                               </div>
+                               <p className="text-xs font-bold text-white mb-2 uppercase tracking-wider">{f.t}</p>
+                               <p className="text-[10px] text-gray-500 font-mono italic">{f.d}</p>
+                            </div>
+                          ))}
+                       </div>
+                    </motion.div>
+                 </div>
+              </div>
+           </div>
+        </section>
+
+        {/* FOOTER */}
+        <footer className="pt-32 pb-16 px-16 border-t border-white/5 relative bg-[#05070a]">
+           <div className="max-w-[1700px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-16 mb-24">
+              <div className="md:col-span-2">
+                 <div className="flex items-center gap-4 mb-8">
+                    <Activity className="text-intelligence w-8 h-8" />
+                    <h2 className="text-3xl font-black italic glow-text">PROJECT-N</h2>
+                 </div>
+                 <p className="text-gray-500 font-mono max-w-sm mb-10">Advanced intelligence operating system for global corporate and financial ecosystems. Classified technology for authorized personnel only.</p>
+                 <div className="flex gap-4">
+                    <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Lock size={18} /></button>
+                    <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Shield size={18} /></button>
+                    <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Crosshair size={18} /></button>
+                 </div>
+              </div>
+              <div>
+                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-8">The Platform</p>
+                 <ul className="space-y-4">
+                    {['Intelligence Graph', 'Surveillance Feed', 'Anomaly Detection', 'Risk Profiling'].map((l) => (
+                      <li key={l}><a href="#" className="text-sm font-mono text-gray-400 hover:text-intelligence transition-colors">{l}</a></li>
+                    ))}
+                 </ul>
+              </div>
+              <div>
+                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-8">Corporate</p>
+                 <ul className="space-y-4">
+                    {['Technical Spec', 'Framework Documentation', 'Compliance Architecture', 'System Status'].map((l) => (
+                      <li key={l}><a href="#" className="text-sm font-mono text-gray-400 hover:text-intelligence transition-colors">{l}</a></li>
+                    ))}
+                 </ul>
+              </div>
+           </div>
+           
+           <div className="max-w-[1700px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8 border-t border-white/5 pt-16">
+              <p className="text-[10px] font-mono text-gray-600 font-bold uppercase tracking-widest italic">PROJECT-N COMMAND CORE G-1.4.0</p>
+              <div className="flex items-center gap-12">
+                 <p className="text-[10px] font-mono text-gray-600 font-bold uppercase tracking-widest">© 2024 PROJECT-N SYSTEMS. CRYPTOGRAPHICALLY SECURED.</p>
+                 <div className="flex items-center gap-3">
+                   <div className="w-2 h-2 bg-emerald-500/50 rounded-full"></div>
+                   <span className="text-[8px] font-mono text-gray-600 uppercase">Latency: 12ms</span>
+                 </div>
+              </div>
+           </div>
+        </footer>
+      </main>
+
+      {/* FIXED HUD DEALS */}
+      <div className="fixed bottom-10 left-10 z-[200]">
+         <div className="flex items-center gap-4 px-6 py-3 glass border-intelligence/20">
+            <div className="w-2 h-2 bg-intelligence rounded-full animate-pulse shadow-[0_0_10px_#00f2ff]"></div>
+            <p className="text-[9px] font-mono font-bold tracking-widest uppercase">Encryption Active: RSA-4096</p>
+         </div>
+      </div>
+
+    </div>
+  );
+}
+
+// --- PREDICTIVE ANALYTICS COMPONENT ---
+
+function QuantumIntelligence() {
+  const [insight, setInsight] = useState<AnalyticsInsight | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadAnalytics() {
+      const context = "Global market volatility is increasing, corporate debt is at record highs, and institutional capital is shifting towards emerging tech sectors.";
+      const result = await getPredictiveAnalytics(context);
+      setInsight(result);
+      setLoading(false);
+    }
+    loadAnalytics();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="glass border-white/5 p-8 flex flex-col items-center justify-center min-h-[300px]">
+        <div className="w-12 h-12 border-2 border-intelligence border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest animate-pulse">Consulting Quantum Core...</p>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="xl:col-span-3 glass border-intelligence/20 p-8 relative overflow-hidden bg-intelligence/[0.02]"
+    >
+      <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+         <Brain size={120} className="text-intelligence" />
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-12 relative z-10">
+        <div className="md:w-1/3">
+           <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-intelligence/20 rounded-sm">
+                <Sparkles className="text-intelligence" size={20} />
+              </div>
+              <h3 className="text-xl font-black italic uppercase glow-text">Quantum Insights</h3>
+           </div>
+           
+           <div className="space-y-6">
+              <div>
+                 <p className="text-[10px] font-black text-intelligence uppercase tracking-widest mb-2">Predictive Summary</p>
+                 <p className="text-sm text-white font-mono leading-relaxed">{insight?.summary}</p>
+              </div>
+              <div>
+                 <p className="text-[10px] font-black text-intelligence uppercase tracking-widest mb-2">30-Day Forecast</p>
+                 <p className="text-sm text-gray-400 font-mono leading-relaxed">{insight?.forecast}</p>
+              </div>
+           </div>
+        </div>
+
+        <div className="flex-1">
+           <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">Advanced Outcome Forecasts</p>
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {insight?.predictions.map((pred, i) => (
+                <div key={i} className="p-6 bg-white/[0.03] border border-white/10 hover:border-intelligence/30 transition-all group">
+                   <div className="flex justify-between items-start mb-4">
+                      <div className={cn(
+                        "px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest",
+                        pred.impactLevel === 'Critical' ? "bg-brand/20 text-brand" : 
+                        pred.impactLevel === 'High' ? "bg-orange-500/20 text-orange-500" :
+                        "bg-intelligence/20 text-intelligence"
+                      )}>
+                        {pred.impactLevel} IMPACT
+                      </div>
+                      <p className="text-[10px] font-mono text-gray-500">{pred.timeframe}</p>
+                   </div>
+                   
+                   <h4 className="text-sm font-bold text-white mb-2 uppercase group-hover:text-intelligence transition-colors">{pred.title}</h4>
+                   <p className="text-[11px] text-gray-500 font-mono mb-4 leading-normal">{pred.description}</p>
+                   
+                   <div className="space-y-1.5">
+                      <div className="flex justify-between text-[8px] font-mono text-gray-600 uppercase">
+                         <span>Probability</span>
+                         <span>{pred.probability}%</span>
+                      </div>
+                      <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                         <motion.div 
+                           initial={{ width: 0 }}
+                           animate={{ width: `${pred.probability}%` }}
+                           transition={{ duration: 1, delay: 0.5 }}
+                           className={cn("h-full", pred.impactLevel === 'Critical' ? "bg-brand" : "bg-intelligence")}
+                         />
+                      </div>
+                   </div>
+                </div>
+              ))}
+           </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// --- SUB-VIEWS ---
+
+// --- FINANCIAL SUMMARY VIEW ---
+
+function FinancialSummaryView({ onBack }: { onBack: () => void }) {
+  const revenueTrendData = [
+    { month: 'Jan', revenue: 420000 },
+    { month: 'Feb', revenue: 380000 },
+    { month: 'Mar', revenue: 510000 },
+    { month: 'Apr', revenue: 490000 },
+    { month: 'May', revenue: 620000 },
+    { month: 'Jun', revenue: 750000 },
+  ];
+
+  const expenseBreakdownData = [
+    { name: 'Payroll', value: 250000 },
+    { name: 'Cloud Infra', value: 120000 },
+    { name: 'Marketing', value: 85000 },
+    { name: 'Office Rent', value: 45000 },
+    { name: 'R&D', value: 95000 },
+  ];
+
+  const profitComparisonData = [
+    { month: 'Jan', profit: 120000 },
+    { month: 'Feb', profit: 95000 },
+    { month: 'Mar', profit: 180000 },
+    { month: 'Apr', profit: 155000 },
+    { month: 'May', profit: 220000 },
+    { month: 'Jun', profit: 290000 },
+  ];
+
+  const topRevenueSources = [
+    { name: "SaaS Enterprise Licensing", amount: 450000, growth: "+12%" },
+    { name: "Consulting Services", amount: 180000, growth: "+5%" },
+    { name: "API Usage Fees", amount: 85000, growth: "+24%" },
+    { name: "Maintenance Contracts", amount: 45000, growth: "+2%" },
+    { name: "Affiliate Rev-Share", amount: 25000, growth: "+8%" },
+  ];
+
+  const topExpenseCategories = [
+    { name: "Hardware Procurement", amount: 220000, trend: "Rising" },
+    { name: "Cloud Strategy", amount: 120000, trend: "Stable" },
+    { name: "Recruitment Fees", amount: 85000, trend: "Falling" },
+    { name: "Legal & Compliance", amount: 45000, trend: "Stable" },
+    { name: "Travel & Logistics", amount: 35000, trend: "Stable" },
+  ];
+
+  return (
+    <div className="space-y-12 pb-20">
+      <div className="flex justify-between items-center">
+        <div>
+           <button 
+             onClick={onBack}
+             className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 mb-4 flex items-center gap-2 hover:text-intelligence transition-colors"
+           >
+             <ChevronLeft size={14} />
+             RETURN_TO_OVERVIEW
+           </button>
+           <h2 className="text-5xl font-black italic uppercase">FINANCIAL_SUMMARY_REPORT</h2>
+        </div>
+        <div className="flex gap-4">
+           <button className="p-4 glass border-white/10 text-gray-500 hover:text-white transition-colors">
+              <Download size={18} />
+           </button>
+           <button className="p-4 glass border-white/10 text-gray-500 hover:text-white transition-colors">
+              <History size={18} />
+           </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        {/* Revenue Trend */}
+        <div className="glass p-10 border-white/10 bg-white/[0.01]">
+           <div className="mb-8">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Revenue Velocity</h4>
+              <p className="text-2xl font-black italic">MONTHLY_REVENUE_TREND</p>
+           </div>
+           <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                 <LineChart data={revenueTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                    <XAxis 
+                      dataKey="month" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
+                      tickFormatter={(val) => `$${val/1000}k`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="#00f2ff" 
+                      strokeWidth={4} 
+                      dot={{ fill: '#00f2ff', r: 6 }} 
+                      activeDot={{ r: 8, stroke: '#000', strokeWidth: 2 }}
+                    />
+                 </LineChart>
+              </ResponsiveContainer>
+           </div>
+        </div>
+
+        {/* Expense Pie */}
+        <div className="glass p-10 border-white/10 bg-white/[0.01] flex flex-col">
+           <div className="mb-8">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-2">Operational Outflow</h4>
+              <p className="text-2xl font-black italic">EXPENSE_ALLOCATION_MATRIX</p>
+           </div>
+           <div className="flex-1 h-[300px] w-full flex items-center">
+              <ResponsiveContainer width="100%" height="100%">
+                 <PieChart>
+                    <Pie
+                      data={expenseBreakdownData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={120}
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {expenseBreakdownData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
+                    />
+                 </PieChart>
+              </ResponsiveContainer>
+              <div className="w-1/3 space-y-4">
+                 {expenseBreakdownData.map((item, i) => (
+                   <div key={i} className="flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}></div>
+                      <div className="flex flex-col">
+                         <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest leading-none mb-1">{item.name}</span>
+                         <span className="text-[10px] font-mono font-bold text-white">${(item.value/1000).toFixed(0)}k</span>
+                      </div>
+                   </div>
+                 ))}
+              </div>
+           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
+         {/* Top Revenue Sources */}
+         <div className="glass p-10 border-white/10 bg-white/[0.01]">
+            <h3 className="text-xs font-black uppercase tracking-widest text-intelligence mb-8 flex items-center gap-2">
+               <ArrowUpRight size={16} />
+               TOP_REVENUE_CHANNELS
+            </h3>
+            <div className="space-y-6">
+              {topRevenueSources.map((source, i) => (
+                <div key={i} className="flex justify-between items-center p-4 bg-white/5 border border-white/5 hover:border-intelligence/30 transition-all group">
+                   <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-white uppercase tracking-tight">{source.name}</span>
+                      <span className="text-[8px] font-mono text-gray-600 uppercase italic">Active Channel {i+1}</span>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-sm font-black text-intelligence font-mono">${(source.amount/1000).toFixed(0)}K</p>
+                      <p className="text-[8px] font-black text-intelligence/50 uppercase tracking-widest">{source.growth} YTD</p>
+                   </div>
+                </div>
+              ))}
+            </div>
+         </div>
+
+         {/* Top Expense Categories */}
+         <div className="glass p-10 border-white/10 bg-white/[0.01]">
+            <h3 className="text-xs font-black uppercase tracking-widest text-brand mb-8 flex items-center gap-2">
+               <ArrowDownRight size={16} />
+               CRITICAL_EXPENSE_NODES
+            </h3>
+            <div className="space-y-6">
+              {topExpenseCategories.map((exp, i) => (
+                <div key={i} className="flex justify-between items-center p-4 bg-white/5 border border-white/5 hover:border-brand/30 transition-all group">
+                   <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-white uppercase tracking-tight">{exp.name}</span>
+                      <span className="text-[8px] font-mono text-gray-600 uppercase italic">Operational Cost {i+1}</span>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-sm font-black text-brand font-mono">${(exp.amount/1000).toFixed(0)}K</p>
+                      <p className="text-[8px] font-black text-brand/50 uppercase tracking-widest">{exp.trend}</p>
+                   </div>
+                </div>
+              ))}
+            </div>
+         </div>
+
+         {/* MoM Profit Comparison */}
+         <div className="glass p-10 border-white/10 bg-white/[0.01]">
+            <h3 className="text-xs font-black uppercase tracking-widest text-white mb-8 flex items-center gap-2">
+               <TrendingUp size={16} />
+               NET_PROFIT_DELTA
+            </h3>
+            <div className="h-[280px] w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={profitComparisonData}>
+                     <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                     <XAxis 
+                       dataKey="month" 
+                       axisLine={false} 
+                       tickLine={false} 
+                       tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
+                     />
+                     <YAxis 
+                       axisLine={false} 
+                       tickLine={false} 
+                       tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
+                       tickFormatter={(val) => `$${val/1000}k`}
+                     />
+                     <Tooltip 
+                       contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
+                       cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                     />
+                     <Bar dataKey="profit" fill="#00f2ff" opacity={0.6} radius={[2, 2, 0, 0]} />
+                  </BarChart>
+               </ResponsiveContainer>
+            </div>
+            <div className="mt-6 p-4 border border-intelligence/20 bg-intelligence/5">
+                <p className="text-[9px] font-mono text-gray-400 uppercase leading-relaxed">
+                   <span className="text-intelligence font-black">AI_INSIGHT:</span> PROFIT MARGINS HAVE EXPANDED BY 14.2% OVER THE LAST 48 HOURS. CURRENT VELOCITY SUGGESTS A SURPLUS EXIT FOR Q2.
+                </p>
+            </div>
+         </div>
+      </div>
+    </div>
+  );
+}
+
+function OverviewView({ transactions, setTransactions, onViewReport }: { transactions: Transaction[], setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>, onViewReport: () => void }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const parsed = results.data.map((row: any) => {
+          const amount = Number(row.amount);
+          return {
+            date: String(row.date),
+            description: String(row.description),
+            amount: amount,
+            category: String(row.category),
+            type: amount >= 0 ? 'Inflow' : 'Outflow'
+          };
+        }).filter(t => !isNaN(t.amount));
+        setTransactions(prev => [...prev, ...(parsed as Transaction[])]);
+      }
+    });
+  };
+
+  const dashboardStats = useMemo(() => {
+    const totalInflow = transactions.filter(t => t.type === 'Inflow').reduce((acc, t) => acc + t.amount, 0);
+    const totalOutflow = Math.abs(transactions.filter(t => t.type === 'Outflow').reduce((acc, t) => acc + t.amount, 0));
+    const netDelta = totalInflow - totalOutflow;
+
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 1,
+      notation: 'compact'
+    });
+
+    return [
+      { label: "Total Inflow", val: formatter.format(totalInflow), trend: "LIVE", c: "intelligence", icon: ArrowUpRight },
+      { label: "Total Outflow", val: formatter.format(totalOutflow), trend: "LIVE", c: "brand", icon: ArrowDownRight },
+      { label: "Net Delta", val: formatter.format(netDelta), trend: netDelta >= 0 ? "SURPLUS" : "DEFICIT", c: netDelta >= 0 ? "intelligence" : "brand", icon: Activity },
+      { label: "Transactions", val: transactions.length.toLocaleString(), trend: "SYNCED", c: "intelligence", icon: Zap }
+    ];
+  }, [transactions]);
+
+  const barChartData = useMemo(() => {
+    const groups: Record<string, { inflow: number; outflow: number }> = {};
+    
+    // Sort transactions by date first
+    const sorted = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    sorted.forEach(t => {
+      const date = new Date(t.date);
+      const month = date.toLocaleString('default', { month: 'short' }).toUpperCase();
+      if (!groups[month]) groups[month] = { inflow: 0, outflow: 0 };
+      if (t.type === 'Inflow') groups[month].inflow += t.amount;
+      else groups[month].outflow += Math.abs(t.amount);
+    });
+
+    return Object.entries(groups).map(([name, data]) => ({ name, ...data }));
+  }, [transactions]);
+
+  const pieChartData = useMemo(() => {
+    const categories: Record<string, number> = {};
+    transactions.forEach(t => {
+      categories[t.category] = (categories[t.category] || 0) + Math.abs(t.amount);
+    });
+
+    return Object.entries(categories).map(([name, value]) => ({ name, value }));
+  }, [transactions]);
+
+  return (
+    <div className="space-y-8">
+      {/* Header with Upload */}
+      <div className="flex justify-between items-end mb-4">
+        <div>
+           <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Platform Overview</h4>
+           <h2 className="text-5xl font-black italic uppercase">FINANCIAL INTELLIGENCE</h2>
+        </div>
+        <div className="flex gap-4">
+          <input 
+            type="file" 
+            accept=".csv" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload}
+          />
+          <button 
+            onClick={onViewReport}
+            className="border border-white/10 text-white px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3 hover:bg-white/5 transition-all"
+          >
+            <BarChartIcon size={16} />
+            VIEW FULL REPORT
+          </button>
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-intelligence text-black px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+          >
+            <Plus size={16} />
+            UPLOAD_CSV_DATA
+          </button>
+        </div>
+      </div>
+
+      {/* 4 Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {dashboardStats.map((stat, i) => (
+          <div key={i} className="glass p-8 border-white/5 relative overflow-hidden group">
+            <div className={cn("absolute top-0 right-0 w-24 h-24 blur-3xl -mr-12 -mt-12 opacity-20", stat.c === 'brand' ? 'bg-brand' : 'bg-intelligence')}></div>
+            <div className="flex justify-between items-start mb-4">
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest group-hover:text-white transition-colors">{stat.label}</p>
+              <stat.icon className={cn("w-4 h-4", stat.c === 'brand' ? 'text-brand' : 'text-intelligence')} />
+            </div>
+            <p className="text-4xl font-black text-white font-mono tracking-tighter mb-2 italic">{stat.val}</p>
+            <div className="flex items-center gap-2">
+              <div className={cn("w-1 h-1 rounded-full", stat.c === 'brand' ? 'bg-brand animate-ping' : 'bg-intelligence animate-pulse')}></div>
+              <p className={cn("text-[10px] font-black uppercase tracking-widest", stat.c === 'brand' ? 'text-brand' : 'text-intelligence')}>{stat.trend}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Bar Chart */}
+        <div className="xl:col-span-2 glass border-white/5 p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-1">Financial Activity</h4>
+              <p className="text-xl font-black italic">INFLOW VS OUTFLOW OVERVIEW</p>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-intelligence"></div>
+                <span className="text-[9px] font-mono text-gray-500 uppercase">Inflow</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-brand"></div>
+                <span className="text-[9px] font-mono text-gray-500 uppercase">Outflow</span>
+              </div>
+            </div>
+          </div>
+          <div className="h-[400px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                />
+                <Bar dataKey="inflow" fill="#00f2ff" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="outflow" fill="#dc143c" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Pie Chart */}
+        <div className="glass border-white/5 p-8 flex flex-col">
+          <div className="mb-8">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1">Asset Distribution</h4>
+            <p className="text-xl font-black italic">PORTFOLIO DENSITY</p>
+          </div>
+          <div className="flex-1 h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {pieChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mt-8">
+            {pieChartData.map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-2 h-2" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}></div>
+                <span className="text-[10px] font-mono text-gray-500 uppercase">{item.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Predictive Analytics */}
+      <QuantumIntelligence />
+    </div>
+  );
+}
+
+function PlaceholderView({ name }: { name: string }) {
+  return (
+    <div className="glass border-white/5 p-20 flex flex-col items-center justify-center text-center">
+       <Activity className="text-intelligence w-16 h-16 mb-8 animate-pulse" />
+       <h2 className="text-4xl font-black italic uppercase mb-4">{name} SECURE NODE</h2>
+       <p className="text-gray-500 font-mono max-w-md uppercase tracking-widest text-sm">Initializing encrypted data visualization for {name} sub-systems. Standby for sync...</p>
+    </div>
+  );
+}
+
+// --- P&L STATEMENT VIEW ---
+
+const PL_DATA_STRUCTURE = [
+  {
+    category: "Revenue",
+    items: [
+      { name: "Product Sales", val: 4100000 },
+      { name: "Service Revenue", val: 840000 },
+      { name: "Licensing", val: 300000 },
+    ]
+  },
+  {
+    category: "COGS",
+    items: [
+      { name: "Raw Materials", val: -900000 },
+      { name: "Direct Labor", val: -640000 },
+      { name: "Production Overhead", val: -300000 },
+    ]
+  },
+  {
+    category: "Operating Expenses",
+    items: [
+      { name: "Marketing", val: -400000 },
+      { name: "R&D", val: -500000 },
+      { name: "Insurance", val: -100000 },
+      { name: "Rent & Utilities", val: -200000 },
+    ]
+  }
+];
+
+const formatCurrency = (val: number) => {
+  const absVal = Math.abs(val);
+  const formatted = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(absVal);
+  return val < 0 ? `(${formatted})` : formatted;
+};
+
+const getPLData = (multiplier: number = 1) => {
+  const revTotal = PL_DATA_STRUCTURE[0].items.reduce((acc, i) => acc + (i.val * multiplier), 0);
+  const cogsTotal = PL_DATA_STRUCTURE[1].items.reduce((acc, i) => acc + (i.val * multiplier), 0);
+  const grossProfit = revTotal + cogsTotal;
+  const expTotal = PL_DATA_STRUCTURE[2].items.reduce((acc, i) => acc + (i.val * multiplier), 0);
+  const netProfit = grossProfit + expTotal;
+
+  return [
+    {
+      category: "Revenue",
+      total: formatCurrency(revTotal),
+      items: PL_DATA_STRUCTURE[0].items.map(i => ({ name: i.name, val: formatCurrency(i.val * multiplier) }))
+    },
+    {
+      category: "COGS",
+      total: formatCurrency(cogsTotal),
+      items: PL_DATA_STRUCTURE[1].items.map(i => ({ name: i.name, val: formatCurrency(i.val * multiplier) }))
+    },
+    {
+      category: "Gross Profit",
+      total: formatCurrency(grossProfit),
+      isResult: true,
+      items: []
+    },
+    {
+      category: "Operating Expenses",
+      total: formatCurrency(expTotal),
+      items: PL_DATA_STRUCTURE[2].items.map(i => ({ name: i.name, val: formatCurrency(i.val * multiplier) }))
+    },
+    {
+      category: "Net Profit",
+      total: formatCurrency(netProfit),
+      isResult: true,
+      highlight: true,
+      items: []
+    }
+  ];
+};
+
+function PLSection({ section }: { section: ReturnType<typeof getPLData>[0] }) {
+  const [isOpen, setIsOpen] = useState(true);
+  const hasItems = section.items && section.items.length > 0;
+
+  return (
+    <div className={cn(
+      "border-b border-white/5",
+      section.highlight ? "bg-intelligence/5 border-l-4 border-l-intelligence" : "",
+      section.isResult ? "border-brand border-2 my-2 bg-brand/5" : ""
+    )}>
+      <button 
+        onClick={() => hasItems && setIsOpen(!isOpen)}
+        className={cn(
+          "w-full flex items-center justify-between p-6 hover:bg-white/[0.02] transition-colors",
+          !hasItems && "cursor-default"
+        )}
+      >
+        <div className="flex items-center gap-4">
+          {hasItems && (
+            isOpen ? <ChevronUp size={16} className="text-intelligence" /> : <ChevronDown size={16} className="text-gray-600" />
+          )}
+          {!hasItems && <div className="w-4" />}
+          <h3 className={cn(
+            "text-sm font-black uppercase tracking-widest",
+            section.isResult ? "text-white" : "text-gray-400"
+          )}>
+            {section.category}
+          </h3>
+        </div>
+        <p className={cn(
+          "font-mono font-bold italic",
+          section.highlight ? "text-intelligence text-xl" : 
+          section.isResult ? "text-white text-lg" : "text-gray-500"
+        )}>
+          {section.total}
+        </p>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && hasItems && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden bg-black/20"
+          >
+            <div className="px-16 py-4 space-y-3">
+              {section.items.map((item, i) => (
+                <div key={i} className="flex justify-between items-center text-xs font-mono group">
+                  <span className="text-gray-600 group-hover:text-gray-400 transition-colors">{item.name}</span>
+                  <div className="flex-1 mx-4 border-b border-white/5 border-dotted"></div>
+                  <span className="text-gray-400">{item.val}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function PandLView() {
+  const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
+  const [customDates, setCustomDates] = useState({ start: '', end: '' });
+
+  const getMultiplier = () => {
+    switch(range) {
+      case 'This Month': return 1;
+      case 'Last Month': return 0.95;
+      case 'This Quarter': return 3.2;
+      case 'Custom':
+        if (customDates.start && customDates.end) {
+          const s = new Date(customDates.start);
+          const e = new Date(customDates.end);
+          const diffInMs = e.getTime() - s.getTime();
+          const diffInMonths = diffInMs / (1000 * 3600 * 24 * 30);
+          return Math.max(0.1, diffInMonths);
+        }
+        return 1;
+      default: return 1;
+    }
+  };
+
+  const plData = getPLData(getMultiplier());
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+    
+    doc.setFontSize(20);
+    doc.text('Profit & Loss Statement', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Entity: ${businessName}`, 14, 30);
+    doc.text(`Period: ${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`, 14, 36);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 42);
+
+    const body: any[] = [];
+    plData.forEach(section => {
+      body.push([section.category.toUpperCase(), '', section.total]);
+      section.items.forEach(item => {
+        body.push([`   ${item.name}`, '', item.val]);
+      });
+      body.push(['', '', '']); // spacer
+    });
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['Category', 'Details', 'Value']],
+      body: body,
+      theme: 'striped',
+      headStyles: { fillColor: [0, 242, 255], textColor: [0, 0, 0] },
+      styles: { font: 'helvetica', fontSize: 9 },
+      columnStyles: { 2: { halign: 'right' } }
+    });
+
+    doc.save(`PL_Statement_${businessName.replace(/\s/g, '_')}.pdf`);
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex justify-between items-end">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Statement of Earnings</h4>
+          <h2 className="text-5xl font-black italic uppercase">PROFIT & LOSS ANALYSIS</h2>
+        </div>
+        <div className="flex gap-4 items-center">
+          <div className="flex flex-col gap-2 items-end">
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 p-1">
+              {['This Month', 'Last Month', 'This Quarter', 'Custom'].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r as any)}
+                  className={cn(
+                    "px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all",
+                    range === r ? "bg-intelligence text-black shadow-[0_0_15px_rgba(0,242,255,0.3)]" : "text-gray-500 hover:text-white"
+                  )}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            {range === 'Custom' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-4 mt-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Start</span>
+                  <input 
+                    type="date" 
+                    value={customDates.start}
+                    onChange={(e) => setCustomDates({...customDates, start: e.target.value})}
+                    className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-intelligence/50 font-mono"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">End</span>
+                  <input 
+                    type="date" 
+                    value={customDates.end}
+                    onChange={(e) => setCustomDates({...customDates, end: e.target.value})}
+                    className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-intelligence/50 font-mono"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </div>
+          <button 
+            onClick={exportPDF}
+            className="bg-intelligence text-black px-8 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all h-fit"
+          >
+            <Download size={16} />
+            EXPORT_PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="glass border-white/5 overflow-hidden p-2">
+        {plData.map((section, i) => (
+          <PLSection key={i} section={section} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="glass p-8 border-white/5 bg-intelligence/[0.02]">
+           <div className="flex items-center gap-3 mb-6">
+              <Zap className="text-intelligence" size={16} />
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-intelligence">Efficiency Metrics</h4>
+           </div>
+           <div className="space-y-6">
+              {[
+                { label: "Gross Margin", val: "64.8%", trend: "+2.1%" },
+                { label: "Operating Margin", val: "41.9%", trend: "+0.4%" },
+                { label: "Tax Optimization", val: "84%", trend: "STABLE" }
+              ].map((m, i) => (
+                <div key={i} className="flex justify-between items-center">
+                   <p className="text-[10px] font-mono text-gray-500 uppercase">{m.label}</p>
+                   <div className="flex items-center gap-4">
+                      <p className="text-lg font-mono font-bold text-white italic">{m.val}</p>
+                      <span className="text-[9px] font-black text-intelligence">{m.trend}</span>
+                   </div>
+                </div>
+              ))}
+           </div>
+        </div>
+        <div className="glass p-8 border-white/5 bg-white/[0.01]">
+           <p className="text-[10px] font-mono text-gray-600 uppercase mb-4 tracking-widest">Auditor Notes</p>
+           <p className="text-xs text-gray-500 font-mono leading-relaxed uppercase">
+             All figures adjusted for quantum variance. Revenue recognition follows G-SEC protocols. COGS includes accelerated depreciation on hardware clusters. Net profit remains within target corridors despite increased R&D allocation.
+           </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- CASH FLOW VIEW ---
+
+const getCFData = (multiplier: number = 1) => {
+  const operating = [
+    { name: "Customer Receipts", val: 4600000 * multiplier },
+    { name: "Interest Income", val: 150000 * multiplier },
+    { name: "Tax Rebates", val: 100000 * multiplier },
+    { name: "Vendor Payments", val: -2100000 * multiplier },
+    { name: "Employee Benefits", val: -800000 * multiplier },
+    { name: "Income Taxes Paid", val: -300000 * multiplier },
+  ];
+  const investing = [
+    { name: "Asset Liquidation", val: 500000 * multiplier },
+    { name: "Infrastructure Upgrade", val: -1200000 * multiplier },
+    { name: "Security Cluster Expansion", val: -400000 * multiplier },
+  ];
+  const financing = [
+    { name: "Venture Injection", val: 2000000 * multiplier },
+    { name: "Loan Amortization", val: -450000 * multiplier },
+    { name: "Stakeholder Dividends", val: -250000 * multiplier },
+  ];
+
+  const opTotal = operating.reduce((acc, i) => acc + i.val, 0);
+  const invTotal = investing.reduce((acc, i) => acc + i.val, 0);
+  const finTotal = financing.reduce((acc, i) => acc + i.val, 0);
+  const netTotal = opTotal + invTotal + finTotal;
+
+  return [
+    {
+      category: "Operating Activities",
+      total: formatCurrency(opTotal),
+      items: operating.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+    },
+    {
+      category: "Investing Activities",
+      total: formatCurrency(invTotal),
+      items: investing.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+    },
+    {
+      category: "Financing Activities",
+      total: formatCurrency(finTotal),
+      items: financing.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+    },
+    {
+      category: "Net Cash Flow",
+      total: formatCurrency(netTotal),
+      isResult: true,
+      highlight: true,
+      items: []
+    }
+  ];
+};
+
+function CashFlowView() {
+  const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
+  const [customDates, setCustomDates] = useState({ start: '', end: '' });
+
+  const getMultiplier = () => {
+    switch(range) {
+      case 'This Month': return 1;
+      case 'Last Month': return 0.92;
+      case 'This Quarter': return 2.8;
+      case 'Custom':
+        if (customDates.start && customDates.end) {
+          const s = new Date(customDates.start);
+          const e = new Date(customDates.end);
+          const diffInMs = e.getTime() - s.getTime();
+          const diffInMonths = diffInMs / (1000 * 3600 * 24 * 30);
+          return Math.max(0.1, diffInMonths);
+        }
+        return 1;
+      default: return 1;
+    }
+  };
+
+  const cfData = getCFData(getMultiplier());
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+    
+    doc.setFontSize(20);
+    doc.text('Cash Flow Statement', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Entity: ${businessName}`, 14, 30);
+    doc.text(`Period: ${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`, 14, 36);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 42);
+
+    const body: any[] = [];
+    cfData.forEach(section => {
+      body.push([section.category.toUpperCase(), '', section.total]);
+      section.items.forEach(item => {
+        body.push([`   ${item.name}`, '', item.val]);
+      });
+      body.push(['', '', '']); // spacer
+    });
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['Activity', 'Details', 'Value']],
+      body: body,
+      theme: 'grid',
+      headStyles: { fillColor: [220, 20, 60], textColor: [255, 255, 255] },
+      styles: { font: 'helvetica', fontSize: 9 },
+      columnStyles: { 2: { halign: 'right' } }
+    });
+
+    doc.save(`Cash_Flow_${businessName.replace(/\s/g, '_')}.pdf`);
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex justify-between items-end">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-2">Liquidity Analysis</h4>
+          <h2 className="text-5xl font-black italic uppercase">CASH FLOW STATEMENT</h2>
+        </div>
+        <div className="flex gap-4 items-center">
+          <div className="flex flex-col gap-2 items-end">
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 p-1">
+              {['This Month', 'Last Month', 'This Quarter', 'Custom'].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r as any)}
+                  className={cn(
+                    "px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all",
+                    range === r ? "bg-brand text-white shadow-[0_0_15px_rgba(220,20,60,0.3)]" : "text-gray-500 hover:text-white"
+                  )}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            {range === 'Custom' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-4 mt-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Start</span>
+                  <input 
+                    type="date" 
+                    value={customDates.start}
+                    onChange={(e) => setCustomDates({...customDates, start: e.target.value})}
+                    className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-brand/50 font-mono"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">End</span>
+                  <input 
+                    type="date" 
+                    value={customDates.end}
+                    onChange={(e) => setCustomDates({...customDates, end: e.target.value})}
+                    className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-brand/50 font-mono"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </div>
+          <button 
+            onClick={exportPDF}
+            className="bg-brand text-white px-8 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(220,20,60,0.4)] transition-all h-fit"
+          >
+            <Download size={16} />
+            EXPORT_PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="glass border-white/5 overflow-hidden p-2">
+        {cfData.map((section, i) => (
+          <PLSection key={i} section={section as any} />
+        ))}
+      </div>
+
+      <div className="h-[300px] w-full glass p-8 border-white/5">
+        <p className="text-[10px] font-black uppercase tracking-widest text-brand mb-6">Cash Position Forecast</p>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={[
+            { n: 'WK1', v: 4000 * getMultiplier() }, { n: 'WK2', v: 4500 * getMultiplier() }, { n: 'WK3', v: 4200 * getMultiplier() }, { n: 'WK4', v: 4800 * getMultiplier() },
+            { n: 'WK5', v: 5100 * getMultiplier() }, { n: 'WK6', v: 5500 * getMultiplier() }, { n: 'WK7', v: 5300 * getMultiplier() }, { n: 'WK8', v: 5800 * getMultiplier() },
+          ]}>
+            <defs>
+              <linearGradient id="cfGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#dc143c" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="#dc143c" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="n" stroke="#333" fontSize={10} />
+            <Tooltip contentStyle={{ background: '#000', border: '1px solid #333' }} />
+            <Area type="monotone" dataKey="v" stroke="#dc143c" fill="url(#cfGradient)" strokeWidth={2} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+// --- INVENTORY VIEW ---
+
+interface InventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  qty: number;
+  price: number;
+  expiry: string;
+  status: string;
+}
+
+const INITIAL_INVENTORY: InventoryItem[] = [
+  { id: '1', name: 'Neural Processor G1', category: 'Hardware', qty: 420, price: 1200, expiry: '2027-12-01', status: 'GOOD' },
+  { id: '2', name: 'Quantum Cell v4', category: 'Hardware', qty: 12, price: 45000, expiry: '2026-06-15', status: 'LOW STOCK' },
+  { id: '3', name: 'Legacy Core Alpha', category: 'Components', qty: 85, price: 850, expiry: '2026-10-20', status: 'EXPIRING SOON' },
+  { id: '4', name: 'Coolant Module X', category: 'Support', qty: 0, price: 2400, expiry: '2023-11-10', status: 'EXPIRED' },
+  { id: '5', name: 'Interface Bridge', category: 'Components', qty: 1500, price: 45, expiry: '2028-09-30', status: 'GOOD' },
+  { id: '6', name: 'Thermal Shield Pro', category: 'Support', qty: 3, price: 3200, expiry: '2026-02-14', status: 'LOW STOCK' },
+  { id: '7', name: 'Datastream Hub', category: 'Networking', qty: 65, price: 9800, expiry: '2026-01-01', status: 'EXPIRING SOON' },
+  { id: '8', name: 'Cryogenic Unit', category: 'Hardware', qty: 1, price: 120000, expiry: '2029-05-15', status: 'GOOD' },
+];
+
+const SAMPLE_BARCODES: Record<string, { name: string; category: string; price: number }> = {
+  '849001': { name: 'TITANIUM_SHELL_G2', category: 'Hardware', price: 450 },
+  '849002': { name: 'OPTIC_SENSOR_V9', category: 'Components', price: 120 },
+  '849003': { name: 'HYPERLINK_CABLE', category: 'Networking', price: 25 },
+  '849004': { name: 'COOLANT_FLUID_Z', category: 'Support', price: 85 },
+  '849005': { name: 'KERNEL_V1.4', category: 'Software', price: 1500 },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    'GOOD': 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    'LOW STOCK': 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    'EXPIRING SOON': 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+    'EXPIRED': 'bg-brand/10 text-brand border-brand/20',
+  };
+
+  const icons: Record<string, any> = {
+    'GOOD': CheckCircle2,
+    'LOW STOCK': AlertCircle,
+    'EXPIRING SOON': Clock,
+    'EXPIRED': XCircle,
+  };
+
+  const Icon = icons[status] || AlertCircle;
+
+  return (
+    <div className={cn("px-3 py-1 rounded-sm border flex items-center gap-2 text-[10px] font-black uppercase tracking-widest", styles[status])}>
+      <Icon size={12} />
+      {status}
+    </div>
+  );
+}
+
+function InventoryView() {
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    const saved = localStorage.getItem('quantum_inventory');
+    return saved ? JSON.parse(saved) : INITIAL_INVENTORY;
+  });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [sortConfig, setSortConfig] = useState<{ key: keyof InventoryItem; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newItem, setNewItem] = useState({
+    name: '',
+    category: 'Hardware',
+    qty: '',
+    price: '',
+    expiry: new Date().toISOString().split('T')[0]
+  });
+
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [scanInput, setScanInput] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('quantum_inventory', JSON.stringify(inventory));
+  }, [inventory]);
+
+  const categories = useMemo(() => {
+    return ['ALL', ...Array.from(new Set(inventory.map(item => item.category)))];
+  }, [inventory]);
+
+  const handleSort = (key: keyof InventoryItem) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const filteredAndSortedInventory = useMemo(() => {
+    let result = inventory.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           item.id.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = categoryFilter === 'ALL' || item.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return result;
+  }, [inventory, searchTerm, categoryFilter, sortConfig]);
+
+  const getStatus = (qty: number, expiry: string) => {
+    const today = new Date();
+    const expiryDate = new Date(expiry);
+    const diffTime = expiryDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return 'EXPIRED';
+    if (qty < 10) return 'LOW STOCK';
+    if (diffDays < 7) return 'EXPIRING SOON';
+    return 'GOOD';
+  };
+
+  const [isAlertsCollapsed, setIsAlertsCollapsed] = useState(false);
+
+  const alerts = useMemo(() => {
+    const today = new Date();
+    return inventory.filter(item => {
+      const expiryDate = new Date(item.expiry);
+      const diffTime = expiryDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      return item.qty < 10 || diffDays < 7 || diffDays < 0;
+    }).map(item => ({
+      ...item,
+      alertType: item.qty < 10 ? 'QUANTITY_CRITICAL' : 
+                 (new Date(item.expiry) < today ? 'EXPIRED_CRITICAL' : 'EXPIRY_WARNING')
+    }));
+  }, [inventory]);
+
+  const resolveAlert = (id: string, type: string) => {
+    setInventory(prev => prev.map(item => {
+      if (item.id === id) {
+        if (type === 'QUANTITY_CRITICAL') {
+          return { ...item, qty: 100, status: getStatus(100, item.expiry) };
+        } else {
+          const nextYear = new Date();
+          nextYear.setFullYear(nextYear.getFullYear() + 1);
+          const newExpiry = nextYear.toISOString().split('T')[0];
+          return { ...item, expiry: newExpiry, status: getStatus(item.qty, newExpiry) };
+        }
+      }
+      return item;
+    }));
+  };
+
+  const valuationMetrics = useMemo(() => {
+    const today = new Date();
+    const totalProducts = inventory.length;
+    let totalStockValue = 0;
+    let expiredStockValue = 0;
+    const categoryBreakdown: Record<string, number> = {};
+
+    inventory.forEach(item => {
+      const itemValue = item.qty * item.price;
+      totalStockValue += itemValue;
+      
+      const expiryDate = new Date(item.expiry);
+      if (expiryDate < today) {
+        expiredStockValue += itemValue;
+      }
+
+      categoryBreakdown[item.category] = (categoryBreakdown[item.category] || 0) + itemValue;
+    });
+
+    return {
+      totalProducts,
+      totalStockValue,
+      expiredStockValue,
+      categoryBreakdown: Object.entries(categoryBreakdown).sort((a, b) => b[1] - a[1])
+    };
+  }, [inventory]);
+
+  const handleScan = (e: React.FormEvent) => {
+    e.preventDefault();
+    const matched = SAMPLE_BARCODES[scanInput];
+    if (matched) {
+      setNewItem({
+        name: matched.name,
+        category: matched.category,
+        qty: '1',
+        price: matched.price.toString(),
+        expiry: new Date().toISOString().split('T')[0]
+      });
+      setIsScanModalOpen(false);
+      setIsModalOpen(true);
+      setScanInput('');
+    }
+  };
+
+  const handleAddProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = (inventory.length + 1).toString();
+    const qtyNum = Number(newItem.qty);
+    const priceNum = Number(newItem.price);
+    
+    const product: InventoryItem = {
+      id,
+      name: newItem.name,
+      category: newItem.category,
+      qty: qtyNum,
+      price: priceNum,
+      expiry: newItem.expiry,
+      status: getStatus(qtyNum, newItem.expiry)
+    };
+
+    setInventory(prev => [product, ...prev]);
+    setIsModalOpen(false);
+    setNewItem({
+      name: '',
+      category: 'Hardware',
+      qty: '',
+      price: '',
+      expiry: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  const handleUpdateProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    const qtyNum = Number(editingItem.qty);
+    const priceNum = Number(editingItem.price);
+    
+    const updatedItem: InventoryItem = {
+      ...editingItem,
+      qty: qtyNum,
+      price: priceNum,
+      status: getStatus(qtyNum, editingItem.expiry)
+    };
+
+    setInventory(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+    setIsEditModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleDeleteProduct = () => {
+    if (!editingItem) return;
+    setInventory(prev => prev.filter(item => item.id !== editingItem.id));
+    setIsEditModalOpen(false);
+    setEditingItem(null);
+    setShowDeleteConfirm(false);
+  };
+
+  const openEditModal = (item: InventoryItem) => {
+    setEditingItem({ ...item });
+    setIsEditModalOpen(true);
+    setShowDeleteConfirm(false);
+  };
+
+  const SortIcon = ({ column }: { column: keyof InventoryItem }) => {
+    if (sortConfig?.key !== column) return <ArrowUpDown size={12} className="text-gray-600" />;
+    return sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-intelligence" /> : <ChevronDown size={12} className="text-intelligence" />;
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Asset Logistics</h4>
+          <h2 className="text-5xl font-black italic uppercase">QUANTUM INVENTORY</h2>
+        </div>
+        <div className="flex flex-wrap gap-4 w-full md:w-auto">
+          <button 
+            onClick={() => setIsScanModalOpen(true)}
+            className="border border-white/10 text-white px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 hover:bg-white/5 transition-all"
+          >
+            <QrCode size={16} />
+            SCAN_ASSET
+          </button>
+          <div className="relative group flex-1 md:flex-initial">
+             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={16} />
+             <input 
+               type="text" 
+               placeholder="SEARCH_CATALOG..."
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+               className="w-full bg-white/5 border border-white/10 pl-12 pr-6 py-3 font-mono text-[11px] text-white focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-widest"
+             />
+          </div>
+          
+          <div className="relative">
+            <select 
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-white/5 border border-white/10 pl-4 pr-10 py-3 font-mono text-[11px] text-white focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-widest appearance-none cursor-pointer"
+            >
+              {categories.map(cat => (
+                <option key={cat} value={cat} className="bg-dark-bg">{cat}</option>
+              ))}
+            </select>
+            <Filter className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={14} />
+          </div>
+
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-intelligence text-black px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+          >
+            <Plus size={16} />
+            ADD_PRODUCT
+          </button>
+        </div>
+      </div>
+      
+      {/* Alerts Panel */}
+      {alerts.length > 0 && (
+        <div className="border border-brand/50 bg-brand/5 overflow-hidden">
+          <button 
+            onClick={() => setIsAlertsCollapsed(!isAlertsCollapsed)}
+            className="w-full flex items-center justify-between p-4 bg-brand/10 hover:bg-brand/20 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Bell size={16} className="text-brand animate-pulse" />
+                <span className="absolute -top-2 -right-2 bg-brand text-black text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full">
+                  {alerts.length}
+                </span>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">Critical Inventory Alerts Detected</span>
+            </div>
+            {isAlertsCollapsed ? <ChevronDown size={16} className="text-brand" /> : <ChevronUp size={16} className="text-brand" />}
+          </button>
+          
+          <AnimatePresence>
+            {!isAlertsCollapsed && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="border-t border-brand/20"
+              >
+                <div className="p-6 space-y-4">
+                  {alerts.map((alert) => (
+                    <div key={`${alert.id}-${alert.alertType}`} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-black/40 border border-white/5 hover:border-brand/30 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "w-10 h-10 flex items-center justify-center rounded-sm",
+                          alert.alertType === 'QUANTITY_CRITICAL' ? "bg-orange-500/20 text-orange-500" : "bg-brand/20 text-brand"
+                        )}>
+                          {alert.alertType === 'QUANTITY_CRITICAL' ? <Container size={18} /> : <Clock size={18} />}
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-black text-white uppercase tracking-wider">{alert.name}</p>
+                          <p className={cn(
+                            "text-[9px] font-mono uppercase font-bold",
+                            alert.alertType === 'QUANTITY_CRITICAL' ? "text-orange-500" : "text-brand"
+                          )}>
+                            {alert.status} — {alert.alertType === 'QUANTITY_CRITICAL' ? `QTY: ${alert.qty}` : `EXPIRY: ${alert.expiry}`}
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => resolveAlert(alert.id, alert.alertType)}
+                        className="bg-brand/10 border border-brand/30 text-brand px-6 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-brand hover:text-black transition-all"
+                      >
+                        RESOLVE_PROTOCOL
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      <div className="glass border-white/5 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="border-b border-white/5 bg-white/[0.02]">
+                <th 
+                  className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest cursor-pointer hover:text-white transition-colors"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center gap-2">
+                    Name <SortIcon column="name" />
+                  </div>
+                </th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Category</th>
+                <th 
+                  className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right cursor-pointer hover:text-white transition-colors"
+                  onClick={() => handleSort('qty')}
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Quantity <SortIcon column="qty" />
+                  </div>
+                </th>
+                <th 
+                  className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right cursor-pointer hover:text-white transition-colors"
+                  onClick={() => handleSort('price')}
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Unit Price <SortIcon column="price" />
+                  </div>
+                </th>
+                <th 
+                  className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest cursor-pointer hover:text-white transition-colors"
+                  onClick={() => handleSort('expiry')}
+                >
+                  <div className="flex items-center gap-2">
+                    Expiry Date <SortIcon column="expiry" />
+                  </div>
+                </th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAndSortedInventory.map((item) => (
+                <tr 
+                  key={item.id} 
+                  onClick={() => openEditModal(item)}
+                  className="border-b border-white/5 hover:bg-white/[0.03] transition-colors group cursor-pointer"
+                >
+                  <td className="p-6">
+                    <p className="text-sm font-bold text-white uppercase group-hover:text-intelligence transition-colors">{item.name}</p>
+                    <p className="text-[9px] font-mono text-gray-600 uppercase">ID: {item.id.padStart(3, '0')}</p>
+                  </td>
+                  <td className="p-6">
+                    <span className="text-xs font-mono text-gray-500 uppercase">{item.category}</span>
+                  </td>
+                  <td className="p-6 text-right">
+                    <span className={cn("text-sm font-mono font-bold", item.qty < 50 ? "text-orange-500" : "text-white")}>
+                      {item.qty.toLocaleString()}
+                    </span>
+                  </td>
+                  <td className="p-6 text-right font-mono text-sm text-gray-400">
+                    {formatCurrency(item.price)}
+                  </td>
+                  <td className="p-6 font-mono text-xs text-gray-600">{item.expiry}</td>
+                  <td className="p-6">
+                    <StatusBadge status={item.status} />
+                  </td>
+                </tr>
+              ))}
+              {filteredAndSortedInventory.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-20 text-center text-gray-600 font-mono text-xs uppercase tracking-widest">
+                    No matching assets found in local database.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Inventory Valuation Section */}
+      <div className="space-y-6 pt-12 border-t border-white/5">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Financial Analysis</h4>
+          <h3 className="text-3xl font-black italic uppercase">Inventory Valuation</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="glass p-8 border-white/5">
+            <div className="flex items-center gap-3 mb-4">
+              <Container size={16} className="text-intelligence" />
+              <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Total Assets</span>
+            </div>
+            <p className="text-4xl font-black italic uppercase text-white mb-2">{valuationMetrics.totalProducts}</p>
+            <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Unique_Stock_Units</p>
+          </div>
+
+          <div className="glass p-8 border-white/5">
+            <div className="flex items-center gap-3 mb-4">
+              <TrendingUp size={16} className="text-intelligence" />
+              <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Gross Value</span>
+            </div>
+            <p className="text-4xl font-black italic uppercase text-intelligence mb-2">{formatCurrency(valuationMetrics.totalStockValue)}</p>
+            <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Total_Asset_Worth</p>
+          </div>
+
+          <div className="glass p-8 border-brand/20 bg-brand/5">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle size={16} className="text-brand" />
+              <span className="text-[9px] font-black text-brand/50 uppercase tracking-widest">Dead Capital</span>
+            </div>
+            <p className="text-4xl font-black italic uppercase text-brand mb-2">{formatCurrency(valuationMetrics.expiredStockValue)}</p>
+            <p className="text-[9px] font-mono text-brand/30 uppercase tracking-widest">Expired_Loss_Provision</p>
+          </div>
+        </div>
+
+        <div className="glass border-white/5 overflow-hidden">
+          <div className="p-6 border-b border-white/5 bg-white/[0.02]">
+            <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Strategic Asset Distribution</h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5">
+                  <th className="p-6 text-[9px] font-black text-gray-500 uppercase tracking-widest">Category</th>
+                  <th className="p-6 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Stock Value</th>
+                  <th className="p-6 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Portfolio Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {valuationMetrics.categoryBreakdown.map(([category, value]) => (
+                  <tr key={category} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
+                    <td className="p-6">
+                      <span className="text-sm font-bold text-white uppercase">{category}</span>
+                    </td>
+                    <td className="p-6 text-right">
+                      <span className="text-sm font-mono font-bold text-intelligence">{formatCurrency(value)}</span>
+                    </td>
+                    <td className="p-6 text-right">
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="text-[11px] font-mono text-gray-500">
+                          {((value / (valuationMetrics.totalStockValue || 1)) * 100).toFixed(1)}%
+                        </span>
+                        <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-intelligence" 
+                            style={{ width: `${(value / (valuationMetrics.totalStockValue || 1)) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative glass w-full max-w-xl border-white/20 bg-[#05070a] p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+            >
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h4 className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] mb-2">Resource Acquisition</h4>
+                  <h3 className="text-3xl font-black italic uppercase">Add New Product</h3>
+                </div>
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddProduct} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Name</label>
+                  <input 
+                    type="text"
+                    required
+                    value={newItem.name}
+                    onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                    placeholder="ALPHA_PROCESSOR_7"
+                    className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Category</label>
+                    <select 
+                      value={newItem.category}
+                      onChange={(e) => setNewItem({...newItem, category: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 p-4 text-white font-black text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+                    >
+                      <option value="Hardware">Hardware</option>
+                      <option value="Components">Components</option>
+                      <option value="Support">Support</option>
+                      <option value="Networking">Networking</option>
+                      <option value="Software">Software</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Expiry Date</label>
+                    <input 
+                      type="date"
+                      required
+                      value={newItem.expiry}
+                      onChange={(e) => setNewItem({...newItem, expiry: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Quantity</label>
+                    <input 
+                      type="number"
+                      required
+                      min="0"
+                      value={newItem.qty}
+                      onChange={(e) => setNewItem({...newItem, qty: e.target.value})}
+                      placeholder="0"
+                      className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Unit Price ($)</label>
+                    <input 
+                      type="number"
+                      required
+                      min="0"
+                      step="0.01"
+                      value={newItem.price}
+                      onChange={(e) => setNewItem({...newItem, price: e.target.value})}
+                      placeholder="0.00"
+                      className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  <button 
+                    type="submit"
+                    className="w-full bg-intelligence text-black font-black uppercase text-xs tracking-[0.2em] p-5 hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] hover:brightness-110 transition-all"
+                  >
+                    AUTHORIZE_ADDITION
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isEditModalOpen && editingItem && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative glass w-full max-w-xl border-white/20 bg-[#05070a] p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+            >
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h4 className="text-[9px] font-black text-brand uppercase tracking-[0.3em] mb-2">Resource Modification</h4>
+                  <h3 className="text-3xl font-black italic uppercase">Edit Product</h3>
+                </div>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateProduct} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Name</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editingItem.name}
+                    onChange={(e) => setEditingItem({...editingItem, name: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-brand/50 transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Category</label>
+                    <select 
+                      value={editingItem.category}
+                      onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 p-4 text-white font-black text-[10px] focus:outline-none focus:border-brand/50 uppercase tracking-widest"
+                    >
+                      <option value="Hardware">Hardware</option>
+                      <option value="Components">Components</option>
+                      <option value="Support">Support</option>
+                      <option value="Networking">Networking</option>
+                      <option value="Software">Software</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Expiry Date</label>
+                    <input 
+                      type="date"
+                      required
+                      value={editingItem.expiry}
+                      onChange={(e) => setEditingItem({...editingItem, expiry: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-brand/50 [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Quantity</label>
+                    <input 
+                      type="number"
+                      required
+                      min="0"
+                      value={editingItem.qty}
+                      onChange={(e) => setEditingItem({...editingItem, qty: Number(e.target.value)})}
+                      className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-brand/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Unit Price ($)</label>
+                    <input 
+                      type="number"
+                      required
+                      min="0"
+                      step="0.01"
+                      value={editingItem.price}
+                      onChange={(e) => setEditingItem({...editingItem, price: Number(e.target.value)})}
+                      className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-brand/50"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-6">
+                  <button 
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex-1 bg-brand/10 border border-brand/30 text-brand font-black uppercase text-[10px] tracking-widest p-4 hover:bg-brand hover:text-black transition-all flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    DELETE_PRODUCT
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 bg-intelligence text-black font-black uppercase text-[10px] tracking-widest p-4 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+                  >
+                    UPDATE_CORE_ASSET
+                  </button>
+                </div>
+              </form>
+
+              <AnimatePresence>
+                {showDeleteConfirm && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute inset-0 bg-[#05070a]/95 backdrop-blur-md flex flex-col items-center justify-center p-10 text-center z-10"
+                  >
+                    <AlertTriangle size={48} className="text-brand mb-6 animate-pulse" />
+                    <h4 className="text-2xl font-black italic uppercase text-white mb-2">DANGER_PROTOCOL_ACTIVE</h4>
+                    <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest leading-loose mb-8">
+                      This action will permanently purge <span className="text-brand">"{editingItem.name}"</span> from the inventory database. This cannot be undone.
+                    </p>
+                    <div className="flex gap-4 w-full">
+                      <button 
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 border border-white/10 text-white font-black uppercase text-[10px] tracking-widest p-4 hover:bg-white/5 transition-all"
+                      >
+                        ABORT_PURGE
+                      </button>
+                      <button 
+                        onClick={handleDeleteProduct}
+                        className="flex-1 bg-brand text-black font-black uppercase text-[10px] tracking-widest p-4 hover:shadow-[0_0_20px_rgba(255,46,115,0.4)] transition-all"
+                      >
+                        CONFIRM_WIPE
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isScanModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsScanModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative glass w-full max-w-md border-white/20 bg-[#05070a] p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+            >
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h4 className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] mb-2">Simulation Mode</h4>
+                  <h3 className="text-3xl font-black italic uppercase">Scan Product</h3>
+                </div>
+                <button onClick={() => setIsScanModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest leading-loose mb-8">
+                Enter a product barcode to simulate a laser scan. Known codes: 
+                <span className="text-intelligence mx-1">849001 - 849005</span>
+              </p>
+
+              <form onSubmit={handleScan} className="space-y-6">
+                <div className="relative group">
+                  <QrCode className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={20} />
+                  <input 
+                    type="text" 
+                    required
+                    autoFocus
+                    placeholder="SCAN_READY..."
+                    value={scanInput}
+                    onChange={(e) => setScanInput(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 pl-14 pr-6 py-4 font-mono text-lg text-white focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-[0.2em]"
+                  />
+                  {!SAMPLE_BARCODES[scanInput] && scanInput.length >= 6 && (
+                    <motion.p 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-[9px] font-black text-brand uppercase mt-2"
+                    >
+                      UNRECOGNIZED_CODE_ID
+                    </motion.p>
+                  )}
+                </div>
+
+                <div className="pt-4">
+                  <button 
+                    type="submit"
+                    disabled={!SAMPLE_BARCODES[scanInput]}
+                    className="w-full bg-intelligence text-black font-black uppercase text-xs tracking-[0.2em] p-5 hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] hover:brightness-110 disabled:opacity-30 disabled:hover:shadow-none transition-all"
+                  >
+                    IDENTIFY_ASSET
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+
+// --- DATA ENTRY VIEW ---
+
+function DataEntryView({ transactions, onAdd, onDelete, categories }: { transactions: Transaction[], onAdd: (t: Transaction) => void, onDelete: (i: number) => void, categories: {name: string, type: string}[] }) {
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    type: 'Inflow',
+    description: '',
+    amount: '',
+    category: categories.find(c => c.type === 'Inflow')?.name || ''
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    setTimeout(() => {
+      onAdd({
+        date: formData.date,
+        description: formData.description,
+        amount: Number(formData.amount),
+        category: formData.category,
+        type: formData.type as 'Inflow' | 'Outflow'
+      });
+      setIsSubmitting(false);
+      const firstCatOfCurrentType = categories.find(c => c.type === formData.type)?.name || '';
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        type: formData.type,
+        description: '',
+        amount: '',
+        category: firstCatOfCurrentType
+      });
+    }, 800);
+  };
+
+  const currentTypeCategories = categories.filter(c => c.type === formData.type);
+
+  const recentTransactions = transactions.slice(0, 10);
+
+  return (
+    <div className="space-y-12">
+      <div className="max-w-4xl">
+        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">System Input</h4>
+        <h2 className="text-5xl font-black italic uppercase">TRANSACTION LOG ENTRY</h2>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <div className="glass p-10 border-white/10 bg-white/[0.01] relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+              <FileText size={160} className="text-white" />
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Transaction Date</label>
+                  <div className="relative group">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={18} />
+                    <input 
+                      type="date"
+                      required
+                      value={formData.date}
+                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Entity Type</label>
+                  <div className="relative group">
+                    <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-hover:text-intelligence" size={18} />
+                    <select 
+                      value={formData.type}
+                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                    >
+                      <option value="Inflow">Incoming Revenue</option>
+                      <option value="Outflow">Outgoing Expense</option>
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Transaction Description</label>
+                <div className="relative group">
+                  <FileText className="absolute left-4 top-4 text-gray-600 transition-colors group-focus-within:text-intelligence" size={18} />
+                  <textarea 
+                    required
+                    rows={3}
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    placeholder="ENTER SOURCE METADATA..."
+                    className="w-full bg-white/5 border border-white/10 pl-12 pr-6 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800 uppercase tracking-tighter"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Currency Amount (USD)</label>
+                  <div className="relative group">
+                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={18} />
+                    <input 
+                      type="number"
+                      required
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                      placeholder="0.00"
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Protocol Category</label>
+                  <div className="relative group">
+                    <Database className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-hover:text-intelligence" size={18} />
+                    <select 
+                      value={formData.category}
+                      onChange={(e) => setFormData({...formData, category: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                    >
+                      {currentTypeCategories.map(cat => (
+                        <option key={cat.name} value={cat.name}>{cat.name}</option>
+                      ))}
+                      {currentTypeCategories.length === 0 && <option value="">No Categories Defined</option>}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-6 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none"
+                >
+                  <div className="relative z-10 flex items-center justify-center gap-4">
+                    {isSubmitting ? (
+                      <div className="flex animate-pulse gap-2">
+                        <div className="w-2 h-2 bg-black rounded-full"></div>
+                        <div className="w-2 h-2 bg-black rounded-full [animation-delay:0.2s]"></div>
+                        <div className="w-2 h-2 bg-black rounded-full [animation-delay:0.4s]"></div>
+                      </div>
+                    ) : (
+                      <>
+                        <Plus size={18} />
+                        COMMIT_TO_KERNEL
+                      </>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+           <div className="glass p-8 border-white/5 bg-white/[0.01]">
+              <h3 className="text-xs font-black uppercase tracking-widest text-intelligence mb-6 flex items-center gap-2">
+                <History size={14} />
+                RECENT_KRNL_COMMITS
+              </h3>
+              <div className="space-y-4">
+                 {recentTransactions.map((t, i) => (
+                   <div key={i} className="p-4 bg-white/5 border border-white/10 group relative hover:border-intelligence/30 transition-all">
+                      <div className="flex justify-between items-start mb-2">
+                         <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">{t.date}</span>
+                         <div className="flex items-center gap-3">
+                            <span className={cn(
+                              "text-[9px] font-black uppercase tracking-widest",
+                              t.type === 'Inflow' ? "text-intelligence" : "text-brand"
+                            )}>
+                               {t.type === 'Inflow' ? "+" : "-"}{formatCurrency(t.amount)}
+                            </span>
+                            <button 
+                              onClick={() => onDelete(i)}
+                              className="text-gray-700 hover:text-brand transition-colors p-1"
+                            >
+                               <Trash2 size={12} />
+                            </button>
+                         </div>
+                      </div>
+                      <p className="text-[10px] font-bold text-white uppercase tracking-tight truncate mb-1">{t.description}</p>
+                      <p className="text-[8px] font-mono text-gray-600 uppercase italic">{t.category}</p>
+                   </div>
+                 ))}
+                 {recentTransactions.length === 0 && (
+                   <div className="py-12 text-center">
+                      <p className="text-[10px] font-mono text-gray-700 uppercase tracking-widest">No Recent Transactions Found</p>
+                   </div>
+                 )}
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- TRANSACTIONS VIEW ---
+
+function TransactionsView({ transactions, onUpdate }: { transactions: Transaction[], onUpdate: React.Dispatch<React.SetStateAction<Transaction[]>> }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [editingTransaction, setEditingTransaction] = useState<{index: number, t: Transaction} | null>(null);
+  const itemsPerPage = 8;
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === 'All' || t.type === typeFilter;
+      const matchesCategory = categoryFilter === 'All' || t.category === categoryFilter;
+      return matchesSearch && matchesType && matchesCategory;
+    });
+  }, [transactions, searchTerm, typeFilter, categoryFilter]);
+
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTransaction) return;
+    
+    onUpdate(prev => {
+      const next = [...prev];
+      next[editingTransaction.index] = editingTransaction.t;
+      return next;
+    });
+    setEditingTransaction(null);
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-end">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Ledger Explorer</h4>
+          <h2 className="text-5xl font-black italic uppercase">TRANSACTION_RECORDS</h2>
+        </div>
+        <div className="text-right">
+           <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Total Volume</p>
+           <p className="text-2xl font-black text-white">{filteredTransactions.length} ENTRIES</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="glass p-6 border-white/10 bg-white/[0.01] flex flex-wrap gap-6 items-center">
+         <div className="flex-1 min-w-[200px] relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={16} />
+            <input 
+              type="text" 
+              placeholder="SEARCH_BY_DESCRIPTION..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 pl-12 pr-6 py-3 text-[10px] font-mono text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+            />
+         </div>
+         <div className="flex items-center gap-3">
+            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Type:</span>
+            <select 
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="bg-white/5 border border-white/10 px-4 py-3 text-[9px] font-black text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest appearance-none cursor-pointer pr-10"
+            >
+               <option value="All">All Types</option>
+               <option value="Inflow">Incoming</option>
+               <option value="Outflow">Outgoing</option>
+            </select>
+         </div>
+         <div className="flex items-center gap-3">
+            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Dept:</span>
+            <select 
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-white/5 border border-white/10 px-4 py-3 text-[9px] font-black text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest appearance-none cursor-pointer pr-10"
+            >
+               <option value="All">All Categories</option>
+               {Array.from(new Set(transactions.map(t => t.category))).map(cat => (
+                 <option key={cat} value={cat}>{cat}</option>
+               ))}
+            </select>
+         </div>
+         <button 
+           onClick={() => { setSearchTerm(''); setTypeFilter('All'); setCategoryFilter('All'); }}
+           className="text-[9px] font-black text-brand uppercase tracking-[0.2em] hover:text-white transition-colors"
+         >
+           RESET_FILTERS
+         </button>
+      </div>
+
+      {/* Table */}
+      <div className="glass border-white/5 overflow-hidden">
+         <table className="w-full text-left border-collapse">
+            <thead>
+               <tr className="border-b border-white/10 bg-white/[0.02]">
+                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Timestamp</th>
+                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Context/Descriptor</th>
+                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Protocol</th>
+                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Status_Mode</th>
+                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Value_USD</th>
+               </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+               {paginatedTransactions.map((t, i) => {
+                 const actualIndex = transactions.indexOf(t);
+                 return (
+                   <motion.tr 
+                     key={i}
+                     onClick={() => setEditingTransaction({ index: actualIndex, t: {...t} })}
+                     className="hover:bg-intelligence/5 cursor-pointer transition-colors group"
+                     layout
+                   >
+                      <td className="px-6 py-5">
+                         <div className="flex items-center gap-3">
+                            <div className={cn("w-1 h-4", t.type === 'Inflow' ? "bg-intelligence" : "bg-brand")}></div>
+                            <span className="text-[10px] font-mono text-gray-400">{t.date}</span>
+                         </div>
+                      </td>
+                      <td className="px-6 py-5">
+                         <p className="text-[11px] font-bold text-white uppercase tracking-tight group-hover:text-intelligence transition-colors">{t.description}</p>
+                      </td>
+                      <td className="px-6 py-5">
+                         <span className="text-[9px] font-mono text-gray-500 uppercase italic">{t.category}</span>
+                      </td>
+                      <td className="px-6 py-5">
+                         <div className={cn(
+                           "inline-flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                           t.type === 'Inflow' ? "bg-intelligence/10 text-intelligence" : "bg-brand/10 text-brand"
+                         )}>
+                           {t.type === 'Inflow' ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                           {t.type}
+                         </div>
+                      </td>
+                      <td className="px-6 py-5 text-right font-mono font-bold text-xs">
+                         <span className={t.type === 'Inflow' ? "text-intelligence" : "text-brand"}>
+                           {t.type === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
+                         </span>
+                      </td>
+                   </motion.tr>
+                 );
+               })}
+            </tbody>
+         </table>
+         {paginatedTransactions.length === 0 && (
+           <div className="py-20 text-center">
+              <p className="text-[10px] font-mono text-gray-700 uppercase tracking-widest">No matching records found in local kernel</p>
+           </div>
+         )}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center px-4">
+           <div className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">
+              Page {currentPage} of {totalPages}
+           </div>
+           <div className="flex gap-2">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 glass border-white/10 text-gray-400 disabled:opacity-20 hover:text-white transition-colors"
+              >
+                 <ChevronLeft size={16} />
+              </button>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 glass border-white/10 text-gray-400 disabled:opacity-20 hover:text-white transition-colors"
+              >
+                 <ChevronRight size={16} />
+              </button>
+           </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {editingTransaction && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+             <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setEditingTransaction(null)}
+               className="absolute inset-0 bg-black/80 backdrop-blur-md"
+             />
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.9, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.9, y: 20 }}
+               className="relative glass w-full max-w-xl border-white/20 bg-dark-bg p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+             >
+                <div className="flex justify-between items-start mb-8">
+                   <div>
+                      <h4 className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] mb-2">Record Authorization</h4>
+                      <h3 className="text-2xl font-black italic uppercase italic">Edit Transaction</h3>
+                   </div>
+                   <button onClick={() => setEditingTransaction(null)} className="text-gray-500 hover:text-white transition-colors">
+                      <X size={20} />
+                   </button>
+                </div>
+
+                <form onSubmit={handleEditSubmit} className="space-y-6">
+                   <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                         <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Date</label>
+                         <input 
+                           type="date"
+                           value={editingTransaction.t.date}
+                           onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, date: e.target.value}})}
+                           className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 [color-scheme:dark]"
+                         />
+                      </div>
+                      <div className="space-y-1">
+                         <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Type</label>
+                         <select 
+                           value={editingTransaction.t.type}
+                           onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, type: e.target.value as any}})}
+                           className="w-full bg-white/5 border border-white/10 p-3 text-white font-black text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+                         >
+                            <option value="Inflow">Incoming</option>
+                            <option value="Outflow">Outgoing</option>
+                         </select>
+                      </div>
+                   </div>
+
+                   <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Description</label>
+                      <input 
+                        type="text"
+                        value={editingTransaction.t.description}
+                        onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, description: e.target.value}})}
+                        className="w-full bg-white/5 border border-white/10 p-3 text-white font-bold text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-tight"
+                      />
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                         <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Amount</label>
+                         <input 
+                           type="number"
+                           step="0.01"
+                           value={editingTransaction.t.amount}
+                           onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, amount: Number(e.target.value)}})}
+                           className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/50"
+                         />
+                      </div>
+                      <div className="space-y-1">
+                         <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Category</label>
+                         <input 
+                           type="text"
+                           value={editingTransaction.t.category}
+                           onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, category: e.target.value}})}
+                           className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+                         />
+                      </div>
+                   </div>
+
+                   <div className="pt-4 flex gap-4">
+                      <button 
+                        type="button"
+                        onClick={() => setEditingTransaction(null)}
+                        className="flex-1 border border-white/10 text-gray-400 font-black uppercase text-[10px] tracking-widest p-4 hover:bg-white/5 transition-colors"
+                      >
+                         CANCEL_OP
+                      </button>
+                      <button 
+                        type="submit"
+                        className="flex-1 bg-intelligence text-black font-black uppercase text-[10px] tracking-widest p-4 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+                      >
+                         COMMIT_CHANGES
+                      </button>
+                   </div>
+                </form>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+
+const CUSTOMER_QUERIES_DATA = [
+  { id: '1', name: 'James Wilson', platform: 'WhatsApp', message: 'I am seeing an anomaly in the HSI index feed. Is there a maintenance ongoing?', status: 'Pending', time: '12m ago' },
+  { id: '2', name: 'Sophia Chen', platform: 'Email', message: 'How do I export the UBO mapping for my offshore entities in SVG format?', status: 'Replied', time: '1h ago' },
+  { id: '3', name: 'Marcus Miller', platform: 'Facebook', message: 'Interrogating the API for Registry Delta Scan is returning a 403 error.', status: 'Pending', time: '2h ago' },
+  { id: '4', name: 'Elena Petrova', platform: 'WhatsApp', message: 'System load is approaching 80%. Should we initialize secondary node?', status: 'Replied', time: '4h ago' },
+  { id: '5', name: 'David Hoffman', platform: 'Email', message: 'Requesting clarification on the consolidated balance sheet mismatch for Q1.', status: 'Pending', time: '6h ago' },
+];
+
+const SAMPLE_CHAT_HISTORY: Record<string, { sender: 'System' | 'Customer', message: string, time: string }[]> = {
+  '1': [
+    { sender: 'Customer', message: 'Hello, I have a quick question about the HSI feed.', time: 'Today, 10:45 AM' },
+    { sender: 'System', message: 'Hello James. How can we assist you today regarding the HSI feed?', time: 'Today, 10:47 AM' },
+    { sender: 'Customer', message: 'I am seeing an anomaly in the HSI index feed. Is there a maintenance ongoing?', time: 'Today, 10:55 AM' },
+  ],
+  '3': [
+    { sender: 'Customer', message: 'Testing the Registry Delta Scan API.', time: 'Yesterday, 4:00 PM' },
+    { sender: 'System', message: 'The API is currently stable. Are you using v2 endpoints?', time: 'Yesterday, 4:15 PM' },
+    { sender: 'Customer', message: 'Interrogating the API for Registry Delta Scan is returning a 403 error.', time: 'Today, 9:20 AM' },
+  ],
+  '5': [
+    { sender: 'Customer', message: 'I received the Q1 consolidated balance sheet.', time: 'Yesterday, 2:30 PM' },
+    { sender: 'System', message: 'Is everything correct in the document?', time: 'Yesterday, 3:00 PM' },
+    { sender: 'Customer', message: 'Requesting clarification on the consolidated balance sheet mismatch for Q1.', time: 'Today, 8:15 AM' },
+  ]
+};
+
+function CustomerQueriesView({ queries, setQueries, knowledgeBase }: { 
+  queries: typeof CUSTOMER_QUERIES_DATA, 
+  setQueries: React.Dispatch<React.SetStateAction<typeof CUSTOMER_QUERIES_DATA>>,
+  knowledgeBase: any
+}) {
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replies, setReplies] = useState<Record<string, string>>({});
+  const [selectedQuery, setSelectedQuery] = useState<(typeof CUSTOMER_QUERIES_DATA)[0] | null>(null);
+  const [activeReply, setActiveReply] = useState('');
+  const [activeFilter, setActiveFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredQueries = useMemo(() => {
+    return queries.filter(q => {
+      const matchesSearch = q.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           q.message.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesFilter = activeFilter === 'ALL' || 
+                           (activeFilter === 'WhatsApp' && q.platform === 'WhatsApp') ||
+                           (activeFilter === 'Email' && q.platform === 'Email') ||
+                           (activeFilter === 'Facebook' && q.platform === 'Facebook') ||
+                           (activeFilter === 'Pending' && q.status === 'Pending') ||
+                           (activeFilter === 'Replied' && q.status === 'Replied');
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [queries, searchQuery, activeFilter]);
+
+  const handleGenerateReply = async (id: string, name: string, message: string) => {
+    setReplyingTo(id);
+    const kbContext = `
+      Business Hours: ${knowledgeBase.hours}
+      Services: ${knowledgeBase.description}
+      Pricing: ${knowledgeBase.pricing}
+      FAQs: ${knowledgeBase.faqs.map((f: any) => `Q: ${f.q} A: ${f.a}`).join(' | ')}
+    `;
+    const reply = await generateCustomerReply(name, message, kbContext);
+    setReplies(prev => ({ ...prev, [id]: reply }));
+    setReplyingTo(null);
+    return reply;
+  };
+
+  const openQueryModal = async (query: (typeof CUSTOMER_QUERIES_DATA)[0]) => {
+    setSelectedQuery(query);
+    if (replies[query.id]) {
+      setActiveReply(replies[query.id]);
+    } else {
+      setReplyingTo(query.id);
+      const reply = await handleGenerateReply(query.id, query.name, query.message);
+      setActiveReply(reply);
+    }
+  };
+
+  const handleApproveAndSend = (id: string) => {
+    markAsReplied(id);
+    setSelectedQuery(null);
+  };
+
+  const markAsReplied = (id: string) => {
+    setQueries(prev => prev.map(q => q.id === id ? { ...q, status: 'Replied' } : q));
+    setReplies(prev => {
+      const newReplies = { ...prev };
+      delete newReplies[id];
+      return newReplies;
+    });
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Signal Intercept</h4>
+          <h2 className="text-5xl font-black italic uppercase">CUSTOMER QUERIES</h2>
+        </div>
+        <div className="flex flex-col items-end gap-4">
+          <div className="glass px-6 py-3 border-white/10 text-[10px] font-mono text-gray-400 uppercase tracking-widest flex items-center gap-4">
+            <span>Active Sessions: {queries.filter(q => q.status === 'Pending').length}</span>
+            <span className="w-px h-3 bg-white/10"></span>
+            <span>Total Signals: {queries.length}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {/* Search and Filters */}
+        <div className="glass p-6 border-white/10 bg-white/[0.01] flex flex-wrap gap-6 items-center">
+           <div className="flex-1 min-w-[300px] relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+              <input 
+                type="text" 
+                placeholder="SEARCH_BY_CUSTOMER_OR_CONTENT..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 pl-14 pr-6 py-4 text-[11px] font-mono text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+              />
+           </div>
+           
+           <div className="flex flex-wrap gap-2">
+              {['ALL', 'WhatsApp', 'Email', 'Facebook', 'Pending', 'Replied'].map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={cn(
+                    "px-6 py-3 text-[9px] font-black uppercase tracking-widest transition-all border",
+                    activeFilter === filter 
+                      ? "bg-intelligence text-black border-intelligence shadow-[0_0_15px_rgba(0,242,255,0.3)]" 
+                      : "bg-white/5 text-gray-500 border-white/10 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  {filter}
+                </button>
+              ))}
+           </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
+          {filteredQueries.map((query) => (
+          <div key={query.id} className="glass p-8 border-white/5 bg-white/[0.01] hover:bg-white/[0.02] transition-all relative overflow-hidden group">
+             <div className="absolute top-0 right-0 w-32 h-32 bg-intelligence/5 -mr-16 -mt-16 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+             
+             <div className="flex flex-col md:flex-row gap-8 relative z-10">
+                <div className="md:w-1/4">
+                   <div className="flex items-center gap-3 mb-4">
+                      <div className={cn(
+                        "px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest border",
+                        query.platform === 'WhatsApp' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                        query.platform === 'Email' ? "bg-intelligence/10 text-intelligence border-intelligence/20" :
+                        "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                      )}>
+                        {query.platform}
+                      </div>
+                      <span className="text-[10px] font-mono text-gray-600">{query.time}</span>
+                   </div>
+                   <h3 className="text-lg font-black text-white italic uppercase mb-1">{query.name}</h3>
+                   <div className={cn(
+                     "inline-flex items-center gap-2 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em]",
+                     query.status === 'Pending' ? "text-brand animate-pulse" : "text-emerald-500"
+                   )}>
+                      <div className={cn("w-1 h-1 rounded-full", query.status === 'Pending' ? "bg-brand" : "bg-emerald-500")}></div>
+                      {query.status}
+                   </div>
+                </div>
+
+                <div className="flex-1 space-y-6">
+                   <div className="bg-black/40 p-6 border border-white/5 relative">
+                      <MessageSquare className="absolute top-4 right-4 text-white/5" size={40} />
+                      <p className="text-sm font-mono text-gray-400 leading-relaxed italic truncate max-w-2xl">"{query.message}"</p>
+                   </div>
+
+                   <div className="flex gap-4">
+                      <button 
+                        onClick={() => openQueryModal(query)}
+                        className="group flex items-center gap-3 px-6 py-3 bg-intelligence/10 border border-intelligence/30 text-intelligence hover:bg-intelligence hover:text-black transition-all font-black text-[10px] uppercase tracking-widest"
+                      >
+                         <ExternalLink size={14} />
+                         VIEW_AND_REPLY
+                      </button>
+                      
+                      {query.status === 'Pending' && !replies[query.id] && (
+                        <button 
+                          onClick={() => handleGenerateReply(query.id, query.name, query.message)}
+                          disabled={replyingTo === query.id}
+                          className="flex items-center gap-3 px-6 py-3 border border-white/10 text-white/40 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-50"
+                        >
+                           {replyingTo === query.id ? (
+                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                           ) : (
+                             <Brain size={14} />
+                           )}
+                           PREGENERATE_REPLY
+                        </button>
+                      )}
+                   </div>
+
+                   <AnimatePresence>
+                     {replies[query.id] && query.status === 'Pending' && !selectedQuery && (
+                       <motion.div 
+                         initial={{ height: 0, opacity: 0 }}
+                         animate={{ height: 'auto', opacity: 1 }}
+                         className="bg-intelligence/5 border border-intelligence/20 p-6 space-y-4"
+                       >
+                          <div className="flex items-center gap-2 text-intelligence text-[10px] font-black uppercase tracking-widest">
+                             <Sparkles size={14} />
+                             AI Suggested Response
+                          </div>
+                          <p className="text-sm font-mono text-white leading-relaxed">{replies[query.id]}</p>
+                          <div className="flex gap-4">
+                             <button 
+                               onClick={() => markAsReplied(query.id)}
+                               className="bg-intelligence text-black px-6 py-2 font-black text-[9px] uppercase tracking-widest flex items-center gap-2"
+                             >
+                                <Send size={12} />
+                                TRANSMIT_REPLY
+                             </button>
+                             <button 
+                               onClick={() => setReplies(prev => {
+                                 const nr = {...prev};
+                                 delete nr[query.id];
+                                 return nr;
+                               })}
+                               className="text-[9px] font-black text-gray-500 uppercase tracking-widest hover:text-white transition-colors"
+                             >
+                                DISCARD
+                             </button>
+                          </div>
+                       </motion.div>
+                     )}
+                   </AnimatePresence>
+                </div>
+             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Query Analytics Section */}
+    <div className="space-y-8 pt-12 border-t border-white/5 pb-24">
+      <div>
+        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Signal intelligence</h4>
+        <h3 className="text-3xl font-black italic uppercase">Query Analytics</h3>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="glass p-8 border-white/5 space-y-8">
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Activity size={14} className="text-intelligence" />
+                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Growth_Metric</span>
+              </div>
+              <p className="text-4xl font-black italic uppercase text-white">142</p>
+              <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Signals_Received_MTD</p>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock size={14} className="text-intelligence" />
+                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Efficiency_Index</span>
+              </div>
+              <p className="text-4xl font-black italic uppercase text-intelligence">4.8h</p>
+              <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Average_Response_Time</p>
+            </div>
+          </div>
+
+          <div className="h-[300px] w-full">
+             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6 px-4">Volume per Access Platform</h4>
+             <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'WhatsApp', value: 40 },
+                      { name: 'Email', value: 35 },
+                      { name: 'Facebook', value: 25 },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#00f2ff" />
+                    <Cell fill="#ff2e73" />
+                    <Cell fill="#ffffff10" />
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#05070a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }}
+                    itemStyle={{ color: '#fff' }}
+                  />
+                </PieChart>
+             </ResponsiveContainer>
+             <div className="flex flex-wrap justify-center gap-6 mt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-intelligence"></div>
+                  <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">WhatsApp (40%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-brand"></div>
+                  <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Email (35%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white/10"></div>
+                  <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Facebook (25%)</span>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        <div className="glass p-8 border-white/5 overflow-hidden">
+          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8">Classification Frequency (Top 5)</h4>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={[
+                { topic: 'Network Feed', count: 45 },
+                { topic: 'API Auth', count: 32 },
+                { topic: 'Billing', count: 28 },
+                { topic: 'Hardware', count: 15 },
+                { topic: 'Compliance', count: 12 }
+              ]} layout="vertical" margin={{ left: 20, right: 40 }}>
+                <XAxis type="number" hide />
+                <YAxis 
+                  dataKey="topic" 
+                  type="category" 
+                  width={100} 
+                  axisLine={false} 
+                  tickLine={false}
+                  tick={{ fill: '#4b5563', fontSize: 9, fontWeight: 900 }}
+                />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }}
+                  itemStyle={{ color: '#00f2ff' }}
+                />
+                <Bar dataKey="count" fill="#00f2ff" radius={[0, 4, 4, 0]} barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Reply Modal */}
+    <AnimatePresence>
+        {selectedQuery && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedQuery(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            ></motion.div>
+            
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-dark-bg border border-white/10 w-full max-w-3xl overflow-hidden relative z-10 glass"
+            >
+               <div className="flex justify-between items-center p-8 border-b border-white/5 bg-white/[0.02]">
+                  <div>
+                    <p className="text-[10px] font-black text-intelligence uppercase tracking-[0.3em] mb-1">Reply Console</p>
+                    <h3 className="text-2xl font-black italic uppercase italic">SYSTEM_REPLY_PROTOCOL</h3>
+                  </div>
+                  <button onClick={() => setSelectedQuery(null)} className="text-gray-500 hover:text-white p-2">
+                    <X size={24} />
+                  </button>
+               </div>
+
+               <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
+                  {/* Conversation History */}
+                  <div className="space-y-6">
+                     <div className="flex items-center gap-3">
+                        <History className="text-gray-600" size={16} />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Conversation History</span>
+                     </div>
+                     <div className="space-y-4">
+                        {(SAMPLE_CHAT_HISTORY[selectedQuery.id] || [{ sender: 'Customer', message: selectedQuery.message, time: selectedQuery.time }]).map((msg, idx) => (
+                           <div key={idx} className={cn(
+                             "p-4 border max-w-[85%] relative group",
+                             msg.sender === 'System' 
+                               ? "ml-auto bg-intelligence/5 border-intelligence/20 text-right" 
+                               : "bg-white/5 border-white/10"
+                           )}>
+                              <div className={cn(
+                                "text-[8px] font-black uppercase tracking-widest mb-1",
+                                msg.sender === 'System' ? "text-intelligence" : "text-brand"
+                              )}>
+                                 {msg.sender} // {msg.time}
+                              </div>
+                              <p className="text-xs font-mono text-gray-300 leading-relaxed">{msg.message}</p>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+
+                  {/* Business Context (Knowledge Base) */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <Database className="text-gray-600" size={16} />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Business Intelligence Context</span>
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-white/5 border border-white/5">
+                           <span className="text-[8px] font-black text-intelligence uppercase tracking-widest block mb-1">Hours_&_Services</span>
+                           <p className="text-[10px] font-mono text-gray-400 leading-relaxed truncate">{knowledgeBase.hours}</p>
+                           <p className="text-[10px] font-mono text-gray-500 leading-relaxed line-clamp-2 mt-1">{knowledgeBase.description}</p>
+                        </div>
+                        <div className="p-4 bg-white/5 border border-white/5">
+                           <span className="text-[8px] font-black text-intelligence uppercase tracking-widest block mb-1">FAQs_Matched</span>
+                           <div className="space-y-1">
+                              {knowledgeBase.faqs.slice(0, 2).map((faq: any, i: number) => (
+                                 <p key={i} className="text-[9px] font-mono text-gray-500 truncate italic">"{faq.q}"</p>
+                              ))}
+                              {knowledgeBase.faqs.length === 0 && <p className="text-[9px] font-mono text-gray-700 italic uppercase">No FAQs found</p>}
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="space-y-4">
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                           <Brain className="text-intelligence" size={16} />
+                           <span className="text-[10px] font-black text-intelligence uppercase tracking-widest">AI Intelligence Draft</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                           {replyingTo === selectedQuery.id && (
+                              <div className="flex items-center gap-2 text-[8px] font-mono text-intelligence animate-pulse">
+                                 <div className="w-1 h-1 bg-intelligence rounded-full"></div>
+                                 THINKING...
+                              </div>
+                           )}
+                           <button 
+                             onClick={() => handleGenerateReply(selectedQuery.id, selectedQuery.name, selectedQuery.message).then(setActiveReply)}
+                             disabled={replyingTo === selectedQuery.id}
+                             className="flex items-center gap-2 px-3 py-1 bg-intelligence/10 border border-intelligence/30 text-intelligence hover:bg-intelligence hover:text-black transition-all font-black text-[8px] uppercase tracking-widest disabled:opacity-50"
+                           >
+                              <Sparkles size={12} />
+                              REGENERATE_INTEL
+                           </button>
+                        </div>
+                     </div>
+                     <div className="relative">
+                        <textarea 
+                          value={activeReply}
+                          onChange={(e) => setActiveReply(e.target.value)}
+                          rows={6}
+                          className="w-full bg-white/5 border border-white/10 p-6 text-sm font-mono text-white focus:outline-none focus:border-intelligence/50 transition-all resize-none"
+                          placeholder="Compiling AI response..."
+                        />
+                        <div className="absolute bottom-4 right-4 pointer-events-none opacity-5">
+                           <Sparkles size={60} className="text-intelligence" />
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+               <div className="p-8 border-t border-white/5 flex gap-6 bg-white/[0.01]">
+                  <button 
+                    onClick={() => handleApproveAndSend(selectedQuery.id)}
+                    className="flex-1 bg-intelligence text-black font-black uppercase text-[11px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+                  >
+                     <Send size={16} />
+                     APPROVE_AND_SEND
+                  </button>
+                  <button 
+                    onClick={() => setSelectedQuery(null)}
+                    className="px-8 border border-white/10 text-gray-500 hover:text-white font-black uppercase text-[11px] tracking-[0.3em] transition-colors"
+                  >
+                     ABORT
+                  </button>
+               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// --- TEAM MANAGEMENT VIEW ---
+
+const TEAM_MEMBERS = [
+  { id: '1', name: 'Alice Vancity', role: 'Owner', joined: '2023-01-15' },
+  { id: '2', name: 'Robert Chen', role: 'Manager', joined: '2023-03-10' },
+  { id: '3', name: 'Sarah Jenkins', role: 'Accountant', joined: '2023-05-22' },
+  { id: '4', name: 'Michael Scott', role: 'Marketer', joined: '2023-08-05' },
+  { id: '5', name: 'Elena Kostic', role: 'Pending', joined: '2024-05-12' },
+];
+
+function TeamManagementView() {
+  const [members, setMembers] = useState(TEAM_MEMBERS);
+  const [copied, setCopied] = useState(false);
+
+  const copyInvite = () => {
+    navigator.clipboard.writeText('HOTEL1');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const removeMember = (id: string) => {
+    setMembers(prev => prev.filter(m => m.id !== id));
+  };
+
+  const getRoleBadge = (role: string) => {
+    const styles: Record<string, string> = {
+      'Owner': 'bg-brand/10 text-brand border-brand/20',
+      'Manager': 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+      'Accountant': 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      'Marketer': 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+      'Pending': 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+    };
+    return (
+      <div className={cn("px-3 py-0.5 rounded-sm border text-[9px] font-black uppercase tracking-widest inline-block", styles[role])}>
+        {role}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex justify-between items-end">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Network Control</h4>
+          <h2 className="text-5xl font-black italic uppercase">TEAM MANAGEMENT</h2>
+        </div>
+        <button className="bg-intelligence text-black px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3">
+          <UserPlus size={16} />
+          INVITE_NEW_AGENT
+        </button>
+      </div>
+
+      {/* Invite Code Section */}
+      <div className="glass p-8 border-brand/30 bg-brand/5 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+            <Key size={100} className="text-brand" />
+         </div>
+         <div>
+            <h4 className="text-xl font-black italic uppercase mb-2 text-white">NETWORK ACCESS KEY</h4>
+            <p className="text-xs font-mono text-gray-500 uppercase tracking-widest max-w-sm">Share this encrypted identifier with your personnel to grant bypass access to the node cluster.</p>
+         </div>
+         <div className="flex items-center gap-4">
+            <div className="bg-black/40 border border-brand/40 px-12 py-4 text-3xl font-mono font-black text-brand italic tracking-[0.2em]">
+               HOTEL1
+            </div>
+            <button 
+              onClick={copyInvite}
+              className="bg-white text-black p-4 hover:bg-brand hover:text-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+            >
+               {copied ? <CheckCircle2 size={24} /> : <Copy size={24} />}
+            </button>
+         </div>
+      </div>
+
+      {/* Team Table */}
+      <div className="glass border-white/5 overflow-hidden">
+         <table className="w-full text-left border-collapse">
+            <thead>
+               <tr className="border-b border-white/5 bg-white/[0.02]">
+                  <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Agent Identity</th>
+                  <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Clearance Protocol</th>
+                  <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Deployment Date</th>
+                  <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
+               </tr>
+            </thead>
+            <tbody>
+               {members.map((member) => (
+                  <tr key={member.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-all group">
+                     <td className="p-6">
+                        <div className="flex items-center gap-4">
+                           <div className="w-10 h-10 bg-white/5 border border-white/10 flex items-center justify-center font-mono text-xs text-intelligence font-black lowercase">
+                              {member.name.split(' ').map(n => n[0]).join('')}
+                           </div>
+                           <p className="text-sm font-bold text-white uppercase group-hover:text-intelligence transition-all">{member.name}</p>
+                        </div>
+                     </td>
+                     <td className="p-6">
+                        {getRoleBadge(member.role)}
+                     </td>
+                     <td className="p-6 font-mono text-xs text-gray-600 uppercase">
+                        {member.joined}
+                     </td>
+                     <td className="p-6 text-right">
+                        <button 
+                          onClick={() => removeMember(member.id)}
+                          className="p-3 text-gray-700 hover:text-brand hover:bg-brand/10 transition-all rounded-sm"
+                        >
+                           <Trash2 size={18} />
+                        </button>
+                     </td>
+                  </tr>
+               ))}
+            </tbody>
+         </table>
+      </div>
+    </div>
+  );
+}
+
+// --- SETTINGS VIEW ---
+
+function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, knowledgeBase, onUpdateKnowledgeBase }: { 
+  onUpdateBusinessName: (name: string) => void, 
+  categories: {name: string, type: 'Inflow' | 'Outflow'}[],
+  onUpdateCategories: React.Dispatch<React.SetStateAction<{name: string, type: 'Inflow' | 'Outflow'}[]>>,
+  knowledgeBase: any,
+  onUpdateKnowledgeBase: (kb: any) => void
+}) {
+  const [profile, setProfile] = useState({
+    businessName: localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL',
+    businessType: localStorage.getItem('business_type') || 'Retail',
+    ownerName: localStorage.getItem('owner_name') || 'Agent_042',
+    phone: localStorage.getItem('phone') || '+977-9800000000',
+    address: localStorage.getItem('address') || 'Kathmandu, Nepal',
+    panNumber: localStorage.getItem('pan_number') || '600000000',
+    logo: localStorage.getItem('business_logo') || ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  
+  const [newCat, setNewCat] = useState({ name: '', type: 'Inflow' });
+
+  // Knowledge Base State
+  const [localKB, setLocalKB] = useState(knowledgeBase);
+  const [newFAQ, setNewFAQ] = useState({ q: '', a: '' });
+
+  const addCat = () => {
+    if (!newCat.name) return;
+    if (categories.some(c => c.name.toLowerCase() === newCat.name.toLowerCase() && c.type === newCat.type)) {
+      setMessage('CATEGORY_EXISTS');
+      setTimeout(() => setMessage(''), 2000);
+      return;
+    }
+    onUpdateCategories(prev => [...prev, { name: newCat.name, type: newCat.type as 'Inflow' | 'Outflow' }]);
+    setNewCat({ ...newCat, name: '' });
+    setMessage('CATEGORY_ADDED');
+    setTimeout(() => setMessage(''), 2000);
+  };
+
+  const removeCat = (name: string, type: string) => {
+    onUpdateCategories(prev => prev.filter(c => !(c.name === name && c.type === type)));
+  };
+
+  const handleSave = () => {
+    setIsSaving(true);
+    localStorage.setItem('business_name', profile.businessName);
+    localStorage.setItem('business_type', profile.businessType);
+    localStorage.setItem('owner_name', profile.ownerName);
+    localStorage.setItem('phone', profile.phone);
+    localStorage.setItem('address', profile.address);
+    localStorage.setItem('pan_number', profile.panNumber);
+    localStorage.setItem('business_logo', profile.logo);
+
+    onUpdateBusinessName(profile.businessName);
+    onUpdateKnowledgeBase(localKB);
+
+    setTimeout(() => {
+      setIsSaving(false);
+      setMessage('PROFILE_HANDSHAKE_COMPLETE');
+      setTimeout(() => setMessage(''), 3000);
+    }, 1500);
+  };
+
+  const addFAQ = () => {
+    if (!newFAQ.q || !newFAQ.a) return;
+    setLocalKB({ ...localKB, faqs: [...localKB.faqs, newFAQ] });
+    setNewFAQ({ q: '', a: '' });
+  };
+
+  const removeFAQ = (index: number) => {
+    setLocalKB({ ...localKB, faqs: localKB.faqs.filter((_: any, i: number) => i !== index) });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfile(prev => ({ ...prev, logo: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  return (
+    <div className="space-y-12 max-w-4xl pb-20">
+      <div>
+        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Node Configuration</h4>
+        <h2 className="text-5xl font-black italic uppercase">BUSINESS PROFILE</h2>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+        {/* Logo Section */}
+        <div className="md:col-span-1 space-y-6">
+          <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block text-center">Entity Visual Identifier</label>
+          <div className="relative group mx-auto w-48 h-48 border-2 border-dashed border-white/10 flex flex-col items-center justify-center hover:border-intelligence transition-all overflow-hidden bg-black/20 group cursor-pointer">
+            {profile.logo ? (
+              <img src={profile.logo} alt="Logo" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+            ) : (
+              <div className="flex flex-col items-center gap-3 text-gray-600">
+                <Upload size={40} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Upload Alpha Source</span>
+              </div>
+            )}
+            <input 
+              type="file" 
+              accept="image/*"
+              onChange={handleLogoUpload}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            />
+            <div className="absolute inset-0 bg-intelligence/20 flex items-center justify-center translate-y-full group-hover:translate-y-0 transition-transform pointer-events-none">
+               <ImageIcon className="text-white" size={32} />
+            </div>
+          </div>
+          <p className="text-[8px] font-mono text-gray-600 uppercase text-center">Supported: PNG, JPG, SVG (Max 2MB)</p>
+        </div>
+
+        {/* Form Fields */}
+        <div className="md:col-span-2 space-y-8">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Name</label>
+                 <div className="relative group">
+                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence" size={18} />
+                    <input 
+                      type="text" 
+                      value={profile.businessName}
+                      onChange={(e) => setProfile({...profile, businessName: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all uppercase"
+                    />
+                 </div>
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Protocol Sector</label>
+                 <div className="relative group">
+                    <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence" size={18} />
+                    <select 
+                      value={profile.businessType}
+                      onChange={(e) => setProfile({...profile, businessType: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                    >
+                      <option value="Hotel">Hotel</option>
+                      <option value="Restaurant">Restaurant</option>
+                      <option value="Retail">Retail</option>
+                      <option value="Manufacturing">Manufacturing</option>
+                      <option value="Service">Service</option>
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                 </div>
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Primary Agent Name</label>
+                 <div className="relative group">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                    <input 
+                      type="text" 
+                      value={profile.ownerName}
+                      onChange={(e) => setProfile({...profile, ownerName: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                    />
+                 </div>
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Signal (Phone)</label>
+                 <div className="relative group">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                    <input 
+                      type="text" 
+                      value={profile.phone}
+                      onChange={(e) => setProfile({...profile, phone: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                    />
+                 </div>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Base Location (Address)</label>
+                 <div className="relative group">
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                    <input 
+                      type="text" 
+                      value={profile.address}
+                      onChange={(e) => setProfile({...profile, address: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                    />
+                 </div>
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">PAN Identifier</label>
+                 <div className="relative group">
+                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                    <input 
+                      type="text" 
+                      value={profile.panNumber}
+                      onChange={(e) => setProfile({...profile, panNumber: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all font-mono"
+                    />
+                 </div>
+              </div>
+           </div>
+
+           <div className="pt-6 flex items-center gap-6">
+              <button 
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex-1 bg-intelligence text-black font-black uppercase text-[11px] tracking-[0.3em] py-5 flex items-center justify-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] disabled:opacity-50 transition-all relative overflow-hidden group"
+              >
+                 <span className="relative z-10 flex items-center gap-3">
+                   {isSaving ? "RECALIBRATING..." : "COMMIT_PROFILE_CHANGES"}
+                   <Shield size={16} />
+                 </span>
+                 <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              </button>
+              
+              <AnimatePresence>
+                {message && (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-intelligence text-[10px] font-black uppercase tracking-widest animate-pulse"
+                  >
+                    {message}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+           </div>
+        </div>
+      </div>
+
+      {/* Business Knowledge Base Section */}
+      <div className="pt-20 space-y-12 border-t border-white/5">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Operational Context</h4>
+          <h2 className="text-5xl font-black italic uppercase">KNOWLEDGE_BASE</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          {/* Core Info */}
+          <div className="glass p-8 border-white/10 bg-white/[0.01] space-y-8">
+            <h3 className="text-xs font-black uppercase tracking-widest text-intelligence flex items-center gap-2">
+              <Database size={14} />
+              Core_Intelligence_Params
+            </h3>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Hours</label>
+                <input 
+                  type="text" 
+                  value={localKB.hours}
+                  onChange={(e) => setLocalKB({...localKB, hours: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 px-6 py-4 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 transition-all"
+                  placeholder="e.g. Mon-Fri: 9AM-5PM"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Menu / Services Description</label>
+                <textarea 
+                  value={localKB.description}
+                  onChange={(e) => setLocalKB({...localKB, description: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 px-6 py-4 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 transition-all min-h-[100px] resize-none"
+                  placeholder="Describe your services or menu items..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Pricing Information</label>
+                <textarea 
+                  value={localKB.pricing}
+                  onChange={(e) => setLocalKB({...localKB, pricing: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 px-6 py-4 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 transition-all min-h-[80px] resize-none"
+                  placeholder="List pricing tiers or standard rates..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* FAQs */}
+          <div className="glass p-8 border-white/10 bg-white/[0.01] space-y-8">
+            <h3 className="text-xs font-black uppercase tracking-widest text-intelligence flex items-center gap-2">
+              <MessageSquare size={14} />
+              FAQ_Signal_Patterns
+            </h3>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-white/5 border border-white/5 space-y-4">
+                <input 
+                  type="text" 
+                  value={newFAQ.q}
+                  onChange={(e) => setNewFAQ({...newFAQ, q: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 px-4 py-2 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/30"
+                  placeholder="PATTERN_QUERY (Question)"
+                />
+                <textarea 
+                  value={newFAQ.a}
+                  onChange={(e) => setNewFAQ({...newFAQ, a: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 px-4 py-2 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/30 resize-none h-20"
+                  placeholder="RESPONSE_TEMPLATE (Answer)"
+                />
+                <button 
+                  onClick={addFAQ}
+                  className="w-full bg-intelligence/10 text-intelligence border border-intelligence/20 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-intelligence hover:text-black transition-all"
+                >
+                  APPEND_PATTERN
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                {localKB.faqs.map((faq: any, i: number) => (
+                  <div key={i} className="p-4 border border-white/5 bg-white/[0.01] relative group">
+                    <button 
+                      onClick={() => removeFAQ(i)}
+                      className="absolute top-2 right-2 text-gray-700 hover:text-brand opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <X size={12} />
+                    </button>
+                    <p className="text-[10px] font-black text-intelligence uppercase mb-1">{faq.q}</p>
+                    <p className="text-[10px] font-mono text-gray-500 leading-relaxed">{faq.a}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Management Section */}
+      <div className="pt-20 space-y-12 border-t border-white/5">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Protocol Taxonomies</h4>
+          <h2 className="text-5xl font-black italic uppercase">CATEGORY_ARCHITECTURE</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          {/* Add Category Form */}
+          <div className="glass p-8 border-white/10 bg-white/[0.01] space-y-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-intelligence flex items-center gap-2">
+              <Plus size={14} />
+              Inject New Taxonomy
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Category Name</label>
+                <input 
+                  type="text" 
+                  value={newCat.name}
+                  onChange={(e) => setNewCat({...newCat, name: e.target.value})}
+                  placeholder="E.G. LOGISTICS_REPAIR"
+                  className="w-full bg-white/5 border border-white/10 px-6 py-4 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 transition-all uppercase"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Signal Type</label>
+                <div className="flex gap-2">
+                  {['Inflow', 'Outflow'].map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setNewCat({...newCat, type: t as any})}
+                      className={cn(
+                        "flex-1 py-3 text-[9px] font-black uppercase tracking-widest transition-all border text-center",
+                        newCat.type === t ? "bg-intelligence text-black border-intelligence" : "border-white/10 text-gray-500 hover:text-white"
+                      )}
+                    >
+                      {t === 'Inflow' ? 'Revenue' : 'Expense'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button 
+                onClick={addCat}
+                className="w-full bg-white/5 border border-white/10 py-4 text-[10px] font-black uppercase tracking-widest hover:bg-intelligence hover:text-black transition-all"
+              >
+                COMMIT_TAXONOMY
+              </button>
+            </div>
+          </div>
+
+          {/* List Categories */}
+          <div className="space-y-8">
+            {['Inflow', 'Outflow'].map(type => (
+              <div key={type} className="space-y-4">
+                <h3 className={cn(
+                  "text-[10px] font-black uppercase tracking-widest flex items-center gap-2",
+                  type === 'Inflow' ? "text-intelligence" : "text-brand"
+                )}>
+                  {type === 'Inflow' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                  {type === 'Inflow' ? 'Incoming_Streams' : 'Outgoing_Flows'}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {categories.filter(c => c.type === type).map((c, i) => (
+                    <div key={i} className="group relative">
+                      <div className="bg-white/5 border border-white/10 px-4 py-2 text-[9px] font-mono text-gray-400 uppercase flex items-center gap-4 group-hover:border-intelligence/30 transition-all">
+                        {c.name}
+                        <button 
+                          onClick={() => removeCat(c.name, c.type)}
+                          className="text-gray-700 hover:text-brand transition-colors p-1"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {categories.filter(c => c.type === type).length === 0 && (
+                    <p className="text-[10px] font-mono text-gray-700 uppercase italic">No active taxonomies</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- BALANCE SHEET VIEW ---
+
+const getBSData = (multiplier: number = 1) => {
+  const assetsCurrent = [
+    { name: "Cash & Equivalents", val: 2450000 * multiplier },
+    { name: "Accounts Receivable", val: 850000 * multiplier },
+    { name: "Inventory", val: 1200000 * multiplier },
+    { name: "Prepaid Expenses", val: 150000 * multiplier },
+  ];
+  const assetsFixed = [
+    { name: "Hotel Property", val: 45000000 },
+    { name: "Furniture & Fixtures", val: 5600000 },
+    { name: "IT Infrastructure", val: 2400000 },
+    { name: "Accumulated Depreciation", val: -8500000 },
+  ];
+  const liabilitiesCurrent = [
+    { name: "Accounts Payable", val: 1450000 * multiplier },
+    { name: "Accrued Wages", val: 650000 * multiplier },
+    { name: "Current Portion of Debt", val: 1200000 },
+  ];
+  const liabilitiesLong = [
+    { name: "Commercial Mortgage", val: 22000000 },
+    { name: "Term Loans", val: 4500000 },
+  ];
+  const equity = [
+    { name: "Retained Earnings", val: 15450000 * multiplier },
+    { name: "Owner Capital", val: 8000000 },
+  ];
+
+  const totalCurrentAssets = assetsCurrent.reduce((acc, i) => acc + i.val, 0);
+  const totalFixedAssets = assetsFixed.reduce((acc, i) => acc + i.val, 0);
+  const totalAssets = totalCurrentAssets + totalFixedAssets;
+
+  const totalCurrentLiabilities = liabilitiesCurrent.reduce((acc, i) => acc + i.val, 0);
+  const totalLongLiabilities = liabilitiesLong.reduce((acc, i) => acc + i.val, 0);
+  const totalLiabilities = totalCurrentLiabilities + totalLongLiabilities;
+
+  const totalEquity = equity.reduce((acc, i) => acc + i.val, 0);
+
+  return {
+    sections: [
+      {
+        category: "Current Assets",
+        total: formatCurrency(totalCurrentAssets),
+        items: assetsCurrent.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+      },
+      {
+        category: "Fixed Assets",
+        total: formatCurrency(totalFixedAssets),
+        items: assetsFixed.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+      },
+      {
+        category: "Current Liabilities",
+        total: formatCurrency(totalCurrentLiabilities),
+        items: liabilitiesCurrent.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+      },
+      {
+        category: "Long-term Liabilities",
+        total: formatCurrency(totalLongLiabilities),
+        items: liabilitiesLong.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+      },
+      {
+        category: "Equity",
+        total: formatCurrency(totalEquity),
+        items: equity.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+      }
+    ],
+    summary: {
+      totalAssets: formatCurrency(totalAssets),
+      totalLiabilitiesEquity: formatCurrency(totalLiabilities + totalEquity),
+      isValid: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01
+    }
+  };
+};
+
+function BalanceSheetView() {
+  const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
+  const [customDates, setCustomDates] = useState({ start: '', end: '' });
+
+  const getMultiplier = () => {
+    switch(range) {
+      case 'This Month': return 1;
+      case 'Last Month': return 0.98;
+      case 'This Quarter': return 3.0;
+      case 'Custom':
+        if (customDates.start && customDates.end) {
+          const s = new Date(customDates.start);
+          const e = new Date(customDates.end);
+          const diffInMs = e.getTime() - s.getTime();
+          const diffInMonths = diffInMs / (1000 * 3600 * 24 * 30);
+          return Math.max(0.1, diffInMonths);
+        }
+        return 1;
+      default: return 1;
+    }
+  };
+
+  const bsData = getBSData(getMultiplier());
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+    
+    doc.setFontSize(20);
+    doc.text('Balance Sheet', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Entity: ${businessName}`, 14, 30);
+    doc.text(`Period: As at ${new Date().toLocaleDateString()}`, 14, 36);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 42);
+
+    const body: any[] = [];
+    bsData.sections.forEach(section => {
+      body.push([section.category.toUpperCase(), '', section.total]);
+      section.items.forEach(item => {
+        body.push([`   ${item.name}`, '', item.val]);
+      });
+      body.push(['', '', '']);
+    });
+
+    body.push(['TOTAL ASSETS', '', bsData.summary.totalAssets]);
+    body.push(['TOTAL LIABILITIES & EQUITY', '', bsData.summary.totalLiabilitiesEquity]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['Classification', 'Details', 'Value']],
+      body: body,
+      theme: 'striped',
+      headStyles: { fillColor: [147, 51, 234], textColor: [255, 255, 255] },
+      styles: { font: 'helvetica', fontSize: 9 },
+      columnStyles: { 2: { halign: 'right' } }
+    });
+
+    doc.save(`Balance_Sheet_${businessName.replace(/\s/g, '_')}.pdf`);
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex justify-between items-end">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-purple-400 mb-2">Statement of Financial Position</h4>
+          <h2 className="text-5xl font-black italic uppercase">BALANCE SHEET</h2>
+        </div>
+        <div className="flex gap-4 items-center">
+          <button 
+            onClick={exportPDF}
+            className="bg-purple-600 text-white px-8 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(147,51,234,0.4)] transition-all h-fit"
+          >
+            <Download size={16} />
+            EXPORT_PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="glass border-white/5 overflow-hidden p-2 space-y-2">
+           <PLSection section={bsData.sections[0] as any} />
+           <PLSection section={bsData.sections[1] as any} />
+           <div className="p-6 bg-white/[0.02] border border-white/5 flex justify-between items-center mt-4">
+              <span className="text-xs font-black uppercase tracking-widest text-white">Total Assets</span>
+              <span className="text-lg font-black text-white">{bsData.summary.totalAssets}</span>
+           </div>
+        </div>
+
+        <div className="space-y-8">
+          <div className="glass border-white/5 overflow-hidden p-2 space-y-2">
+             <PLSection section={bsData.sections[2] as any} />
+             <PLSection section={bsData.sections[3] as any} />
+             <PLSection section={bsData.sections[4] as any} />
+          </div>
+
+          <div className={cn(
+            "p-6 border flex justify-between items-center transition-all",
+            bsData.summary.isValid ? "bg-intelligence/10 border-intelligence/30" : "bg-red-500/10 border-red-500/30"
+          )}>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Total Liabilities & Equity</p>
+              <span className="text-2xl font-black text-white">{bsData.summary.totalLiabilitiesEquity}</span>
+            </div>
+            {bsData.summary.isValid && (
+              <div className="flex items-center gap-2 text-intelligence">
+                <CheckCircle2 size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Balanced</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- MAIN PLATFORM APP ---
+
+function Dashboard({ onLogout }: { onLogout: () => void }) {
+  const [activeTab, setActiveTab] = useState<PlatformTab>('Overview');
+  const [businessName, setBusinessName] = useState(localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL');
+  const businessLogo = localStorage.getItem('business_logo');
+
+  const [transactions, setTransactions] = useState<Transaction[]>([
+    { date: '2024-01-15', description: 'Q1 SaaS Subscriptions', amount: 450000, category: 'Sales', type: 'Inflow' },
+    { date: '2024-01-22', description: 'Cloud Infra Payment', amount: 120000, category: 'Logistics', type: 'Outflow' },
+    { date: '2024-02-05', description: 'Series A Funding Round', amount: 2000000, category: 'Sales', type: 'Inflow' },
+    { date: '2024-02-18', description: 'New Office Lease', amount: 850000, category: 'Marketing', type: 'Outflow' },
+    { date: '2024-03-10', description: 'Enterprise Licensing', amount: 320000, category: 'Sales', type: 'Inflow' },
+    { date: '2024-03-25', description: 'Marketing Campaign X', amount: 150000, category: 'Marketing', type: 'Outflow' },
+    { date: '2024-04-02', description: 'Vertex AI API Fees', amount: 50000, category: 'Quantum Computing', type: 'Outflow' },
+    { date: '2024-04-15', description: 'Consulting Revenue', amount: 280000, category: 'Sales', type: 'Inflow' },
+    { date: '2024-05-01', description: 'R&D Equipment', amount: 180000, category: 'R&D', type: 'Outflow' },
+    { date: '2024-05-12', description: 'Maintenance Services', amount: 45000, category: 'Inventory', type: 'Inflow' },
+  ]);
+
+  const [categories, setCategories] = useState<{name: string, type: 'Inflow' | 'Outflow'}[]>(() => {
+    const saved = localStorage.getItem('app_categories');
+    if (saved) return JSON.parse(saved);
+    return [
+      { name: 'Sales', type: 'Inflow' },
+      { name: 'SaaS', type: 'Inflow' },
+      { name: 'Consulting', type: 'Inflow' },
+      { name: 'Marketing', type: 'Outflow' },
+      { name: 'Infrastructure', type: 'Outflow' },
+      { name: 'Payroll', type: 'Outflow' },
+      { name: 'Inventory', type: 'Outflow' },
+      { name: 'R&D', type: 'Outflow' },
+      { name: 'Logistics', type: 'Outflow' },
+      { name: 'Quantum', type: 'Outflow' },
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('app_categories', JSON.stringify(categories));
+  }, [categories]);
+
+  const addTransaction = (t: Transaction) => setTransactions(prev => [t, ...prev]);
+  const deleteTransaction = (index: number) => {
+    setTransactions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const [queries, setQueries] = useState(CUSTOMER_QUERIES_DATA);
+  const pendingQueriesCount = queries.filter(q => q.status === 'Pending').length;
+
+  const [knowledgeBase, setKnowledgeBase] = useState(() => {
+    const saved = localStorage.getItem('business_knowledge_base');
+    if (saved) return JSON.parse(saved);
+    return {
+      hours: 'Mon-Fri: 9AM - 6PM, Sat: 10AM - 4PM, Sun: Closed',
+      description: 'Nepal Ventures Global is a premier technology and logistics solutions provider focused on high-performance sectors.',
+      pricing: 'Standard consulting starts at $150/hr. SaaS licenses range from $49 - $499 per month.',
+      faqs: [
+        { q: 'What is the standard response time?', a: 'We typically respond to all queries within 24 hours.' },
+        { q: 'Do you offer international shipping?', a: 'Yes, we provide logistics services globally with priority lanes in Asia.' }
+      ]
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('business_knowledge_base', JSON.stringify(knowledgeBase));
+  }, [knowledgeBase]);
+
+  return (
+    <div className="h-screen bg-dark-bg text-white overflow-hidden flex font-sans noise scanlines">
+      {/* Main Sidebar */}
+      <aside className="w-48 border-r border-white/5 flex flex-col py-8 bg-black/40 backdrop-blur-3xl z-50 overflow-hidden">
+        <div className="flex flex-col items-center mb-10 px-4">
+          <Activity className="text-intelligence w-10 h-10 mb-2 shadow-[0_0_15px_#00f2ff]" />
+          <span className="text-[10px] font-black text-intelligence tracking-[0.3em] uppercase">Control_Unit</span>
+        </div>
+        
+        <div className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar px-2">
+          {[
+            { id: 'Overview', icon: LayoutDashboard, label: 'OVERVIEW' },
+            { id: 'Inventory', icon: Package, label: 'INVENTORY' },
+            { id: 'Transactions', icon: List, label: 'TRANSACTIONS' },
+            { id: 'P&L Statement', icon: BarChart3, label: 'P&L_REPORT' },
+            { id: 'Cash Flow', icon: TrendingUp, label: 'CASH_FLOW' },
+            { id: 'Balance Sheet', icon: Scale, label: 'BALANCE_SHEET' },
+            { id: 'Customer Queries', icon: MessageSquare, label: 'QUERIES' },
+            { id: 'Team Management', icon: Users, label: 'TEAM_INTEL' },
+            { id: 'Data Entry', icon: Plus, label: 'DATA_INPUT' },
+          ].map((item) => (
+            <button 
+              key={item.id}
+              onClick={() => setActiveTab(item.id as PlatformTab)}
+              className={cn(
+                "w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all group relative",
+                activeTab === item.id ? "bg-intelligence/10 text-intelligence border-l-2 border-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
+              )}
+            >
+              <div className="relative">
+                <item.icon size={18} className={cn(activeTab === item.id ? "text-intelligence" : "text-gray-600 group-hover:text-white")} />
+                {item.id === 'Customer Queries' && pendingQueriesCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-brand text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full animate-pulse shadow-[0_0_10px_rgba(255,46,115,0.4)]">
+                    {pendingQueriesCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[9px] font-black tracking-widest uppercase truncate">
+                {item.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-2 mt-auto px-2 pt-4 border-t border-white/5">
+          <button 
+            onClick={() => setActiveTab('Settings')}
+            className={cn(
+              "w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all group",
+              activeTab === 'Settings' ? "bg-intelligence/10 text-intelligence border-l-2 border-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <Settings size={18} />
+            <span className="text-[9px] font-black tracking-widest uppercase">SETTINGS</span>
+          </button>
+          
+          <button 
+             onClick={onLogout}
+             className="w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all text-brand/60 hover:text-brand hover:bg-brand/5"
+          >
+            <Lock size={18} />
+            <span className="text-[9px] font-black tracking-widest uppercase">LOGOUT</span>
+          </button>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Dashboard Header */}
+        <header className="h-20 border-b border-white/5 flex items-center justify-between px-10 bg-black/20 backdrop-blur-md">
+           <div className="flex items-center gap-6">
+              {/* PROJECT-N Logo Area */}
+              <div className="flex items-center gap-3 pr-6 border-r border-white/10">
+                 <div className="w-8 h-8 border border-intelligence flex items-center justify-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-intelligence/10 animate-pulse"></div>
+                    <Activity className="text-intelligence w-5 h-5 relative z-10" />
+                 </div>
+                 <h2 className="text-lg font-black italic tracking-tighter uppercase glow-text">PROJECT-N</h2>
+              </div>
+              
+              {/* Business Name / Entity Context */}
+              <div className="flex flex-col">
+                 <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest leading-none mb-1">Corporate Entity</p>
+                 <div className="flex items-center gap-3">
+                   {businessLogo && (
+                     <div className="w-6 h-6 border border-white/10 overflow-hidden">
+                       <img src={businessLogo} alt="Logo" className="w-full h-full object-cover" />
+                     </div>
+                   )}
+                   <h3 className="text-xs font-bold text-white uppercase tracking-widest">
+                     {businessName}
+                   </h3>
+                 </div>
+              </div>
+
+              <div className="h-8 w-px bg-white/10 mx-2"></div>
+              
+              <div className="flex items-center gap-3">
+                 <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse shadow-[0_0_8px_#00f2ff]"></div>
+                 <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest font-black">
+                   {activeTab} COMMAND ACTIVE
+                 </span>
+              </div>
+           </div>
+           
+           <div className="flex items-center gap-8">
+              <div className="hidden lg:flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 hover:bg-white/10 transition-colors group">
+                 <Search size={14} className="text-gray-500 group-hover:text-intelligence transition-colors" />
+                 <input 
+                   type="text" 
+                   placeholder="SCAN_ENTITIES..." 
+                   className="bg-transparent border-none focus:outline-none text-[10px] font-mono text-white placeholder:text-gray-700 uppercase tracking-widest w-32" 
+                 />
+              </div>
+
+              {/* Prominent Logout Button */}
+              <button 
+                 onClick={onLogout}
+                 className="flex items-center gap-3 px-6 py-2 border border-brand/40 bg-brand/5 text-brand hover:bg-brand/20 hover:border-brand/60 transition-all font-black text-[10px] uppercase tracking-[0.25em] group relative overflow-hidden"
+              >
+                 <Lock size={12} className="group-hover:scale-110 transition-transform relative z-10" />
+                 <span className="relative z-10">TERMINATE_SESSION</span>
+                 <div className="absolute inset-0 bg-brand/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              </button>
+
+              <div className="flex items-center gap-4 pl-4 border-l border-white/5">
+                 <div className="text-right">
+                    <p className="text-[10px] font-bold text-white uppercase italic">Agent_042</p>
+                    <p className="text-[8px] text-intelligence font-black uppercase tracking-widest">CLEARANCE_L7</p>
+                 </div>
+                 <div className="w-10 h-10 border border-intelligence/30 p-1 group cursor-pointer hover:border-intelligence/60 transition-colors">
+                    <div className="w-full h-full bg-intelligence/10 flex items-center justify-center group-hover:bg-intelligence/20">
+                       <Shield size={18} className="text-intelligence opacity-70 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </header>
+
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar relative">
+           <AnimatePresence mode="wait">
+             <motion.div
+               key={activeTab}
+               initial={{ opacity: 0, x: 20 }}
+               animate={{ opacity: 1, x: 0 }}
+               exit={{ opacity: 0, x: -20 }}
+               transition={{ duration: 0.3 }}
+             >
+               {activeTab === 'Overview' && <OverviewView transactions={transactions} setTransactions={setTransactions} onViewReport={() => setActiveTab('Financial Summary')} />}
+               {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
+               {activeTab === 'P&L Statement' && <PandLView />}
+               {activeTab === 'Cash Flow' && <CashFlowView />}
+               {activeTab === 'Balance Sheet' && <BalanceSheetView />}
+               {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={setTransactions} />}
+               {activeTab === 'Inventory' && <InventoryView />}
+               {activeTab === 'Customer Queries' && <CustomerQueriesView queries={queries} setQueries={setQueries} knowledgeBase={knowledgeBase} />}
+               {activeTab === 'Team Management' && <TeamManagementView />}
+               {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} />}
+               {activeTab === 'Settings' && <SettingsView onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} />}
+               {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings'].includes(activeTab) && <PlaceholderView name={activeTab} />}
+             </motion.div>
+           </AnimatePresence>
+           
+           {/* Terminal Output Layer */}
+           <div className="mt-12 glass border-white/5 p-8 relative overflow-hidden bg-white/[0.01]">
+              <div className="flex items-center gap-4 mb-8">
+                 <div className="w-2 h-2 bg-intelligence rounded-full"></div>
+                 <p className="text-[11px] font-black text-white uppercase tracking-[0.4em]">PROJECT-N KERNEL OUTPUT</p>
+              </div>
+              <div className="space-y-2 font-mono text-xs text-gray-600">
+                 <p className="text-intelligence">{"$ SYSTEM_READY: LOADING GLOBAL INTELLIGENCE GRAPH..."}</p>
+                 <p>{"[INFO] CLUSTER ALPHA COMMUNICATING AT 10.42.0.1"}</p>
+                 <p>{"[WARN] UNEXPECTED CAPITAL FLOW DETECTED IN SECTOR 4"}</p>
+                 <p>{"[SUCCESS] ENCRYPTION HANDSHAKE VERIFIED: RSA-4096"}</p>
+                 <p className="text-brand">{"$ ANOMALY DETECTED: HIGH SIGNAL FREQUENCY SPOTTED IN OFFSHORE ENTITIES"}</p>
+                 <p className="animate-pulse">{"_ BLINKING CURSOR WAITING FOR INPUT..."}</p>
+              </div>
+           </div>
+        </main>
+      </div>
+
+      {/* Floating Global Stats Overlays */}
+      <div className="fixed top-1/2 -right-8 -rotate-90 origin-right transition-all hover:translate-x-2 pointer-events-none opacity-40">
+         <p className="text-[10px] font-mono text-intelligence font-bold tracking-[1em] uppercase">SYSTEM.STATUS.OPTIMAL</p>
+      </div>
+      <div className="fixed top-1/2 -left-8 rotate-90 origin-left transition-all hover:translate-x-2 pointer-events-none opacity-40">
+         <p className="text-[10px] font-mono text-brand font-bold tracking-[1em] uppercase">SECURITY.LEVEL.7</p>
+      </div>
+
+    </div>
+  );
+}
+
+// --- APP ENTRY ---
+
+export default function App() {
+  const [view, setView] = useState<'landing' | 'login' | 'register' | 'onboarding' | 'dashboard'>('landing');
+
+  const handleLoginSuccess = () => {
+    const onboardingCompleted = localStorage.getItem('onboarding_completed');
+    if (onboardingCompleted === 'true') {
+      setView('dashboard');
+    } else {
+      setView('onboarding');
+    }
+  };
+
+  return (
+    <AnimatePresence mode="wait">
+      {view === 'dashboard' && (
+        <motion.div
+           key="dashboard"
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           exit={{ opacity: 0 }}
+           className="w-full h-full"
+        >
+          <Dashboard onLogout={() => setView('landing')} />
+        </motion.div>
+      )}
+
+      {view === 'onboarding' && (
+        <motion.div
+           key="onboarding"
+           initial={{ opacity: 0, scale: 1.1 }}
+           animate={{ opacity: 1, scale: 1 }}
+           exit={{ opacity: 0 }}
+           className="w-full h-full"
+        >
+          <OnboardingPage onComplete={() => setView('dashboard')} />
+        </motion.div>
+      )}
+      
+      {view === 'login' && (
+        <motion.div
+           key="login"
+           initial={{ opacity: 0, scale: 1.1 }}
+           animate={{ opacity: 1, scale: 1 }}
+           exit={{ opacity: 0, scale: 0.9 }}
+           className="w-full h-full"
+        >
+          <LoginPage 
+            onLogin={handleLoginSuccess} 
+            onBack={() => setView('landing')} 
+            onRegister={() => setView('register')}
+          />
+        </motion.div>
+      )}
+
+      {view === 'register' && (
+        <motion.div
+           key="register"
+           initial={{ opacity: 0, scale: 1.1 }}
+           animate={{ opacity: 1, scale: 1 }}
+           exit={{ opacity: 0, scale: 0.9 }}
+           className="w-full h-full"
+        >
+          <RegisterPage onRegistered={() => setView('login')} onBack={() => setView('landing')} onLogin={() => setView('login')} />
+        </motion.div>
+      )}
+
+      {view === 'landing' && (
+        <motion.div
+           key="landing"
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           exit={{ opacity: 0 }}
+           className="w-full h-full"
+        >
+          <LandingPage onLogin={() => setView('login')} onRegister={() => setView('register')} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// Utility Helper
+function cn(...classes: any[]) {
+  return classes.filter(Boolean).join(' ');
+}
