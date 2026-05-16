@@ -4,12 +4,12 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  ArrowRight, 
-  Shield, 
-  Zap, 
+import {
+  BarChart3,
+  TrendingUp,
+  ArrowRight,
+  Shield,
+  Zap,
   Globe,
   Database,
   Search,
@@ -68,21 +68,23 @@ import {
   QrCode,
   Bell,
   Container,
+  Terminal,
+  HelpCircle,
   BarChart as BarChartIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, OrbitControls, Float, Stars, Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  LineChart, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
   Line,
   AreaChart,
   Area,
@@ -130,7 +132,7 @@ interface Transaction {
 
 function GlobeNode({ position, intensity = 1, color = "#00f2ff" }: { position: THREE.Vector3, intensity?: number, color?: string }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  
+
   useFrame((state) => {
     if (meshRef.current) {
       const pulse = 1 + Math.sin(state.clock.elapsedTime * 4 + position.x * 5) * 0.4;
@@ -141,11 +143,11 @@ function GlobeNode({ position, intensity = 1, color = "#00f2ff" }: { position: T
   return (
     <mesh position={position} ref={meshRef}>
       <sphereGeometry args={[0.025, 16, 16]} />
-      <meshStandardMaterial 
-        color={color} 
-        emissive={color} 
-        emissiveIntensity={6 * intensity} 
-        transparent 
+      <meshStandardMaterial
+        color={color}
+        emissive={color}
+        emissiveIntensity={6 * intensity}
+        transparent
         opacity={0.9}
       />
     </mesh>
@@ -171,17 +173,17 @@ function DataStream({ start, end, color = "#00f2ff" }: { start: THREE.Vector3, e
   return (
     <mesh ref={lineRef}>
       <tubeGeometry args={[curve, 40, 0.006, 8, false]} />
-      <meshStandardMaterial 
-        color={color} 
-        transparent 
-        opacity={0.4} 
-        emissive={color} 
-        emissiveIntensity={4} 
+      <meshStandardMaterial
+        color={color}
+        transparent
+        opacity={0.4}
+        emissive={color}
+        emissiveIntensity={4}
       />
       {/* Moving Signal Pulse */}
       <mesh>
-         <sphereGeometry args={[0.02, 8, 8]} />
-         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={10} />
+        <sphereGeometry args={[0.02, 8, 8]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={10} />
       </mesh>
     </mesh>
   );
@@ -189,7 +191,7 @@ function DataStream({ start, end, color = "#00f2ff" }: { start: THREE.Vector3, e
 
 function WorldGlobe() {
   const globeRef = useRef<THREE.Group>(null);
-  
+
   // Generating a dense dot-matrix globe pattern
   const dots = useMemo(() => {
     const pts = [];
@@ -236,25 +238,25 @@ function WorldGlobe() {
   return (
     <group ref={globeRef}>
       <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-      
+
       {/* Glass Core */}
       <Sphere args={[1.95, 64, 64]}>
-        <meshPhysicalMaterial 
-          color="#000" 
-          transmission={0.9} 
-          thickness={1} 
-          roughness={0} 
-          envMapIntensity={2} 
+        <meshPhysicalMaterial
+          color="#000"
+          transmission={0.9}
+          thickness={1}
+          roughness={0}
+          envMapIntensity={2}
         />
       </Sphere>
-      
+
       {/* Dot Matrix Surface */}
       <group>
         {dots.map((p, i) => (
           <mesh key={i} position={p}>
             <sphereGeometry args={[0.008, 6, 6]} />
-            <meshStandardMaterial 
-              color={i % 50 === 0 ? "#00f2ff" : "#111"} 
+            <meshStandardMaterial
+              color={i % 50 === 0 ? "#00f2ff" : "#111"}
               emissive={i % 50 === 0 ? "#00f2ff" : "#000"}
               emissiveIntensity={i % 50 === 0 ? 2 : 0}
             />
@@ -264,17 +266,17 @@ function WorldGlobe() {
 
       {/* Corporate & Financial Activity Nodes */}
       {activeNodes.map((n, i) => <GlobeNode key={i} position={n.pos} color={n.color} intensity={2} />)}
-      
+
       {/* Intelligence Streams */}
       {streams.map((s, i) => <DataStream key={i} start={s.start} end={s.end} color={s.color} />)}
-      
+
       {/* Atmospheric Glare */}
       <Sphere args={[2.02, 64, 64]}>
-        <meshStandardMaterial 
-          color="#00f2ff" 
-          transparent 
-          opacity={0.02} 
-          side={THREE.BackSide} 
+        <meshStandardMaterial
+          color="#00f2ff"
+          transparent
+          opacity={0.02}
+          side={THREE.BackSide}
           wireframe
         />
       </Sphere>
@@ -293,7 +295,7 @@ function IntelligenceHero() {
         <WorldGlobe />
         <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.5} rotateSpeed={0.4} />
       </Canvas>
-      
+
       {/* HUD Elements */}
       <div className="absolute inset-0 pointer-events-none p-8 z-10 flex flex-col justify-between">
         <div className="flex justify-between items-start">
@@ -302,26 +304,26 @@ function IntelligenceHero() {
             <p className="text-[10px] font-mono text-gray-500 font-bold tracking-[0.2em] uppercase">Region: Global Cluster Alpha</p>
           </div>
           <div className="text-right space-y-1">
-             <div className="flex items-center gap-2 justify-end">
-               <span className="w-1.5 h-1.5 bg-brand rounded-full animate-ping"></span>
-               <p className="text-[10px] font-mono text-brand font-bold tracking-[0.3em] uppercase">Anomaly Detected</p>
-             </div>
-             <p className="text-[10px] font-mono text-gray-500 font-bold tracking-[0.2em] uppercase">Vector: Hong Kong Stock Exchange</p>
+            <div className="flex items-center gap-2 justify-end">
+              <span className="w-1.5 h-1.5 bg-brand rounded-full animate-ping"></span>
+              <p className="text-[10px] font-mono text-brand font-bold tracking-[0.3em] uppercase">Anomaly Detected</p>
+            </div>
+            <p className="text-[10px] font-mono text-gray-500 font-bold tracking-[0.2em] uppercase">Vector: Hong Kong Stock Exchange</p>
           </div>
         </div>
-        
+
         <div className="flex justify-between items-end">
           <div className="border-l-2 border-intelligence pl-4 py-2">
-             <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Encryption Level</p>
-             <p className="text-sm font-mono text-intelligence font-bold">AES-256-GCM READY</p>
+            <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Encryption Level</p>
+            <p className="text-sm font-mono text-intelligence font-bold">AES-256-GCM READY</p>
           </div>
           <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden">
-             <motion.div 
-               className="h-full bg-intelligence"
-               initial={{ width: "30%" }}
-               animate={{ width: "80%" }}
-               transition={{ duration: 10, repeat: Infinity, repeatType: "mirror" }}
-             />
+            <motion.div
+              className="h-full bg-intelligence"
+              initial={{ width: "30%" }}
+              animate={{ width: "80%" }}
+              transition={{ duration: 10, repeat: Infinity, repeatType: "mirror" }}
+            />
           </div>
         </div>
       </div>
@@ -349,61 +351,61 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
     <div className="min-h-screen bg-dark-bg text-white font-sans flex items-center justify-center relative p-6 noise scanlines">
       {/* Background 3D elements could be simplified here or just show a glow */}
       <div className="absolute inset-0 z-0 opacity-30 select-none">
-         <IntelligenceHero />
+        <IntelligenceHero />
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="w-full max-w-md glass p-10 border-white/10 relative z-10 box-shadow-[0_0_100px_rgba(0,242,255,0.1)]"
       >
         <div className="flex flex-col items-center mb-10 text-center">
-           <div className="w-16 h-16 border-2 border-intelligence rounded-sm flex items-center justify-center mb-6 cyan-glow relative">
-              <Activity className="text-intelligence w-10 h-10" />
-              <div className="absolute inset-0 bg-intelligence/20 animate-pulse"></div>
-           </div>
-           <h2 className="text-4xl font-black italic tracking-tighter uppercase mb-2 glow-text">SYSTEM ACCESS</h2>
-           <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em]">Biometric & Quantum Handshake Required</p>
+          <div className="w-16 h-16 border-2 border-intelligence rounded-sm flex items-center justify-center mb-6 cyan-glow relative">
+            <Activity className="text-intelligence w-10 h-10" />
+            <div className="absolute inset-0 bg-intelligence/20 animate-pulse"></div>
+          </div>
+          <h2 className="text-4xl font-black italic tracking-tighter uppercase mb-2 glow-text">SYSTEM ACCESS</h2>
+          <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em]">Biometric & Quantum Handshake Required</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-           <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Identifier</label>
-              <div className="relative group">
-                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                 <input 
-                   type="email" 
-                   required
-                   value={email}
-                   onChange={(e) => setEmail(e.target.value)}
-                   className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
-                   placeholder="AGENT_ID@NEURALIS.SYS"
-                 />
-              </div>
-           </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Identifier</label>
+            <div className="relative group">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                placeholder="AGENT_ID@NEURALIS.SYS"
+              />
+            </div>
+          </div>
 
-           <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Access Key</label>
-              <div className="relative group">
-                 <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                 <input 
-                   type="password" 
-                   required
-                   value={password}
-                   onChange={(e) => setPassword(e.target.value)}
-                   className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
-                   placeholder="••••••••••••"
-                 />
-              </div>
-           </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Access Key</label>
+            <div className="relative group">
+              <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                placeholder="••••••••••••"
+              />
+            </div>
+          </div>
 
-           <div className="pt-4">
-              <button 
-                type="submit"
-                disabled={isAuthenticating}
-                className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-5 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none outline-none"
-              >
-                <span className="relative z-10">
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={isAuthenticating}
+              className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-5 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none outline-none"
+            >
+              <span className="relative z-10">
                 {isAuthenticating ? (
                   <div className="flex items-center justify-center gap-3">
                     <span className="w-2 h-2 bg-black rounded-full animate-bounce"></span>
@@ -413,32 +415,32 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
                 ) : (
                   "INITIATE HANDSHAKE"
                 )}
-                </span>
-                <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              </button>
-           </div>
+              </span>
+              <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+            </button>
+          </div>
         </form>
 
         <div className="mt-8 pt-8 border-t border-white/5 flex flex-col items-center gap-6">
-           <div className="flex gap-8">
-             <button 
-               onClick={onBack}
-               className="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] hover:text-white transition-colors"
-             >
-               RETURN TO PERIMETER
-             </button>
-             <button 
-               onClick={onRegister}
-               className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] hover:text-white transition-colors"
-             >
-               REGISTER_NEW_AGENT
-             </button>
-           </div>
-           
-           <div className="flex items-center gap-3">
-              <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>
-              <p className="text-[8px] font-mono text-gray-600 uppercase">Warning: All Access Attempts Are Logged & Tracked</p>
-           </div>
+          <div className="flex gap-8">
+            <button
+              onClick={onBack}
+              className="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] hover:text-white transition-colors"
+            >
+              RETURN TO PERIMETER
+            </button>
+            <button
+              onClick={onRegister}
+              className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] hover:text-white transition-colors"
+            >
+              REGISTER_NEW_AGENT
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>
+            <p className="text-[8px] font-mono text-gray-600 uppercase">Warning: All Access Attempts Are Logged & Tracked</p>
+          </div>
         </div>
       </motion.div>
     </div>
@@ -472,138 +474,138 @@ function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => v
   return (
     <div className="min-h-screen bg-dark-bg text-white font-sans flex items-center justify-center relative p-6 noise scanlines">
       <div className="absolute inset-0 z-0 opacity-30 select-none">
-         <IntelligenceHero />
+        <IntelligenceHero />
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="w-full max-w-2xl glass p-10 border-white/10 relative z-10 box-shadow-[0_0_100px_rgba(0,242,255,0.1)]"
       >
         <AnimatePresence mode="wait">
           {success ? (
-            <motion.div 
+            <motion.div
               key="success"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-center py-12 space-y-8"
             >
-               <div className="w-20 h-20 bg-intelligence/20 border-2 border-intelligence flex items-center justify-center mx-auto rounded-full cyan-glow">
-                  <CheckCircle2 className="text-intelligence w-12 h-12" />
-               </div>
-               <div>
-                  <h2 className="text-4xl font-black italic uppercase italic glow-text mb-4">NODE INITIALIZED</h2>
-                  <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em] leading-loose">
-                    Your credentials have been verified and encrypted. <br />
-                    Redirecting to terminal for handshake...
-                  </p>
-               </div>
-               <div className="flex justify-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce"></div>
-                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce [animation-delay:0.4s]"></div>
-               </div>
+              <div className="w-20 h-20 bg-intelligence/20 border-2 border-intelligence flex items-center justify-center mx-auto rounded-full cyan-glow">
+                <CheckCircle2 className="text-intelligence w-12 h-12" />
+              </div>
+              <div>
+                <h2 className="text-4xl font-black italic uppercase italic glow-text mb-4">NODE INITIALIZED</h2>
+                <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em] leading-loose">
+                  Your credentials have been verified and encrypted. <br />
+                  Redirecting to terminal for handshake...
+                </p>
+              </div>
+              <div className="flex justify-center gap-2">
+                <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce"></div>
+                <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              </div>
             </motion.div>
           ) : (
             <motion.div key="form">
               <div className="flex flex-col items-center mb-10 text-center">
-                 <div className="w-16 h-16 border-2 border-intelligence rounded-sm flex items-center justify-center mb-6 cyan-glow relative">
-                    <UserPlus className="text-intelligence w-10 h-10" />
-                    <div className="absolute inset-0 bg-intelligence/20 animate-pulse"></div>
-                 </div>
-                 <h2 className="text-4xl font-black italic tracking-tighter uppercase mb-2 glow-text">NODE REGISTRATION</h2>
-                 <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em]">Establish New Neutralis Identity</p>
+                <div className="w-16 h-16 border-2 border-intelligence rounded-sm flex items-center justify-center mb-6 cyan-glow relative">
+                  <UserPlus className="text-intelligence w-10 h-10" />
+                  <div className="absolute inset-0 bg-intelligence/20 animate-pulse"></div>
+                </div>
+                <h2 className="text-4xl font-black italic tracking-tighter uppercase mb-2 glow-text">NODE REGISTRATION</h2>
+                <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em]">Establish New Neutralis Identity</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-1.5">
-                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Full Name</label>
-                       <div className="relative group">
-                          <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                          <input 
-                            type="text" 
-                            required
-                            value={formData.fullName}
-                            onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
-                            placeholder="AGENT_NAME"
-                          />
-                       </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Full Name</label>
+                    <div className="relative group">
+                      <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                      <input
+                        type="text"
+                        required
+                        value={formData.fullName}
+                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                        placeholder="AGENT_NAME"
+                      />
                     </div>
+                  </div>
 
-                    <div className="space-y-1.5">
-                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Identifier (Email)</label>
-                       <div className="relative group">
-                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                          <input 
-                            type="email" 
-                            required
-                            value={formData.email}
-                            onChange={(e) => setFormData({...formData, email: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
-                            placeholder="AGENT_ID@NEURALIS.SYS"
-                          />
-                       </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Identifier (Email)</label>
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                      <input
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                        placeholder="AGENT_ID@NEURALIS.SYS"
+                      />
                     </div>
+                  </div>
 
-                    <div className="space-y-1.5">
-                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Access Key (Password)</label>
-                       <div className="relative group">
-                          <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                          <input 
-                            type="password" 
-                            required
-                            value={formData.password}
-                            onChange={(e) => setFormData({...formData, password: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
-                            placeholder="••••••••••••"
-                          />
-                       </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Access Key (Password)</label>
+                    <div className="relative group">
+                      <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                      <input
+                        type="password"
+                        required
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                        placeholder="••••••••••••"
+                      />
                     </div>
+                  </div>
 
-                    <div className="space-y-1.5">
-                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Name</label>
-                       <div className="relative group">
-                          < Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                          <input 
-                            type="text" 
-                            required
-                            value={formData.businessName}
-                            onChange={(e) => setFormData({...formData, businessName: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
-                            placeholder="ENTITY_DESIGNATION"
-                          />
-                       </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Name</label>
+                    <div className="relative group">
+                      < Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                      <input
+                        type="text"
+                        required
+                        value={formData.businessName}
+                        onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                        placeholder="ENTITY_DESIGNATION"
+                      />
                     </div>
+                  </div>
 
-                    <div className="space-y-1.5 md:col-span-2">
-                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Sector Protocol</label>
-                       <div className="relative group">
-                          <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence transition-colors" size={18} />
-                          <select 
-                            value={formData.businessType}
-                            onChange={(e) => setFormData({...formData, businessType: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
-                          >
-                            <option value="Hotel">Hotel</option>
-                            <option value="Restaurant">Restaurant</option>
-                            <option value="Retail">Retail</option>
-                            <option value="Manufacturing">Manufacturing</option>
-                            <option value="Service">Service</option>
-                          </select>
-                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
-                       </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Sector Protocol</label>
+                    <div className="relative group">
+                      <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence transition-colors" size={18} />
+                      <select
+                        value={formData.businessType}
+                        onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                      >
+                        <option value="Hotel">Hotel</option>
+                        <option value="Restaurant">Restaurant</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Manufacturing">Manufacturing</option>
+                        <option value="Service">Service</option>
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
                     </div>
-                 </div>
+                  </div>
+                </div>
 
-                 <div className="pt-4">
-                    <button 
-                      type="submit"
-                      disabled={isRegistering}
-                      className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-5 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none outline-none"
-                    >
-                      <span className="relative z-10">
+                <div className="pt-4">
+                  <button
+                    type="submit"
+                    disabled={isRegistering}
+                    className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-5 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none outline-none"
+                  >
+                    <span className="relative z-10">
                       {isRegistering ? (
                         <div className="flex items-center justify-center gap-3">
                           <div className="w-2 h-2 bg-black rounded-full animate-pulse"></div>
@@ -612,29 +614,29 @@ function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => v
                       ) : (
                         "INITIALIZE_IDENTITY_NODE"
                       )}
-                      </span>
-                      <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                    </button>
-                 </div>
+                    </span>
+                    <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                  </button>
+                </div>
               </form>
 
               <div className="mt-8 pt-8 border-t border-white/5 flex flex-col items-center gap-6">
-                 <div className="flex gap-8">
-                   <button 
-                     onClick={onBack}
-                     className="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] hover:text-white transition-colors"
-                   >
-                     ABORT_REGISTRATION
-                   </button>
-                   <button 
-                     onClick={onLogin}
-                     className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] hover:text-white transition-colors"
-                   >
-                     EXISTING_HANDSHAKE
-                   </button>
-                 </div>
-                 
-                 <p className="text-[8px] font-mono text-gray-600 uppercase text-center max-w-xs">Warning: Providing false registry data may result in immediate node suspension and cluster blacklist.</p>
+                <div className="flex gap-8">
+                  <button
+                    onClick={onBack}
+                    className="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] hover:text-white transition-colors"
+                  >
+                    ABORT_REGISTRATION
+                  </button>
+                  <button
+                    onClick={onLogin}
+                    className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] hover:text-white transition-colors"
+                  >
+                    EXISTING_HANDSHAKE
+                  </button>
+                </div>
+
+                <p className="text-[8px] font-mono text-gray-600 uppercase text-center max-w-xs">Warning: Providing false registry data may result in immediate node suspension and cluster blacklist.</p>
               </div>
             </motion.div>
           )}
@@ -697,14 +699,14 @@ function OnboardingPage({ onComplete }: { onComplete: () => void }) {
 
       {/* Progress Bar */}
       <div className="fixed top-0 left-0 w-full h-1 bg-white/5 z-[100]">
-        <motion.div 
+        <motion.div
           className="h-full bg-intelligence"
           initial={{ width: '0%' }}
           animate={{ width: `${(step / 4) * 100}%` }}
         />
       </div>
 
-      <motion.div 
+      <motion.div
         key={step}
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -731,15 +733,15 @@ function OnboardingPage({ onComplete }: { onComplete: () => void }) {
           {step === 1 && (
             <div className="space-y-8">
               <p className="text-gray-400 font-mono text-sm leading-relaxed uppercase tracking-widest border-l-2 border-intelligence pl-6 italic">
-                Greetings, personnel. You are initializing the control node for <span className="text-white font-bold">{data.businessName}</span>. 
+                Greetings, personnel. You are initializing the control node for <span className="text-white font-bold">{data.businessName}</span>.
                 Verify the entity designation before we proceed with the neural sync.
               </p>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Confirmed Entity Identity</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={data.businessName}
-                  onChange={(e) => setData({...data, businessName: e.target.value})}
+                  onChange={(e) => setData({ ...data, businessName: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 px-8 py-5 text-white font-mono text-lg focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-widest"
                 />
               </div>
@@ -760,7 +762,7 @@ function OnboardingPage({ onComplete }: { onComplete: () => void }) {
                 ].map((cur) => (
                   <button
                     key={cur.id}
-                    onClick={() => setData({...data, currency: cur.id})}
+                    onClick={() => setData({ ...data, currency: cur.id })}
                     className={cn(
                       "p-6 border text-left transition-all group",
                       data.currency === cur.id ? "bg-intelligence/10 border-intelligence" : "bg-white/5 border-white/10 hover:border-white/30"
@@ -781,9 +783,9 @@ function OnboardingPage({ onComplete }: { onComplete: () => void }) {
               </p>
               <div className="relative group">
                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence transition-colors" size={20} />
-                <select 
+                <select
                   value={data.fiscalYearStart}
-                  onChange={(e) => setData({...data, fiscalYearStart: e.target.value})}
+                  onChange={(e) => setData({ ...data, fiscalYearStart: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 px-14 py-5 text-white font-mono text-lg focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
                 >
                   <option value="Shrawan">SHRAWAN (NEPAL STANDARD)</option>
@@ -815,7 +817,7 @@ function OnboardingPage({ onComplete }: { onComplete: () => void }) {
                 </div>
               </div>
               <p className="text-[10px] font-mono text-gray-600 uppercase tracking-[0.3em] text-center italic">
-                By committing these parameters, you are initializing the PROJECT-N intelligence layer for this specific node. 
+                By committing these parameters, you are initializing the PROJECT-N intelligence layer for this specific node.
                 Data mapping will begin immediately upon confirmation.
               </p>
             </div>
@@ -823,20 +825,20 @@ function OnboardingPage({ onComplete }: { onComplete: () => void }) {
         </div>
 
         <div className="mt-12 pt-8 border-t border-white/5 flex justify-between items-center">
-          <button 
+          <button
             disabled={step === 1}
             onClick={() => setStep(s => s - 1)}
             className="text-[10px] font-black text-gray-600 uppercase tracking-widest hover:text-white transition-colors disabled:opacity-0"
           >
             PREVIOUS_PHASE
           </button>
-          
-          <button 
+
+          <button
             onClick={step === 4 ? handleFinish : nextStep}
             className="group relative overflow-hidden px-12 py-4 bg-intelligence text-black font-black text-[11px] tracking-[0.3em] uppercase transition-all hover:scale-105"
           >
             <span className="relative z-10 flex items-center gap-3">
-              {step === 4 ? "INITIALIZE_DASHBOARD" : "NEXT_PHASE"} 
+              {step === 4 ? "INITIALIZE_DASHBOARD" : "NEXT_PHASE"}
               <ArrowRight size={14} />
             </span>
             <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
@@ -851,16 +853,16 @@ function OnboardingPage({ onComplete }: { onComplete: () => void }) {
 
 function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister: () => void }) {
   const [activeFeature, setActiveFeature] = useState(0);
-  
+
   const features = [
-    { 
-      title: "CORPORATE INTELLIGENCE", 
+    {
+      title: "CORPORATE INTELLIGENCE",
       desc: "Deep mapping of corporate hierarchies, ownership webs, and M&A signals across 180+ jurisdictions.",
       icon: Database,
       color: "text-intelligence"
     },
-    { 
-      title: "FINANCIAL INTELLIGENCE", 
+    {
+      title: "FINANCIAL INTELLIGENCE",
       desc: "Real-time capital flow analysis, institutional ownership tracking, and algorithmic risk profiling.",
       icon: TrendingUp,
       color: "text-brand"
@@ -869,13 +871,13 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
 
   return (
     <div className="min-h-screen bg-dark-bg text-white font-sans selection:bg-intelligence selection:text-black overflow-hidden relative noise scanlines">
-      
+
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-2xl z-[100] px-12 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 border-2 border-intelligence rounded-sm flex items-center justify-center relative group overflow-hidden">
-             <div className="absolute inset-0 bg-intelligence/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
-             <Activity className="text-intelligence w-6 h-6 group-hover:scale-110 transition-transform" />
+            <div className="absolute inset-0 bg-intelligence/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+            <Activity className="text-intelligence w-6 h-6 group-hover:scale-110 transition-transform" />
           </div>
           <div className="flex flex-col">
             <h1 className="text-2xl font-bold tracking-[-0.05em] leading-none text-white glow-text">PROJECT-N</h1>
@@ -893,13 +895,13 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
         </div>
 
         <div className="flex items-center gap-6">
-          <button 
+          <button
             onClick={onRegister}
             className="text-[10px] font-black text-gray-400 hover:text-white uppercase tracking-widest transition-colors hidden md:block"
           >
             SYS_REGISTRY
           </button>
-          <button 
+          <button
             onClick={onLogin}
             className="group relative overflow-hidden px-10 py-3 bg-intelligence text-black font-black text-[11px] tracking-[0.2em] uppercase transition-all hover:scale-105 active:scale-95"
           >
@@ -911,11 +913,11 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
 
       {/* Main Layout */}
       <main className="relative pt-20">
-        
+
         {/* HERO SECTION */}
         <section className="h-screen flex items-center relative">
           <div className="max-w-[1700px] mx-auto px-16 w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-20">
-            
+
             {/* Left Content */}
             <div className="lg:col-span-5 space-y-12">
               <motion.div
@@ -927,25 +929,25 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
                   <Cpu className="text-intelligence w-4 h-4 animate-pulse" />
                   <span className="text-intelligence font-mono text-[10px] font-black uppercase tracking-[0.35em]">Quantum Intelligence Core Active</span>
                 </div>
-                
+
                 <h1 className="text-[90px] md:text-[120px] font-black tracking-[-0.08em] leading-[0.8] mb-8 uppercase italic font-mono scale-y-110 origin-left">
-                  PROJECT-N <br /> 
+                  PROJECT-N <br />
                   <span className="text-intelligence glow-text">INTELLIGENCE</span> <br />
                   <span className="text-white">UNIFIED</span>
                 </h1>
-                
+
                 <p className="text-xl text-gray-400 font-light max-w-lg leading-relaxed mb-10 border-l-2 border-brand/50 pl-8 font-mono">
                   Transform fragmented financial, ownership, and corporate data into actionable, predictive intelligence for elite analysts.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-8 items-center">
-                  <button 
+                  <button
                     onClick={onLogin}
                     className="w-full sm:w-auto bg-intelligence text-black px-12 py-6 rounded-none font-black text-[13px] uppercase tracking-[0.35em] hover:shadow-[0_0_50px_rgba(0,242,255,0.4)] transition-all flex items-center justify-center group"
                   >
                     EXPLORE DATA <Search className="ml-3 group-hover:scale-125 transition-transform" size={18} />
                   </button>
-                  <button 
+                  <button
                     onClick={onRegister}
                     className="w-full sm:w-auto border border-white/10 text-white/50 hover:text-white px-12 py-6 rounded-none font-black text-[13px] uppercase tracking-[0.35em] transition-all relative group overflow-hidden"
                   >
@@ -958,12 +960,12 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
               {/* Stats Strip */}
               <div className="grid grid-cols-2 gap-8 pt-8">
                 <div>
-                   <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 font-mono">Mapped Entities</p>
-                   <p className="text-4xl font-black text-white font-mono tracking-tighter">84.2<span className="text-intelligence">M</span></p>
+                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 font-mono">Mapped Entities</p>
+                  <p className="text-4xl font-black text-white font-mono tracking-tighter">84.2<span className="text-intelligence">M</span></p>
                 </div>
                 <div>
-                   <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 font-mono">Daily Alerts</p>
-                   <p className="text-4xl font-black text-white font-mono tracking-tighter">12.5<span className="text-brand">K</span></p>
+                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 font-mono">Daily Alerts</p>
+                  <p className="text-4xl font-black text-white font-mono tracking-tighter">12.5<span className="text-brand">K</span></p>
                 </div>
               </div>
             </div>
@@ -972,53 +974,53 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
             <div className="lg:col-span-7 h-[85vh] relative group cursor-crosshair">
               <div className="absolute inset-0 bg-intelligence/5 blur-[180px] rounded-full group-hover:bg-intelligence/10 transition-all duration-1000"></div>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 opacity-20">
-                 <div className="w-[110%] h-[1px] bg-gradient-to-r from-transparent via-intelligence/20 to-transparent rotate-45"></div>
-                 <div className="w-[110%] h-[1px] bg-gradient-to-r from-transparent via-intelligence/20 to-transparent -rotate-45"></div>
+                <div className="w-[110%] h-[1px] bg-gradient-to-r from-transparent via-intelligence/20 to-transparent rotate-45"></div>
+                <div className="w-[110%] h-[1px] bg-gradient-to-r from-transparent via-intelligence/20 to-transparent -rotate-45"></div>
               </div>
               <IntelligenceHero />
-              
+
               {/* Floating Intelligence Panels */}
-              <motion.div 
+              <motion.div
                 animate={{ y: [0, -20, 0] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute top-1/4 right-0 glass p-6 border-intelligence/30 w-64 z-20"
               >
-                 <div className="flex items-center gap-3 mb-4">
-                    <Shield className="text-intelligence w-4 h-4" />
-                    <p className="text-[10px] font-black tracking-widest text-white uppercase">Identity Profile</p>
-                 </div>
-                 <div className="space-y-3">
-                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                       <div className="w-3/4 h-full bg-intelligence shadow-[0_0_10px_#00f2ff]"></div>
-                    </div>
-                    <p className="text-[10px] font-mono text-gray-500 italic">Vulnerability: 12% Low Risk</p>
-                 </div>
+                <div className="flex items-center gap-3 mb-4">
+                  <Shield className="text-intelligence w-4 h-4" />
+                  <p className="text-[10px] font-black tracking-widest text-white uppercase">Identity Profile</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="w-3/4 h-full bg-intelligence shadow-[0_0_10px_#00f2ff]"></div>
+                  </div>
+                  <p className="text-[10px] font-mono text-gray-500 italic">Vulnerability: 12% Low Risk</p>
+                </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 animate={{ y: [0, 20, 0] }}
                 transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute bottom-1/4 left-10 glass p-6 border-brand/30 w-72 z-20"
               >
-                 <div className="flex items-center gap-3 mb-4">
-                    <Zap className="text-brand w-4 h-4" />
-                    <p className="text-[10px] font-black tracking-widest text-white uppercase">Market Anomaly</p>
-                 </div>
-                 <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                       <span className="text-[9px] font-mono text-gray-500">HSI Index</span>
-                       <span className="text-[9px] font-mono text-brand font-bold">-4.52%</span>
-                    </div>
-                    <div className="h-6 w-full bg-brand/10 border border-brand/20 flex items-end gap-1 px-2 py-1">
-                       {[0.2, 0.5, 0.3, 0.8, 0.4, 0.9, 0.6].map((h, i) => (
-                         <div key={i} className="flex-1 bg-brand" style={{ height: `${h * 100}%` }}></div>
-                       ))}
-                    </div>
-                 </div>
+                <div className="flex items-center gap-3 mb-4">
+                  <Zap className="text-brand w-4 h-4" />
+                  <p className="text-[10px] font-black tracking-widest text-white uppercase">Market Anomaly</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-mono text-gray-500">HSI Index</span>
+                    <span className="text-[9px] font-mono text-brand font-bold">-4.52%</span>
+                  </div>
+                  <div className="h-6 w-full bg-brand/10 border border-brand/20 flex items-end gap-1 px-2 py-1">
+                    {[0.2, 0.5, 0.3, 0.8, 0.4, 0.9, 0.6].map((h, i) => (
+                      <div key={i} className="flex-1 bg-brand" style={{ height: `${h * 100}%` }}></div>
+                    ))}
+                  </div>
+                </div>
               </motion.div>
             </div>
           </div>
-          
+
           {/* Decals & Decorative elements */}
           <div className="absolute top-0 right-0 w-32 h-screen border-l border-white/5 opacity-20 pointer-events-none"></div>
           <div className="absolute top-0 left-0 w-32 h-screen border-r border-white/5 opacity-20 pointer-events-none"></div>
@@ -1067,10 +1069,10 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
               <div className="group relative">
                 <div className="absolute inset-0 bg-brand/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
                 <div className="glass p-12 border-white/5 group-hover:border-brand/30 transition-all duration-700 relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 -mr-16 -mt-16 rounded-full blur-3xl"></div>
-                   <TrendingUp className="text-brand w-16 h-16 mb-8 translate-x-[-10px] group-hover:translate-x-0 transition-transform" />
-                   <h3 className="text-4xl font-black mb-6 uppercase italic">FINANCIAL INTELLIGENCE</h3>
-                   <div className="space-y-6">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 -mr-16 -mt-16 rounded-full blur-3xl"></div>
+                  <TrendingUp className="text-brand w-16 h-16 mb-8 translate-x-[-10px] group-hover:translate-x-0 transition-transform" />
+                  <h3 className="text-4xl font-black mb-6 uppercase italic">FINANCIAL INTELLIGENCE</h3>
+                  <div className="space-y-6">
                     {[
                       { icon: BarChartIcon, title: "Market Analytics", desc: "Deep sector metrics & algorithmic forecasting" },
                       { icon: Shield, title: "Risk Profiling", desc: "Credit, liquidity, and operational risk models" },
@@ -1093,175 +1095,175 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
 
         {/* DASHBOARD PREVIEW */}
         <section className="py-32 bg-black/40">
-           <div className="max-w-[1700px] mx-auto px-16">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
-                 <div className="lg:col-span-4 sticky top-32">
-                    <p className="text-[11px] font-black text-intelligence tracking-[0.4em] uppercase mb-4">The Interface</p>
-                    <h2 className="text-6xl font-black uppercase mb-10 leading-tight italic">CINEMATIC COMMAND DESK</h2>
-                    <p className="text-gray-500 font-mono text-lg mb-12">Designed for the world's most sophisticated analysts. A terminal experience that prioritizes rapid data assimilation and predictive clarity.</p>
-                    <div className="space-y-0 relative border border-white/10">
-                       {['ALPHA TERMINAL', 'QUANTUM FEED', 'GEOPOLITICAL MAPPING', 'RISK HUD'].map((t, i) => (
-                         <div key={i} className={cn(
-                           "p-8 border-b border-white/10 flex justify-between items-center transition-all cursor-pointer group hover:bg-white/5",
-                           i === 0 ? "bg-intelligence/10 border-l-4 border-l-intelligence" : ""
-                         )}>
-                            <span className={cn("text-sm font-black uppercase tracking-widest", i === 0 ? "text-white" : "text-gray-600 group-hover:text-white")}>{t}</span>
-                            <ChevronRight className={i === 0 ? "text-intelligence" : "text-gray-700"} size={18} />
-                         </div>
-                       ))}
+          <div className="max-w-[1700px] mx-auto px-16">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+              <div className="lg:col-span-4 sticky top-32">
+                <p className="text-[11px] font-black text-intelligence tracking-[0.4em] uppercase mb-4">The Interface</p>
+                <h2 className="text-6xl font-black uppercase mb-10 leading-tight italic">CINEMATIC COMMAND DESK</h2>
+                <p className="text-gray-500 font-mono text-lg mb-12">Designed for the world's most sophisticated analysts. A terminal experience that prioritizes rapid data assimilation and predictive clarity.</p>
+                <div className="space-y-0 relative border border-white/10">
+                  {['ALPHA TERMINAL', 'QUANTUM FEED', 'GEOPOLITICAL MAPPING', 'RISK HUD'].map((t, i) => (
+                    <div key={i} className={cn(
+                      "p-8 border-b border-white/10 flex justify-between items-center transition-all cursor-pointer group hover:bg-white/5",
+                      i === 0 ? "bg-intelligence/10 border-l-4 border-l-intelligence" : ""
+                    )}>
+                      <span className={cn("text-sm font-black uppercase tracking-widest", i === 0 ? "text-white" : "text-gray-600 group-hover:text-white")}>{t}</span>
+                      <ChevronRight className={i === 0 ? "text-intelligence" : "text-gray-700"} size={18} />
                     </div>
-                 </div>
-
-                 <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Live Cards */}
-                    <motion.div 
-                      whileHover={{ y: -10 }}
-                      className="glass p-8 border-white/5 space-y-8"
-                    >
-                       <div className="flex justify-between items-center">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-intelligence">Market Pulse</p>
-                          <Activity className="text-intelligence/40" size={16} />
-                       </div>
-                       <div className="h-48 w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                             <AreaChart data={[
-                               {v: 400}, {v: 600}, {v: 500}, {v: 800}, {v: 750}, {v: 900}, {v: 850}, {v: 1100}
-                             ]}>
-                                <defs>
-                                  <linearGradient id="colorV" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#00f2ff" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#00f2ff" stopOpacity={0}/>
-                                  </linearGradient>
-                                </defs>
-                                <Area type="monotone" dataKey="v" stroke="#00f2ff" fillOpacity={1} fill="url(#colorV)" strokeWidth={3} />
-                             </AreaChart>
-                          </ResponsiveContainer>
-                       </div>
-                       <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-white/5 p-4 rounded-sm border border-white/5">
-                             <p className="text-[9px] text-gray-500 uppercase mb-1">Spread</p>
-                             <p className="text-lg font-mono font-bold text-white">0.024</p>
-                          </div>
-                          <div className="bg-white/5 p-4 rounded-sm border border-white/5">
-                             <p className="text-[9px] text-gray-500 uppercase mb-1">Volume</p>
-                             <p className="text-lg font-mono font-bold text-white">8.4B</p>
-                          </div>
-                       </div>
-                    </motion.div>
-
-                    <motion.div 
-                      whileHover={{ y: -10 }}
-                      className="glass p-8 border-white/5 space-y-8"
-                    >
-                       <div className="flex justify-between items-center">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-brand">Risk Matrix</p>
-                          <Shield className="text-brand/40" size={16} />
-                       </div>
-                       <div className="space-y-6 pt-4">
-                          {[
-                            { l: "Liquidity", v: 84, c: "intelligence" },
-                            { l: "Leverage", v: 42, c: "brand" },
-                            { l: "Counterparty", v: 21, c: "intelligence" }
-                          ].map((r, i) => (
-                             <div key={i}>
-                                <div className="flex justify-between items-center mb-2">
-                                   <span className="text-[9px] text-gray-400 font-mono uppercase">{r.l}</span>
-                                   <span className="text-[9px] text-white font-mono">{r.v}%</span>
-                                </div>
-                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                   <div className={cn("h-full", r.c === 'brand' ? 'bg-brand' : 'bg-intelligence')} style={{ width: `${r.v}%` }}></div>
-                                </div>
-                             </div>
-                          ))}
-                       </div>
-                       <div className="p-4 bg-brand/10 border border-brand/20 rounded-sm">
-                          <p className="text-[9px] text-brand font-black uppercase tracking-widest mb-1">Alert: High Signal Concentration</p>
-                          <p className="text-[11px] text-gray-400 font-mono">Unusual derivative activity detected in Cayman Cluster 4.</p>
-                       </div>
-                    </motion.div>
-
-                    <motion.div 
-                      whileHover={{ y: -10 }}
-                      className="glass p-8 border-white/5 md:col-span-2 space-y-8"
-                    >
-                       <div className="flex justify-between items-center">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-white">Registry Surveillance Feed</p>
-                          <Eye className="text-white/40" size={16} />
-                       </div>
-                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          {[
-                            { t: "Executive Flight Tracking", s: "Live", d: "G-V, Falcon 8X crossing Atlantic" },
-                            { t: "Registry Delta Scan", s: "Active", d: "14 changes in Bermuda offshore" },
-                            { t: "UBO Deep Verification", s: "Syncing", d: "Verifying multi-layer shell structures" }
-                          ].map((f, i) => (
-                            <div key={i} className="p-5 border border-white/5 hover:border-white/10 transition-colors">
-                               <div className="flex items-center gap-2 mb-3">
-                                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse"></div>
-                                  <span className="text-[9px] font-black text-intelligence uppercase">{f.s}</span>
-                               </div>
-                               <p className="text-xs font-bold text-white mb-2 uppercase tracking-wider">{f.t}</p>
-                               <p className="text-[10px] text-gray-500 font-mono italic">{f.d}</p>
-                            </div>
-                          ))}
-                       </div>
-                    </motion.div>
-                 </div>
+                  ))}
+                </div>
               </div>
-           </div>
+
+              <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Live Cards */}
+                <motion.div
+                  whileHover={{ y: -10 }}
+                  className="glass p-8 border-white/5 space-y-8"
+                >
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-intelligence">Market Pulse</p>
+                    <Activity className="text-intelligence/40" size={16} />
+                  </div>
+                  <div className="h-48 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={[
+                        { v: 400 }, { v: 600 }, { v: 500 }, { v: 800 }, { v: 750 }, { v: 900 }, { v: 850 }, { v: 1100 }
+                      ]}>
+                        <defs>
+                          <linearGradient id="colorV" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#00f2ff" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#00f2ff" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <Area type="monotone" dataKey="v" stroke="#00f2ff" fillOpacity={1} fill="url(#colorV)" strokeWidth={3} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/5 p-4 rounded-sm border border-white/5">
+                      <p className="text-[9px] text-gray-500 uppercase mb-1">Spread</p>
+                      <p className="text-lg font-mono font-bold text-white">0.024</p>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-sm border border-white/5">
+                      <p className="text-[9px] text-gray-500 uppercase mb-1">Volume</p>
+                      <p className="text-lg font-mono font-bold text-white">8.4B</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  whileHover={{ y: -10 }}
+                  className="glass p-8 border-white/5 space-y-8"
+                >
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-brand">Risk Matrix</p>
+                    <Shield className="text-brand/40" size={16} />
+                  </div>
+                  <div className="space-y-6 pt-4">
+                    {[
+                      { l: "Liquidity", v: 84, c: "intelligence" },
+                      { l: "Leverage", v: 42, c: "brand" },
+                      { l: "Counterparty", v: 21, c: "intelligence" }
+                    ].map((r, i) => (
+                      <div key={i}>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-[9px] text-gray-400 font-mono uppercase">{r.l}</span>
+                          <span className="text-[9px] text-white font-mono">{r.v}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                          <div className={cn("h-full", r.c === 'brand' ? 'bg-brand' : 'bg-intelligence')} style={{ width: `${r.v}%` }}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-4 bg-brand/10 border border-brand/20 rounded-sm">
+                    <p className="text-[9px] text-brand font-black uppercase tracking-widest mb-1">Alert: High Signal Concentration</p>
+                    <p className="text-[11px] text-gray-400 font-mono">Unusual derivative activity detected in Cayman Cluster 4.</p>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  whileHover={{ y: -10 }}
+                  className="glass p-8 border-white/5 md:col-span-2 space-y-8"
+                >
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white">Registry Surveillance Feed</p>
+                    <Eye className="text-white/40" size={16} />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[
+                      { t: "Executive Flight Tracking", s: "Live", d: "G-V, Falcon 8X crossing Atlantic" },
+                      { t: "Registry Delta Scan", s: "Active", d: "14 changes in Bermuda offshore" },
+                      { t: "UBO Deep Verification", s: "Syncing", d: "Verifying multi-layer shell structures" }
+                    ].map((f, i) => (
+                      <div key={i} className="p-5 border border-white/5 hover:border-white/10 transition-colors">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse"></div>
+                          <span className="text-[9px] font-black text-intelligence uppercase">{f.s}</span>
+                        </div>
+                        <p className="text-xs font-bold text-white mb-2 uppercase tracking-wider">{f.t}</p>
+                        <p className="text-[10px] text-gray-500 font-mono italic">{f.d}</p>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* FOOTER */}
         <footer className="pt-32 pb-16 px-16 border-t border-white/5 relative bg-[#05070a]">
-           <div className="max-w-[1700px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-16 mb-24">
-              <div className="md:col-span-2">
-                 <div className="flex items-center gap-4 mb-8">
-                    <Activity className="text-intelligence w-8 h-8" />
-                    <h2 className="text-3xl font-black italic glow-text">PROJECT-N</h2>
-                 </div>
-                 <p className="text-gray-500 font-mono max-w-sm mb-10">Advanced intelligence operating system for global corporate and financial ecosystems. Classified technology for authorized personnel only.</p>
-                 <div className="flex gap-4">
-                    <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Lock size={18} /></button>
-                    <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Shield size={18} /></button>
-                    <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Crosshair size={18} /></button>
-                 </div>
+          <div className="max-w-[1700px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-16 mb-24">
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-4 mb-8">
+                <Activity className="text-intelligence w-8 h-8" />
+                <h2 className="text-3xl font-black italic glow-text">PROJECT-N</h2>
               </div>
-              <div>
-                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-8">The Platform</p>
-                 <ul className="space-y-4">
-                    {['Intelligence Graph', 'Surveillance Feed', 'Anomaly Detection', 'Risk Profiling'].map((l) => (
-                      <li key={l}><a href="#" className="text-sm font-mono text-gray-400 hover:text-intelligence transition-colors">{l}</a></li>
-                    ))}
-                 </ul>
+              <p className="text-gray-500 font-mono max-w-sm mb-10">Advanced intelligence operating system for global corporate and financial ecosystems. Classified technology for authorized personnel only.</p>
+              <div className="flex gap-4">
+                <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Lock size={18} /></button>
+                <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Shield size={18} /></button>
+                <button className="p-3 bg-white/5 border border-white/10 hover:border-intelligence transition-all"><Crosshair size={18} /></button>
               </div>
-              <div>
-                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-8">Corporate</p>
-                 <ul className="space-y-4">
-                    {['Technical Spec', 'Framework Documentation', 'Compliance Architecture', 'System Status'].map((l) => (
-                      <li key={l}><a href="#" className="text-sm font-mono text-gray-400 hover:text-intelligence transition-colors">{l}</a></li>
-                    ))}
-                 </ul>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-8">The Platform</p>
+              <ul className="space-y-4">
+                {['Intelligence Graph', 'Surveillance Feed', 'Anomaly Detection', 'Risk Profiling'].map((l) => (
+                  <li key={l}><a href="#" className="text-sm font-mono text-gray-400 hover:text-intelligence transition-colors">{l}</a></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-8">Corporate</p>
+              <ul className="space-y-4">
+                {['Technical Spec', 'Framework Documentation', 'Compliance Architecture', 'System Status'].map((l) => (
+                  <li key={l}><a href="#" className="text-sm font-mono text-gray-400 hover:text-intelligence transition-colors">{l}</a></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="max-w-[1700px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8 border-t border-white/5 pt-16">
+            <p className="text-[10px] font-mono text-gray-600 font-bold uppercase tracking-widest italic">PROJECT-N COMMAND CORE G-1.4.0</p>
+            <div className="flex items-center gap-12">
+              <p className="text-[10px] font-mono text-gray-600 font-bold uppercase tracking-widest">© 2024 PROJECT-N SYSTEMS. CRYPTOGRAPHICALLY SECURED.</p>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-emerald-500/50 rounded-full"></div>
+                <span className="text-[8px] font-mono text-gray-600 uppercase">Latency: 12ms</span>
               </div>
-           </div>
-           
-           <div className="max-w-[1700px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8 border-t border-white/5 pt-16">
-              <p className="text-[10px] font-mono text-gray-600 font-bold uppercase tracking-widest italic">PROJECT-N COMMAND CORE G-1.4.0</p>
-              <div className="flex items-center gap-12">
-                 <p className="text-[10px] font-mono text-gray-600 font-bold uppercase tracking-widest">© 2024 PROJECT-N SYSTEMS. CRYPTOGRAPHICALLY SECURED.</p>
-                 <div className="flex items-center gap-3">
-                   <div className="w-2 h-2 bg-emerald-500/50 rounded-full"></div>
-                   <span className="text-[8px] font-mono text-gray-600 uppercase">Latency: 12ms</span>
-                 </div>
-              </div>
-           </div>
+            </div>
+          </div>
         </footer>
       </main>
 
       {/* FIXED HUD DEALS */}
       <div className="fixed bottom-10 left-10 z-[200]">
-         <div className="flex items-center gap-4 px-6 py-3 glass border-intelligence/20">
-            <div className="w-2 h-2 bg-intelligence rounded-full animate-pulse shadow-[0_0_10px_#00f2ff]"></div>
-            <p className="text-[9px] font-mono font-bold tracking-widest uppercase">Encryption Active: RSA-4096</p>
-         </div>
+        <div className="flex items-center gap-4 px-6 py-3 glass border-intelligence/20">
+          <div className="w-2 h-2 bg-intelligence rounded-full animate-pulse shadow-[0_0_10px_#00f2ff]"></div>
+          <p className="text-[9px] font-mono font-bold tracking-widest uppercase">Encryption Active: RSA-4096</p>
+        </div>
       </div>
 
     </div>
@@ -1294,73 +1296,73 @@ function QuantumIntelligence() {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="xl:col-span-3 glass border-intelligence/20 p-8 relative overflow-hidden bg-intelligence/[0.02]"
     >
       <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-         <Brain size={120} className="text-intelligence" />
+        <Brain size={120} className="text-intelligence" />
       </div>
 
       <div className="flex flex-col md:flex-row gap-12 relative z-10">
         <div className="md:w-1/3">
-           <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-intelligence/20 rounded-sm">
-                <Sparkles className="text-intelligence" size={20} />
-              </div>
-              <h3 className="text-xl font-black italic uppercase glow-text">Quantum Insights</h3>
-           </div>
-           
-           <div className="space-y-6">
-              <div>
-                 <p className="text-[10px] font-black text-intelligence uppercase tracking-widest mb-2">Predictive Summary</p>
-                 <p className="text-sm text-white font-mono leading-relaxed">{insight?.summary}</p>
-              </div>
-              <div>
-                 <p className="text-[10px] font-black text-intelligence uppercase tracking-widest mb-2">30-Day Forecast</p>
-                 <p className="text-sm text-gray-400 font-mono leading-relaxed">{insight?.forecast}</p>
-              </div>
-           </div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-intelligence/20 rounded-sm">
+              <Sparkles className="text-intelligence" size={20} />
+            </div>
+            <h3 className="text-xl font-black italic uppercase glow-text">Quantum Insights</h3>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <p className="text-[10px] font-black text-intelligence uppercase tracking-widest mb-2">Predictive Summary</p>
+              <p className="text-sm text-white font-mono leading-relaxed">{insight?.summary}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-intelligence uppercase tracking-widest mb-2">30-Day Forecast</p>
+              <p className="text-sm text-gray-400 font-mono leading-relaxed">{insight?.forecast}</p>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1">
-           <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">Advanced Outcome Forecasts</p>
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {insight?.predictions.map((pred, i) => (
-                <div key={i} className="p-6 bg-white/[0.03] border border-white/10 hover:border-intelligence/30 transition-all group">
-                   <div className="flex justify-between items-start mb-4">
-                      <div className={cn(
-                        "px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest",
-                        pred.impactLevel === 'Critical' ? "bg-brand/20 text-brand" : 
-                        pred.impactLevel === 'High' ? "bg-orange-500/20 text-orange-500" :
+          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">Advanced Outcome Forecasts</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {insight?.predictions.map((pred, i) => (
+              <div key={i} className="p-6 bg-white/[0.03] border border-white/10 hover:border-intelligence/30 transition-all group">
+                <div className="flex justify-between items-start mb-4">
+                  <div className={cn(
+                    "px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest",
+                    pred.impactLevel === 'Critical' ? "bg-brand/20 text-brand" :
+                      pred.impactLevel === 'High' ? "bg-orange-500/20 text-orange-500" :
                         "bg-intelligence/20 text-intelligence"
-                      )}>
-                        {pred.impactLevel} IMPACT
-                      </div>
-                      <p className="text-[10px] font-mono text-gray-500">{pred.timeframe}</p>
-                   </div>
-                   
-                   <h4 className="text-sm font-bold text-white mb-2 uppercase group-hover:text-intelligence transition-colors">{pred.title}</h4>
-                   <p className="text-[11px] text-gray-500 font-mono mb-4 leading-normal">{pred.description}</p>
-                   
-                   <div className="space-y-1.5">
-                      <div className="flex justify-between text-[8px] font-mono text-gray-600 uppercase">
-                         <span>Probability</span>
-                         <span>{pred.probability}%</span>
-                      </div>
-                      <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                         <motion.div 
-                           initial={{ width: 0 }}
-                           animate={{ width: `${pred.probability}%` }}
-                           transition={{ duration: 1, delay: 0.5 }}
-                           className={cn("h-full", pred.impactLevel === 'Critical' ? "bg-brand" : "bg-intelligence")}
-                         />
-                      </div>
-                   </div>
+                  )}>
+                    {pred.impactLevel} IMPACT
+                  </div>
+                  <p className="text-[10px] font-mono text-gray-500">{pred.timeframe}</p>
                 </div>
-              ))}
-           </div>
+
+                <h4 className="text-sm font-bold text-white mb-2 uppercase group-hover:text-intelligence transition-colors">{pred.title}</h4>
+                <p className="text-[11px] text-gray-500 font-mono mb-4 leading-normal">{pred.description}</p>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[8px] font-mono text-gray-600 uppercase">
+                    <span>Probability</span>
+                    <span>{pred.probability}%</span>
+                  </div>
+                  <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pred.probability}%` }}
+                      transition={{ duration: 1, delay: 0.5 }}
+                      className={cn("h-full", pred.impactLevel === 'Critical' ? "bg-brand" : "bg-intelligence")}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </motion.div>
@@ -1418,188 +1420,188 @@ function FinancialSummaryView({ onBack }: { onBack: () => void }) {
     <div className="space-y-12 pb-20">
       <div className="flex justify-between items-center">
         <div>
-           <button 
-             onClick={onBack}
-             className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 mb-4 flex items-center gap-2 hover:text-intelligence transition-colors"
-           >
-             <ChevronLeft size={14} />
-             RETURN_TO_OVERVIEW
-           </button>
-           <h2 className="text-5xl font-black italic uppercase">FINANCIAL_SUMMARY_REPORT</h2>
+          <button
+            onClick={onBack}
+            className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 mb-4 flex items-center gap-2 hover:text-intelligence transition-colors"
+          >
+            <ChevronLeft size={14} />
+            RETURN_TO_OVERVIEW
+          </button>
+          <h2 className="text-5xl font-black italic uppercase">FINANCIAL_SUMMARY_REPORT</h2>
         </div>
         <div className="flex gap-4">
-           <button className="p-4 glass border-white/10 text-gray-500 hover:text-white transition-colors">
-              <Download size={18} />
-           </button>
-           <button className="p-4 glass border-white/10 text-gray-500 hover:text-white transition-colors">
-              <History size={18} />
-           </button>
+          <button className="p-4 glass border-white/10 text-gray-500 hover:text-white transition-colors">
+            <Download size={18} />
+          </button>
+          <button className="p-4 glass border-white/10 text-gray-500 hover:text-white transition-colors">
+            <History size={18} />
+          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Revenue Trend */}
         <div className="glass p-10 border-white/10 bg-white/[0.01]">
-           <div className="mb-8">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Revenue Velocity</h4>
-              <p className="text-2xl font-black italic">MONTHLY_REVENUE_TREND</p>
-           </div>
-           <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                 <LineChart data={revenueTrendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                    <XAxis 
-                      dataKey="month" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
-                      tickFormatter={(val) => `$${val/1000}k`}
-                    />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      stroke="#00f2ff" 
-                      strokeWidth={4} 
-                      dot={{ fill: '#00f2ff', r: 6 }} 
-                      activeDot={{ r: 8, stroke: '#000', strokeWidth: 2 }}
-                    />
-                 </LineChart>
-              </ResponsiveContainer>
-           </div>
+          <div className="mb-8">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Revenue Velocity</h4>
+            <p className="text-2xl font-black italic">MONTHLY_REVENUE_TREND</p>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={revenueTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }}
+                  tickFormatter={(val) => `$${val / 1000}k`}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#00f2ff"
+                  strokeWidth={4}
+                  dot={{ fill: '#00f2ff', r: 6 }}
+                  activeDot={{ r: 8, stroke: '#000', strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         {/* Expense Pie */}
         <div className="glass p-10 border-white/10 bg-white/[0.01] flex flex-col">
-           <div className="mb-8">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-2">Operational Outflow</h4>
-              <p className="text-2xl font-black italic">EXPENSE_ALLOCATION_MATRIX</p>
-           </div>
-           <div className="flex-1 h-[300px] w-full flex items-center">
-              <ResponsiveContainer width="100%" height="100%">
-                 <PieChart>
-                    <Pie
-                      data={expenseBreakdownData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={80}
-                      outerRadius={120}
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {expenseBreakdownData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
-                    />
-                 </PieChart>
-              </ResponsiveContainer>
-              <div className="w-1/3 space-y-4">
-                 {expenseBreakdownData.map((item, i) => (
-                   <div key={i} className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}></div>
-                      <div className="flex flex-col">
-                         <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest leading-none mb-1">{item.name}</span>
-                         <span className="text-[10px] font-mono font-bold text-white">${(item.value/1000).toFixed(0)}k</span>
-                      </div>
-                   </div>
-                 ))}
-              </div>
-           </div>
+          <div className="mb-8">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-2">Operational Outflow</h4>
+            <p className="text-2xl font-black italic">EXPENSE_ALLOCATION_MATRIX</p>
+          </div>
+          <div className="flex-1 h-[300px] w-full flex items-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={expenseBreakdownData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={80}
+                  outerRadius={120}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {expenseBreakdownData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="w-1/3 space-y-4">
+              {expenseBreakdownData.map((item, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}></div>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest leading-none mb-1">{item.name}</span>
+                    <span className="text-[10px] font-mono font-bold text-white">${(item.value / 1000).toFixed(0)}k</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
-         {/* Top Revenue Sources */}
-         <div className="glass p-10 border-white/10 bg-white/[0.01]">
-            <h3 className="text-xs font-black uppercase tracking-widest text-intelligence mb-8 flex items-center gap-2">
-               <ArrowUpRight size={16} />
-               TOP_REVENUE_CHANNELS
-            </h3>
-            <div className="space-y-6">
-              {topRevenueSources.map((source, i) => (
-                <div key={i} className="flex justify-between items-center p-4 bg-white/5 border border-white/5 hover:border-intelligence/30 transition-all group">
-                   <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-white uppercase tracking-tight">{source.name}</span>
-                      <span className="text-[8px] font-mono text-gray-600 uppercase italic">Active Channel {i+1}</span>
-                   </div>
-                   <div className="text-right">
-                      <p className="text-sm font-black text-intelligence font-mono">${(source.amount/1000).toFixed(0)}K</p>
-                      <p className="text-[8px] font-black text-intelligence/50 uppercase tracking-widest">{source.growth} YTD</p>
-                   </div>
+        {/* Top Revenue Sources */}
+        <div className="glass p-10 border-white/10 bg-white/[0.01]">
+          <h3 className="text-xs font-black uppercase tracking-widest text-intelligence mb-8 flex items-center gap-2">
+            <ArrowUpRight size={16} />
+            TOP_REVENUE_CHANNELS
+          </h3>
+          <div className="space-y-6">
+            {topRevenueSources.map((source, i) => (
+              <div key={i} className="flex justify-between items-center p-4 bg-white/5 border border-white/5 hover:border-intelligence/30 transition-all group">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-white uppercase tracking-tight">{source.name}</span>
+                  <span className="text-[8px] font-mono text-gray-600 uppercase italic">Active Channel {i + 1}</span>
                 </div>
-              ))}
-            </div>
-         </div>
-
-         {/* Top Expense Categories */}
-         <div className="glass p-10 border-white/10 bg-white/[0.01]">
-            <h3 className="text-xs font-black uppercase tracking-widest text-brand mb-8 flex items-center gap-2">
-               <ArrowDownRight size={16} />
-               CRITICAL_EXPENSE_NODES
-            </h3>
-            <div className="space-y-6">
-              {topExpenseCategories.map((exp, i) => (
-                <div key={i} className="flex justify-between items-center p-4 bg-white/5 border border-white/5 hover:border-brand/30 transition-all group">
-                   <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-white uppercase tracking-tight">{exp.name}</span>
-                      <span className="text-[8px] font-mono text-gray-600 uppercase italic">Operational Cost {i+1}</span>
-                   </div>
-                   <div className="text-right">
-                      <p className="text-sm font-black text-brand font-mono">${(exp.amount/1000).toFixed(0)}K</p>
-                      <p className="text-[8px] font-black text-brand/50 uppercase tracking-widest">{exp.trend}</p>
-                   </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-intelligence font-mono">${(source.amount / 1000).toFixed(0)}K</p>
+                  <p className="text-[8px] font-black text-intelligence/50 uppercase tracking-widest">{source.growth} YTD</p>
                 </div>
-              ))}
-            </div>
-         </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-         {/* MoM Profit Comparison */}
-         <div className="glass p-10 border-white/10 bg-white/[0.01]">
-            <h3 className="text-xs font-black uppercase tracking-widest text-white mb-8 flex items-center gap-2">
-               <TrendingUp size={16} />
-               NET_PROFIT_DELTA
-            </h3>
-            <div className="h-[280px] w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={profitComparisonData}>
-                     <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                     <XAxis 
-                       dataKey="month" 
-                       axisLine={false} 
-                       tickLine={false} 
-                       tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
-                     />
-                     <YAxis 
-                       axisLine={false} 
-                       tickLine={false} 
-                       tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
-                       tickFormatter={(val) => `$${val/1000}k`}
-                     />
-                     <Tooltip 
-                       contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
-                       cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                     />
-                     <Bar dataKey="profit" fill="#00f2ff" opacity={0.6} radius={[2, 2, 0, 0]} />
-                  </BarChart>
-               </ResponsiveContainer>
-            </div>
-            <div className="mt-6 p-4 border border-intelligence/20 bg-intelligence/5">
-                <p className="text-[9px] font-mono text-gray-400 uppercase leading-relaxed">
-                   <span className="text-intelligence font-black">AI_INSIGHT:</span> PROFIT MARGINS HAVE EXPANDED BY 14.2% OVER THE LAST 48 HOURS. CURRENT VELOCITY SUGGESTS A SURPLUS EXIT FOR Q2.
-                </p>
-            </div>
-         </div>
+        {/* Top Expense Categories */}
+        <div className="glass p-10 border-white/10 bg-white/[0.01]">
+          <h3 className="text-xs font-black uppercase tracking-widest text-brand mb-8 flex items-center gap-2">
+            <ArrowDownRight size={16} />
+            CRITICAL_EXPENSE_NODES
+          </h3>
+          <div className="space-y-6">
+            {topExpenseCategories.map((exp, i) => (
+              <div key={i} className="flex justify-between items-center p-4 bg-white/5 border border-white/5 hover:border-brand/30 transition-all group">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-white uppercase tracking-tight">{exp.name}</span>
+                  <span className="text-[8px] font-mono text-gray-600 uppercase italic">Operational Cost {i + 1}</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-brand font-mono">${(exp.amount / 1000).toFixed(0)}K</p>
+                  <p className="text-[8px] font-black text-brand/50 uppercase tracking-widest">{exp.trend}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* MoM Profit Comparison */}
+        <div className="glass p-10 border-white/10 bg-white/[0.01]">
+          <h3 className="text-xs font-black uppercase tracking-widest text-white mb-8 flex items-center gap-2">
+            <TrendingUp size={16} />
+            NET_PROFIT_DELTA
+          </h3>
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={profitComparisonData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }}
+                  tickFormatter={(val) => `$${val / 1000}k`}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                />
+                <Bar dataKey="profit" fill="#00f2ff" opacity={0.6} radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-6 p-4 border border-intelligence/20 bg-intelligence/5">
+            <p className="text-[9px] font-mono text-gray-400 uppercase leading-relaxed">
+              <span className="text-intelligence font-black">AI_INSIGHT:</span> PROFIT MARGINS HAVE EXPANDED BY 14.2% OVER THE LAST 48 HOURS. CURRENT VELOCITY SUGGESTS A SURPLUS EXIT FOR Q2.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1607,6 +1609,19 @@ function FinancialSummaryView({ onBack }: { onBack: () => void }) {
 
 function OverviewView({ transactions, setTransactions, onViewReport }: { transactions: Transaction[], setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>, onViewReport: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(() => localStorage.getItem('overview_banner_dismissed') === 'true');
+
+  const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+  const today = new Date();
+  const adDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  
+  // Approximate BS Date for 2026-05-16 is Jestha 02, 2083
+  const bsDate = "Jestha 02, 2083 BS";
+
+  const dismissBanner = () => {
+    setIsBannerDismissed(true);
+    localStorage.setItem('overview_banner_dismissed', 'true');
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1654,10 +1669,10 @@ function OverviewView({ transactions, setTransactions, onViewReport }: { transac
 
   const barChartData = useMemo(() => {
     const groups: Record<string, { inflow: number; outflow: number }> = {};
-    
+
     // Sort transactions by date first
     const sorted = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
+
     sorted.forEach(t => {
       const date = new Date(t.date);
       const month = date.toLocaleString('default', { month: 'short' }).toUpperCase();
@@ -1680,28 +1695,108 @@ function OverviewView({ transactions, setTransactions, onViewReport }: { transac
 
   return (
     <div className="space-y-8">
+      {/* Welcome Banner */}
+      <AnimatePresence>
+        {!isBannerDismissed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+            animate={{ height: 'auto', opacity: 1, marginBottom: 32 }}
+            exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="glass p-10 border-intelligence/30 bg-intelligence/[0.02] relative group">
+              <button 
+                onClick={dismissBanner}
+                className="absolute top-6 right-6 text-gray-500 hover:text-white p-2 transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-center">
+                <div className="lg:col-span-2 space-y-6">
+                  <div>
+                    <h4 className="text-[10px] font-black text-intelligence uppercase tracking-[0.4em] mb-3">Operational Authorization Active</h4>
+                    <h2 className="text-4xl font-black italic uppercase leading-tight">Welcome back to the Command Node, <span className="text-intelligence underline decoration-intelligence/30">{businessName}</span></h2>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-8">
+                     <div className="flex items-center gap-3">
+                        <Calendar size={18} className="text-gray-600" />
+                        <div>
+                           <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Standard_AD</p>
+                           <p className="text-xs font-black text-white uppercase">{adDate}</p>
+                        </div>
+                     </div>
+                     <div className="flex items-center gap-3">
+                        <Globe size={18} className="text-intelligence/60" />
+                        <div>
+                           <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Regional_BS</p>
+                           <p className="text-xs font-black text-intelligence uppercase">{bsDate}</p>
+                        </div>
+                     </div>
+                  </div>
+
+                  <p className="text-sm font-mono text-gray-400 italic">"The future of finance isn't just about data; it's about the intelligence that drives it."</p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                   <button 
+                     onClick={() => {
+                        // We can't navigate directly from here without lifting state or using a custom event
+                        // But since OverviewView is inside Dashboard, we can't easily change activeTab
+                        // However, we can trigger the CSV upload which is local.
+                        // Let's assume the user wants these actions to be functional.
+                        alert("NAVIGATING_TO_DATA_INPUT..."); 
+                     }}
+                     className="w-full bg-white text-black font-black uppercase text-[10px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:bg-intelligence transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                   >
+                      <Plus size={14} />
+                      ADD_TRANSACTION
+                   </button>
+                   <button 
+                     onClick={() => fileInputRef.current?.click()}
+                     className="w-full bg-intelligence/10 text-intelligence border border-intelligence/30 font-black uppercase text-[10px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:bg-intelligence hover:text-black transition-all"
+                   >
+                      <Upload size={14} />
+                      UPLOAD_CSV_BATCH
+                   </button>
+                   <button 
+                     onClick={onViewReport}
+                     className="w-full bg-white/5 border border-white/10 text-white font-black uppercase text-[10px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:bg-white/10 transition-all"
+                   >
+                      <BarChart3 size={14} />
+                      GENERATE_REPORT
+                   </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
       {/* Header with Upload */}
       <div className="flex justify-between items-end mb-4">
         <div>
-           <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Platform Overview</h4>
-           <h2 className="text-5xl font-black italic uppercase">FINANCIAL INTELLIGENCE</h2>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Platform Overview</h4>
+          <h2 className="text-5xl font-black italic uppercase">FINANCIAL INTELLIGENCE</h2>
         </div>
         <div className="flex gap-4">
-          <input 
-            type="file" 
-            accept=".csv" 
-            className="hidden" 
-            ref={fileInputRef} 
+          <input
+            type="file"
+            accept=".csv"
+            className="hidden"
+            ref={fileInputRef}
             onChange={handleFileUpload}
           />
-          <button 
+          <button
             onClick={onViewReport}
             className="border border-white/10 text-white px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3 hover:bg-white/5 transition-all"
           >
             <BarChartIcon size={16} />
             VIEW FULL REPORT
           </button>
-          <button 
+          <button
             onClick={() => fileInputRef.current?.click()}
             className="bg-intelligence text-black px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
           >
@@ -1753,18 +1848,18 @@ function OverviewView({ transactions, setTransactions, onViewReport }: { transac
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }}
                 />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} 
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }}
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
                   cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                 />
@@ -1798,7 +1893,7 @@ function OverviewView({ transactions, setTransactions, onViewReport }: { transac
                     <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
                 />
               </PieChart>
@@ -1814,7 +1909,7 @@ function OverviewView({ transactions, setTransactions, onViewReport }: { transac
           </div>
         </div>
       </div>
-      
+
       {/* Predictive Analytics */}
       <QuantumIntelligence />
     </div>
@@ -1824,9 +1919,9 @@ function OverviewView({ transactions, setTransactions, onViewReport }: { transac
 function PlaceholderView({ name }: { name: string }) {
   return (
     <div className="glass border-white/5 p-20 flex flex-col items-center justify-center text-center">
-       <Activity className="text-intelligence w-16 h-16 mb-8 animate-pulse" />
-       <h2 className="text-4xl font-black italic uppercase mb-4">{name} SECURE NODE</h2>
-       <p className="text-gray-500 font-mono max-w-md uppercase tracking-widest text-sm">Initializing encrypted data visualization for {name} sub-systems. Standby for sync...</p>
+      <Activity className="text-intelligence w-16 h-16 mb-8 animate-pulse" />
+      <h2 className="text-4xl font-black italic uppercase mb-4">{name} SECURE NODE</h2>
+      <p className="text-gray-500 font-mono max-w-md uppercase tracking-widest text-sm">Initializing encrypted data visualization for {name} sub-systems. Standby for sync...</p>
     </div>
   );
 }
@@ -1920,7 +2015,7 @@ function PLSection({ section }: { section: ReturnType<typeof getPLData>[0] }) {
       section.highlight ? "bg-intelligence/5 border-l-4 border-l-intelligence" : "",
       section.isResult ? "border-brand border-2 my-2 bg-brand/5" : ""
     )}>
-      <button 
+      <button
         onClick={() => hasItems && setIsOpen(!isOpen)}
         className={cn(
           "w-full flex items-center justify-between p-6 hover:bg-white/[0.02] transition-colors",
@@ -1941,8 +2036,8 @@ function PLSection({ section }: { section: ReturnType<typeof getPLData>[0] }) {
         </div>
         <p className={cn(
           "font-mono font-bold italic",
-          section.highlight ? "text-intelligence text-xl" : 
-          section.isResult ? "text-white text-lg" : "text-gray-500"
+          section.highlight ? "text-intelligence text-xl" :
+            section.isResult ? "text-white text-lg" : "text-gray-500"
         )}>
           {section.total}
         </p>
@@ -1977,7 +2072,7 @@ function PandLView() {
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
   const getMultiplier = () => {
-    switch(range) {
+    switch (range) {
       case 'This Month': return 1;
       case 'Last Month': return 0.95;
       case 'This Quarter': return 3.2;
@@ -1999,7 +2094,7 @@ function PandLView() {
   const exportPDF = () => {
     const doc = new jsPDF();
     const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-    
+
     doc.setFontSize(20);
     doc.text('Profit & Loss Statement', 14, 22);
     doc.setFontSize(11);
@@ -2054,33 +2149,33 @@ function PandLView() {
               ))}
             </div>
             {range === 'Custom' && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-4 mt-2"
               >
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Start</span>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={customDates.start}
-                    onChange={(e) => setCustomDates({...customDates, start: e.target.value})}
+                    onChange={(e) => setCustomDates({ ...customDates, start: e.target.value })}
                     className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-intelligence/50 font-mono"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">End</span>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={customDates.end}
-                    onChange={(e) => setCustomDates({...customDates, end: e.target.value})}
+                    onChange={(e) => setCustomDates({ ...customDates, end: e.target.value })}
                     className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-intelligence/50 font-mono"
                   />
                 </div>
               </motion.div>
             )}
           </div>
-          <button 
+          <button
             onClick={exportPDF}
             className="bg-intelligence text-black px-8 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all h-fit"
           >
@@ -2098,31 +2193,31 @@ function PandLView() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="glass p-8 border-white/5 bg-intelligence/[0.02]">
-           <div className="flex items-center gap-3 mb-6">
-              <Zap className="text-intelligence" size={16} />
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-intelligence">Efficiency Metrics</h4>
-           </div>
-           <div className="space-y-6">
-              {[
-                { label: "Gross Margin", val: "64.8%", trend: "+2.1%" },
-                { label: "Operating Margin", val: "41.9%", trend: "+0.4%" },
-                { label: "Tax Optimization", val: "84%", trend: "STABLE" }
-              ].map((m, i) => (
-                <div key={i} className="flex justify-between items-center">
-                   <p className="text-[10px] font-mono text-gray-500 uppercase">{m.label}</p>
-                   <div className="flex items-center gap-4">
-                      <p className="text-lg font-mono font-bold text-white italic">{m.val}</p>
-                      <span className="text-[9px] font-black text-intelligence">{m.trend}</span>
-                   </div>
+          <div className="flex items-center gap-3 mb-6">
+            <Zap className="text-intelligence" size={16} />
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-intelligence">Efficiency Metrics</h4>
+          </div>
+          <div className="space-y-6">
+            {[
+              { label: "Gross Margin", val: "64.8%", trend: "+2.1%" },
+              { label: "Operating Margin", val: "41.9%", trend: "+0.4%" },
+              { label: "Tax Optimization", val: "84%", trend: "STABLE" }
+            ].map((m, i) => (
+              <div key={i} className="flex justify-between items-center">
+                <p className="text-[10px] font-mono text-gray-500 uppercase">{m.label}</p>
+                <div className="flex items-center gap-4">
+                  <p className="text-lg font-mono font-bold text-white italic">{m.val}</p>
+                  <span className="text-[9px] font-black text-intelligence">{m.trend}</span>
                 </div>
-              ))}
-           </div>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="glass p-8 border-white/5 bg-white/[0.01]">
-           <p className="text-[10px] font-mono text-gray-600 uppercase mb-4 tracking-widest">Auditor Notes</p>
-           <p className="text-xs text-gray-500 font-mono leading-relaxed uppercase">
-             All figures adjusted for quantum variance. Revenue recognition follows G-SEC protocols. COGS includes accelerated depreciation on hardware clusters. Net profit remains within target corridors despite increased R&D allocation.
-           </p>
+          <p className="text-[10px] font-mono text-gray-600 uppercase mb-4 tracking-widest">Auditor Notes</p>
+          <p className="text-xs text-gray-500 font-mono leading-relaxed uppercase">
+            All figures adjusted for quantum variance. Revenue recognition follows G-SEC protocols. COGS includes accelerated depreciation on hardware clusters. Net profit remains within target corridors despite increased R&D allocation.
+          </p>
         </div>
       </div>
     </div>
@@ -2187,7 +2282,7 @@ function CashFlowView() {
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
   const getMultiplier = () => {
-    switch(range) {
+    switch (range) {
       case 'This Month': return 1;
       case 'Last Month': return 0.92;
       case 'This Quarter': return 2.8;
@@ -2209,7 +2304,7 @@ function CashFlowView() {
   const exportPDF = () => {
     const doc = new jsPDF();
     const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-    
+
     doc.setFontSize(20);
     doc.text('Cash Flow Statement', 14, 22);
     doc.setFontSize(11);
@@ -2264,33 +2359,33 @@ function CashFlowView() {
               ))}
             </div>
             {range === 'Custom' && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-4 mt-2"
               >
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Start</span>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={customDates.start}
-                    onChange={(e) => setCustomDates({...customDates, start: e.target.value})}
+                    onChange={(e) => setCustomDates({ ...customDates, start: e.target.value })}
                     className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-brand/50 font-mono"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">End</span>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={customDates.end}
-                    onChange={(e) => setCustomDates({...customDates, end: e.target.value})}
+                    onChange={(e) => setCustomDates({ ...customDates, end: e.target.value })}
                     className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-brand/50 font-mono"
                   />
                 </div>
               </motion.div>
             )}
           </div>
-          <button 
+          <button
             onClick={exportPDF}
             className="bg-brand text-white px-8 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(220,20,60,0.4)] transition-all h-fit"
           >
@@ -2315,8 +2410,8 @@ function CashFlowView() {
           ]}>
             <defs>
               <linearGradient id="cfGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#dc143c" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#dc143c" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#dc143c" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#dc143c" stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis dataKey="n" stroke="#333" fontSize={10} />
@@ -2394,7 +2489,7 @@ function InventoryView() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [sortConfig, setSortConfig] = useState<{ key: keyof InventoryItem; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newItem, setNewItem] = useState({
     name: '',
@@ -2429,8 +2524,8 @@ function InventoryView() {
 
   const filteredAndSortedInventory = useMemo(() => {
     let result = inventory.filter(item => {
-      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           item.id.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.id.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = categoryFilter === 'ALL' || item.category === categoryFilter;
       return matchesSearch && matchesCategory;
     });
@@ -2439,7 +2534,7 @@ function InventoryView() {
       result.sort((a, b) => {
         const aValue = a[sortConfig.key];
         const bValue = b[sortConfig.key];
-        
+
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }
@@ -2473,12 +2568,12 @@ function InventoryView() {
       const expiryDate = new Date(item.expiry);
       const diffTime = expiryDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       return item.qty < 10 || diffDays < 7 || diffDays < 0;
     }).map(item => ({
       ...item,
-      alertType: item.qty < 10 ? 'QUANTITY_CRITICAL' : 
-                 (new Date(item.expiry) < today ? 'EXPIRED_CRITICAL' : 'EXPIRY_WARNING')
+      alertType: item.qty < 10 ? 'QUANTITY_CRITICAL' :
+        (new Date(item.expiry) < today ? 'EXPIRED_CRITICAL' : 'EXPIRY_WARNING')
     }));
   }, [inventory]);
 
@@ -2508,7 +2603,7 @@ function InventoryView() {
     inventory.forEach(item => {
       const itemValue = item.qty * item.price;
       totalStockValue += itemValue;
-      
+
       const expiryDate = new Date(item.expiry);
       if (expiryDate < today) {
         expiredStockValue += itemValue;
@@ -2547,7 +2642,7 @@ function InventoryView() {
     const id = (inventory.length + 1).toString();
     const qtyNum = Number(newItem.qty);
     const priceNum = Number(newItem.price);
-    
+
     const product: InventoryItem = {
       id,
       name: newItem.name,
@@ -2575,7 +2670,7 @@ function InventoryView() {
 
     const qtyNum = Number(editingItem.qty);
     const priceNum = Number(editingItem.price);
-    
+
     const updatedItem: InventoryItem = {
       ...editingItem,
       qty: qtyNum,
@@ -2615,7 +2710,7 @@ function InventoryView() {
           <h2 className="text-5xl font-black italic uppercase">QUANTUM INVENTORY</h2>
         </div>
         <div className="flex flex-wrap gap-4 w-full md:w-auto">
-          <button 
+          <button
             onClick={() => setIsScanModalOpen(true)}
             className="border border-white/10 text-white px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 hover:bg-white/5 transition-all"
           >
@@ -2623,18 +2718,18 @@ function InventoryView() {
             SCAN_ASSET
           </button>
           <div className="relative group flex-1 md:flex-initial">
-             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={16} />
-             <input 
-               type="text" 
-               placeholder="SEARCH_CATALOG..."
-               value={searchTerm}
-               onChange={(e) => setSearchTerm(e.target.value)}
-               className="w-full bg-white/5 border border-white/10 pl-12 pr-6 py-3 font-mono text-[11px] text-white focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-widest"
-             />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={16} />
+            <input
+              type="text"
+              placeholder="SEARCH_CATALOG..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 pl-12 pr-6 py-3 font-mono text-[11px] text-white focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-widest"
+            />
           </div>
-          
+
           <div className="relative">
-            <select 
+            <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="bg-white/5 border border-white/10 pl-4 pr-10 py-3 font-mono text-[11px] text-white focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-widest appearance-none cursor-pointer"
@@ -2646,7 +2741,7 @@ function InventoryView() {
             <Filter className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={14} />
           </div>
 
-          <button 
+          <button
             onClick={() => setIsModalOpen(true)}
             className="bg-intelligence text-black px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
           >
@@ -2655,11 +2750,11 @@ function InventoryView() {
           </button>
         </div>
       </div>
-      
+
       {/* Alerts Panel */}
       {alerts.length > 0 && (
         <div className="border border-brand/50 bg-brand/5 overflow-hidden">
-          <button 
+          <button
             onClick={() => setIsAlertsCollapsed(!isAlertsCollapsed)}
             className="w-full flex items-center justify-between p-4 bg-brand/10 hover:bg-brand/20 transition-all group"
           >
@@ -2674,10 +2769,10 @@ function InventoryView() {
             </div>
             {isAlertsCollapsed ? <ChevronDown size={16} className="text-brand" /> : <ChevronUp size={16} className="text-brand" />}
           </button>
-          
+
           <AnimatePresence>
             {!isAlertsCollapsed && (
-              <motion.div 
+              <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
@@ -2703,7 +2798,7 @@ function InventoryView() {
                           </p>
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => resolveAlert(alert.id, alert.alertType)}
                         className="bg-brand/10 border border-brand/30 text-brand px-6 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-brand hover:text-black transition-all"
                       >
@@ -2723,7 +2818,7 @@ function InventoryView() {
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-white/5 bg-white/[0.02]">
-                <th 
+                <th
                   className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest cursor-pointer hover:text-white transition-colors"
                   onClick={() => handleSort('name')}
                 >
@@ -2732,7 +2827,7 @@ function InventoryView() {
                   </div>
                 </th>
                 <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Category</th>
-                <th 
+                <th
                   className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right cursor-pointer hover:text-white transition-colors"
                   onClick={() => handleSort('qty')}
                 >
@@ -2740,7 +2835,7 @@ function InventoryView() {
                     Quantity <SortIcon column="qty" />
                   </div>
                 </th>
-                <th 
+                <th
                   className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right cursor-pointer hover:text-white transition-colors"
                   onClick={() => handleSort('price')}
                 >
@@ -2748,7 +2843,7 @@ function InventoryView() {
                     Unit Price <SortIcon column="price" />
                   </div>
                 </th>
-                <th 
+                <th
                   className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest cursor-pointer hover:text-white transition-colors"
                   onClick={() => handleSort('expiry')}
                 >
@@ -2761,8 +2856,8 @@ function InventoryView() {
             </thead>
             <tbody>
               {filteredAndSortedInventory.map((item) => (
-                <tr 
-                  key={item.id} 
+                <tr
+                  key={item.id}
                   onClick={() => openEditModal(item)}
                   className="border-b border-white/5 hover:bg-white/[0.03] transition-colors group cursor-pointer"
                 >
@@ -2863,8 +2958,8 @@ function InventoryView() {
                           {((value / (valuationMetrics.totalStockValue || 1)) * 100).toFixed(1)}%
                         </span>
                         <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-intelligence" 
+                          <div
+                            className="h-full bg-intelligence"
                             style={{ width: `${(value / (valuationMetrics.totalStockValue || 1)) * 100}%` }}
                           />
                         </div>
@@ -2881,14 +2976,14 @@ function InventoryView() {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -2907,11 +3002,11 @@ function InventoryView() {
               <form onSubmit={handleAddProduct} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Name</label>
-                  <input 
+                  <input
                     type="text"
                     required
                     value={newItem.name}
-                    onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                    onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                     placeholder="ALPHA_PROCESSOR_7"
                     className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
                   />
@@ -2920,9 +3015,9 @@ function InventoryView() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Category</label>
-                    <select 
+                    <select
                       value={newItem.category}
-                      onChange={(e) => setNewItem({...newItem, category: e.target.value})}
+                      onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 p-4 text-white font-black text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
                     >
                       <option value="Hardware">Hardware</option>
@@ -2934,11 +3029,11 @@ function InventoryView() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Expiry Date</label>
-                    <input 
+                    <input
                       type="date"
                       required
                       value={newItem.expiry}
-                      onChange={(e) => setNewItem({...newItem, expiry: e.target.value})}
+                      onChange={(e) => setNewItem({ ...newItem, expiry: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 [color-scheme:dark]"
                     />
                   </div>
@@ -2947,25 +3042,25 @@ function InventoryView() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Quantity</label>
-                    <input 
+                    <input
                       type="number"
                       required
                       min="0"
                       value={newItem.qty}
-                      onChange={(e) => setNewItem({...newItem, qty: e.target.value})}
+                      onChange={(e) => setNewItem({ ...newItem, qty: e.target.value })}
                       placeholder="0"
                       className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Unit Price ($)</label>
-                    <input 
+                    <input
                       type="number"
                       required
                       min="0"
                       step="0.01"
                       value={newItem.price}
-                      onChange={(e) => setNewItem({...newItem, price: e.target.value})}
+                      onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
                       placeholder="0.00"
                       className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50"
                     />
@@ -2973,7 +3068,7 @@ function InventoryView() {
                 </div>
 
                 <div className="pt-6">
-                  <button 
+                  <button
                     type="submit"
                     className="w-full bg-intelligence text-black font-black uppercase text-xs tracking-[0.2em] p-5 hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] hover:brightness-110 transition-all"
                   >
@@ -2989,14 +3084,14 @@ function InventoryView() {
       <AnimatePresence>
         {isEditModalOpen && editingItem && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsEditModalOpen(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -3015,11 +3110,11 @@ function InventoryView() {
               <form onSubmit={handleUpdateProduct} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Name</label>
-                  <input 
+                  <input
                     type="text"
                     required
                     value={editingItem.name}
-                    onChange={(e) => setEditingItem({...editingItem, name: e.target.value})}
+                    onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
                     className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-brand/50 transition-all"
                   />
                 </div>
@@ -3027,9 +3122,9 @@ function InventoryView() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Category</label>
-                    <select 
+                    <select
                       value={editingItem.category}
-                      onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
+                      onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 p-4 text-white font-black text-[10px] focus:outline-none focus:border-brand/50 uppercase tracking-widest"
                     >
                       <option value="Hardware">Hardware</option>
@@ -3041,11 +3136,11 @@ function InventoryView() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Expiry Date</label>
-                    <input 
+                    <input
                       type="date"
                       required
                       value={editingItem.expiry}
-                      onChange={(e) => setEditingItem({...editingItem, expiry: e.target.value})}
+                      onChange={(e) => setEditingItem({ ...editingItem, expiry: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-brand/50 [color-scheme:dark]"
                     />
                   </div>
@@ -3054,31 +3149,31 @@ function InventoryView() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Quantity</label>
-                    <input 
+                    <input
                       type="number"
                       required
                       min="0"
                       value={editingItem.qty}
-                      onChange={(e) => setEditingItem({...editingItem, qty: Number(e.target.value)})}
+                      onChange={(e) => setEditingItem({ ...editingItem, qty: Number(e.target.value) })}
                       className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-brand/50"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Unit Price ($)</label>
-                    <input 
+                    <input
                       type="number"
                       required
                       min="0"
                       step="0.01"
                       value={editingItem.price}
-                      onChange={(e) => setEditingItem({...editingItem, price: Number(e.target.value)})}
+                      onChange={(e) => setEditingItem({ ...editingItem, price: Number(e.target.value) })}
                       className="w-full bg-white/5 border border-white/10 p-4 text-white font-mono text-sm focus:outline-none focus:border-brand/50"
                     />
                   </div>
                 </div>
 
                 <div className="flex gap-4 pt-6">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
                     className="flex-1 bg-brand/10 border border-brand/30 text-brand font-black uppercase text-[10px] tracking-widest p-4 hover:bg-brand hover:text-black transition-all flex items-center justify-center gap-2"
@@ -3086,7 +3181,7 @@ function InventoryView() {
                     <Trash2 size={16} />
                     DELETE_PRODUCT
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     className="flex-1 bg-intelligence text-black font-black uppercase text-[10px] tracking-widest p-4 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
                   >
@@ -3097,7 +3192,7 @@ function InventoryView() {
 
               <AnimatePresence>
                 {showDeleteConfirm && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
@@ -3109,13 +3204,13 @@ function InventoryView() {
                       This action will permanently purge <span className="text-brand">"{editingItem.name}"</span> from the inventory database. This cannot be undone.
                     </p>
                     <div className="flex gap-4 w-full">
-                      <button 
+                      <button
                         onClick={() => setShowDeleteConfirm(false)}
                         className="flex-1 border border-white/10 text-white font-black uppercase text-[10px] tracking-widest p-4 hover:bg-white/5 transition-all"
                       >
                         ABORT_PURGE
                       </button>
-                      <button 
+                      <button
                         onClick={handleDeleteProduct}
                         className="flex-1 bg-brand text-black font-black uppercase text-[10px] tracking-widest p-4 hover:shadow-[0_0_20px_rgba(255,46,115,0.4)] transition-all"
                       >
@@ -3133,14 +3228,14 @@ function InventoryView() {
       <AnimatePresence>
         {isScanModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsScanModalOpen(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -3157,15 +3252,15 @@ function InventoryView() {
               </div>
 
               <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest leading-loose mb-8">
-                Enter a product barcode to simulate a laser scan. Known codes: 
+                Enter a product barcode to simulate a laser scan. Known codes:
                 <span className="text-intelligence mx-1">849001 - 849005</span>
               </p>
 
               <form onSubmit={handleScan} className="space-y-6">
                 <div className="relative group">
                   <QrCode className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={20} />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     autoFocus
                     placeholder="SCAN_READY..."
@@ -3174,7 +3269,7 @@ function InventoryView() {
                     className="w-full bg-white/5 border border-white/10 pl-14 pr-6 py-4 font-mono text-lg text-white focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-[0.2em]"
                   />
                   {!SAMPLE_BARCODES[scanInput] && scanInput.length >= 6 && (
-                    <motion.p 
+                    <motion.p
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       className="text-[9px] font-black text-brand uppercase mt-2"
@@ -3185,7 +3280,7 @@ function InventoryView() {
                 </div>
 
                 <div className="pt-4">
-                  <button 
+                  <button
                     type="submit"
                     disabled={!SAMPLE_BARCODES[scanInput]}
                     className="w-full bg-intelligence text-black font-black uppercase text-xs tracking-[0.2em] p-5 hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] hover:brightness-110 disabled:opacity-30 disabled:hover:shadow-none transition-all"
@@ -3205,7 +3300,7 @@ function InventoryView() {
 
 // --- DATA ENTRY VIEW ---
 
-function DataEntryView({ transactions, onAdd, onDelete, categories }: { transactions: Transaction[], onAdd: (t: Transaction) => void, onDelete: (i: number) => void, categories: {name: string, type: string}[] }) {
+function DataEntryView({ transactions, onAdd, onDelete, categories }: { transactions: Transaction[], onAdd: (t: Transaction) => void, onDelete: (i: number) => void, categories: { name: string, type: string }[] }) {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     type: 'Inflow',
@@ -3219,7 +3314,7 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     setTimeout(() => {
       onAdd({
         date: formData.date,
@@ -3264,11 +3359,11 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Transaction Date</label>
                   <div className="relative group">
                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={18} />
-                    <input 
+                    <input
                       type="date"
                       required
                       value={formData.date}
-                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all [color-scheme:dark]"
                     />
                   </div>
@@ -3278,9 +3373,9 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Entity Type</label>
                   <div className="relative group">
                     <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-hover:text-intelligence" size={18} />
-                    <select 
+                    <select
                       value={formData.type}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
                     >
                       <option value="Inflow">Incoming Revenue</option>
@@ -3295,11 +3390,11 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Transaction Description</label>
                 <div className="relative group">
                   <FileText className="absolute left-4 top-4 text-gray-600 transition-colors group-focus-within:text-intelligence" size={18} />
-                  <textarea 
+                  <textarea
                     required
                     rows={3}
                     value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="ENTER SOURCE METADATA..."
                     className="w-full bg-white/5 border border-white/10 pl-12 pr-6 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800 uppercase tracking-tighter"
                   />
@@ -3311,12 +3406,12 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Currency Amount (USD)</label>
                   <div className="relative group">
                     <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-focus-within:text-intelligence" size={18} />
-                    <input 
+                    <input
                       type="number"
                       required
                       step="0.01"
                       value={formData.amount}
-                      onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                       placeholder="0.00"
                       className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
                     />
@@ -3327,9 +3422,9 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Protocol Category</label>
                   <div className="relative group">
                     <Database className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 transition-colors group-hover:text-intelligence" size={18} />
-                    <select 
+                    <select
                       value={formData.category}
-                      onChange={(e) => setFormData({...formData, category: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
                     >
                       {currentTypeCategories.map(cat => (
@@ -3343,7 +3438,7 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
               </div>
 
               <div className="pt-4">
-                <button 
+                <button
                   type="submit"
                   disabled={isSubmitting}
                   className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-6 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none"
@@ -3370,42 +3465,42 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
         </div>
 
         <div className="space-y-6">
-           <div className="glass p-8 border-white/5 bg-white/[0.01]">
-              <h3 className="text-xs font-black uppercase tracking-widest text-intelligence mb-6 flex items-center gap-2">
-                <History size={14} />
-                RECENT_KRNL_COMMITS
-              </h3>
-              <div className="space-y-4">
-                 {recentTransactions.map((t, i) => (
-                   <div key={i} className="p-4 bg-white/5 border border-white/10 group relative hover:border-intelligence/30 transition-all">
-                      <div className="flex justify-between items-start mb-2">
-                         <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">{t.date}</span>
-                         <div className="flex items-center gap-3">
-                            <span className={cn(
-                              "text-[9px] font-black uppercase tracking-widest",
-                              t.type === 'Inflow' ? "text-intelligence" : "text-brand"
-                            )}>
-                               {t.type === 'Inflow' ? "+" : "-"}{formatCurrency(t.amount)}
-                            </span>
-                            <button 
-                              onClick={() => onDelete(i)}
-                              className="text-gray-700 hover:text-brand transition-colors p-1"
-                            >
-                               <Trash2 size={12} />
-                            </button>
-                         </div>
-                      </div>
-                      <p className="text-[10px] font-bold text-white uppercase tracking-tight truncate mb-1">{t.description}</p>
-                      <p className="text-[8px] font-mono text-gray-600 uppercase italic">{t.category}</p>
-                   </div>
-                 ))}
-                 {recentTransactions.length === 0 && (
-                   <div className="py-12 text-center">
-                      <p className="text-[10px] font-mono text-gray-700 uppercase tracking-widest">No Recent Transactions Found</p>
-                   </div>
-                 )}
-              </div>
-           </div>
+          <div className="glass p-8 border-white/5 bg-white/[0.01]">
+            <h3 className="text-xs font-black uppercase tracking-widest text-intelligence mb-6 flex items-center gap-2">
+              <History size={14} />
+              RECENT_KRNL_COMMITS
+            </h3>
+            <div className="space-y-4">
+              {recentTransactions.map((t, i) => (
+                <div key={i} className="p-4 bg-white/5 border border-white/10 group relative hover:border-intelligence/30 transition-all">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">{t.date}</span>
+                    <div className="flex items-center gap-3">
+                      <span className={cn(
+                        "text-[9px] font-black uppercase tracking-widest",
+                        t.type === 'Inflow' ? "text-intelligence" : "text-brand"
+                      )}>
+                        {t.type === 'Inflow' ? "+" : "-"}{formatCurrency(t.amount)}
+                      </span>
+                      <button
+                        onClick={() => onDelete(i)}
+                        className="text-gray-700 hover:text-brand transition-colors p-1"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-bold text-white uppercase tracking-tight truncate mb-1">{t.description}</p>
+                  <p className="text-[8px] font-mono text-gray-600 uppercase italic">{t.category}</p>
+                </div>
+              ))}
+              {recentTransactions.length === 0 && (
+                <div className="py-12 text-center">
+                  <p className="text-[10px] font-mono text-gray-700 uppercase tracking-widest">No Recent Transactions Found</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -3419,7 +3514,7 @@ function TransactionsView({ transactions, onUpdate }: { transactions: Transactio
   const [typeFilter, setTypeFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
-  const [editingTransaction, setEditingTransaction] = useState<{index: number, t: Transaction} | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<{ index: number, t: Transaction } | null>(null);
   const itemsPerPage = 8;
 
   const filteredTransactions = useMemo(() => {
@@ -3441,7 +3536,7 @@ function TransactionsView({ transactions, onUpdate }: { transactions: Transactio
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTransaction) return;
-    
+
     onUpdate(prev => {
       const next = [...prev];
       next[editingTransaction.index] = editingTransaction.t;
@@ -3458,138 +3553,138 @@ function TransactionsView({ transactions, onUpdate }: { transactions: Transactio
           <h2 className="text-5xl font-black italic uppercase">TRANSACTION_RECORDS</h2>
         </div>
         <div className="text-right">
-           <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Total Volume</p>
-           <p className="text-2xl font-black text-white">{filteredTransactions.length} ENTRIES</p>
+          <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Total Volume</p>
+          <p className="text-2xl font-black text-white">{filteredTransactions.length} ENTRIES</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="glass p-6 border-white/10 bg-white/[0.01] flex flex-wrap gap-6 items-center">
-         <div className="flex-1 min-w-[200px] relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={16} />
-            <input 
-              type="text" 
-              placeholder="SEARCH_BY_DESCRIPTION..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 pl-12 pr-6 py-3 text-[10px] font-mono text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
-            />
-         </div>
-         <div className="flex items-center gap-3">
-            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Type:</span>
-            <select 
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="bg-white/5 border border-white/10 px-4 py-3 text-[9px] font-black text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest appearance-none cursor-pointer pr-10"
-            >
-               <option value="All">All Types</option>
-               <option value="Inflow">Incoming</option>
-               <option value="Outflow">Outgoing</option>
-            </select>
-         </div>
-         <div className="flex items-center gap-3">
-            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Dept:</span>
-            <select 
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-white/5 border border-white/10 px-4 py-3 text-[9px] font-black text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest appearance-none cursor-pointer pr-10"
-            >
-               <option value="All">All Categories</option>
-               {Array.from(new Set(transactions.map(t => t.category))).map(cat => (
-                 <option key={cat} value={cat}>{cat}</option>
-               ))}
-            </select>
-         </div>
-         <button 
-           onClick={() => { setSearchTerm(''); setTypeFilter('All'); setCategoryFilter('All'); }}
-           className="text-[9px] font-black text-brand uppercase tracking-[0.2em] hover:text-white transition-colors"
-         >
-           RESET_FILTERS
-         </button>
+        <div className="flex-1 min-w-[200px] relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={16} />
+          <input
+            type="text"
+            placeholder="SEARCH_BY_DESCRIPTION..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 pl-12 pr-6 py-3 text-[10px] font-mono text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Type:</span>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="bg-white/5 border border-white/10 px-4 py-3 text-[9px] font-black text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest appearance-none cursor-pointer pr-10"
+          >
+            <option value="All">All Types</option>
+            <option value="Inflow">Incoming</option>
+            <option value="Outflow">Outgoing</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Dept:</span>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-white/5 border border-white/10 px-4 py-3 text-[9px] font-black text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest appearance-none cursor-pointer pr-10"
+          >
+            <option value="All">All Categories</option>
+            {Array.from(new Set(transactions.map(t => t.category))).map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={() => { setSearchTerm(''); setTypeFilter('All'); setCategoryFilter('All'); }}
+          className="text-[9px] font-black text-brand uppercase tracking-[0.2em] hover:text-white transition-colors"
+        >
+          RESET_FILTERS
+        </button>
       </div>
 
       {/* Table */}
       <div className="glass border-white/5 overflow-hidden">
-         <table className="w-full text-left border-collapse">
-            <thead>
-               <tr className="border-b border-white/10 bg-white/[0.02]">
-                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Timestamp</th>
-                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Context/Descriptor</th>
-                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Protocol</th>
-                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Status_Mode</th>
-                  <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Value_USD</th>
-               </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-               {paginatedTransactions.map((t, i) => {
-                 const actualIndex = transactions.indexOf(t);
-                 return (
-                   <motion.tr 
-                     key={i}
-                     onClick={() => setEditingTransaction({ index: actualIndex, t: {...t} })}
-                     className="hover:bg-intelligence/5 cursor-pointer transition-colors group"
-                     layout
-                   >
-                      <td className="px-6 py-5">
-                         <div className="flex items-center gap-3">
-                            <div className={cn("w-1 h-4", t.type === 'Inflow' ? "bg-intelligence" : "bg-brand")}></div>
-                            <span className="text-[10px] font-mono text-gray-400">{t.date}</span>
-                         </div>
-                      </td>
-                      <td className="px-6 py-5">
-                         <p className="text-[11px] font-bold text-white uppercase tracking-tight group-hover:text-intelligence transition-colors">{t.description}</p>
-                      </td>
-                      <td className="px-6 py-5">
-                         <span className="text-[9px] font-mono text-gray-500 uppercase italic">{t.category}</span>
-                      </td>
-                      <td className="px-6 py-5">
-                         <div className={cn(
-                           "inline-flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
-                           t.type === 'Inflow' ? "bg-intelligence/10 text-intelligence" : "bg-brand/10 text-brand"
-                         )}>
-                           {t.type === 'Inflow' ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-                           {t.type}
-                         </div>
-                      </td>
-                      <td className="px-6 py-5 text-right font-mono font-bold text-xs">
-                         <span className={t.type === 'Inflow' ? "text-intelligence" : "text-brand"}>
-                           {t.type === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
-                         </span>
-                      </td>
-                   </motion.tr>
-                 );
-               })}
-            </tbody>
-         </table>
-         {paginatedTransactions.length === 0 && (
-           <div className="py-20 text-center">
-              <p className="text-[10px] font-mono text-gray-700 uppercase tracking-widest">No matching records found in local kernel</p>
-           </div>
-         )}
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-white/10 bg-white/[0.02]">
+              <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Timestamp</th>
+              <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Context/Descriptor</th>
+              <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Protocol</th>
+              <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Status_Mode</th>
+              <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Value_USD</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {paginatedTransactions.map((t, i) => {
+              const actualIndex = transactions.indexOf(t);
+              return (
+                <motion.tr
+                  key={i}
+                  onClick={() => setEditingTransaction({ index: actualIndex, t: { ...t } })}
+                  className="hover:bg-intelligence/5 cursor-pointer transition-colors group"
+                  layout
+                >
+                  <td className="px-6 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("w-1 h-4", t.type === 'Inflow' ? "bg-intelligence" : "bg-brand")}></div>
+                      <span className="text-[10px] font-mono text-gray-400">{t.date}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <p className="text-[11px] font-bold text-white uppercase tracking-tight group-hover:text-intelligence transition-colors">{t.description}</p>
+                  </td>
+                  <td className="px-6 py-5">
+                    <span className="text-[9px] font-mono text-gray-500 uppercase italic">{t.category}</span>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className={cn(
+                      "inline-flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                      t.type === 'Inflow' ? "bg-intelligence/10 text-intelligence" : "bg-brand/10 text-brand"
+                    )}>
+                      {t.type === 'Inflow' ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                      {t.type}
+                    </div>
+                  </td>
+                  <td className="px-6 py-5 text-right font-mono font-bold text-xs">
+                    <span className={t.type === 'Inflow' ? "text-intelligence" : "text-brand"}>
+                      {t.type === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
+                    </span>
+                  </td>
+                </motion.tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {paginatedTransactions.length === 0 && (
+          <div className="py-20 text-center">
+            <p className="text-[10px] font-mono text-gray-700 uppercase tracking-widest">No matching records found in local kernel</p>
+          </div>
+        )}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-between items-center px-4">
-           <div className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">
-              Page {currentPage} of {totalPages}
-           </div>
-           <div className="flex gap-2">
-              <button 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 glass border-white/10 text-gray-400 disabled:opacity-20 hover:text-white transition-colors"
-              >
-                 <ChevronLeft size={16} />
-              </button>
-              <button 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 glass border-white/10 text-gray-400 disabled:opacity-20 hover:text-white transition-colors"
-              >
-                 <ChevronRight size={16} />
-              </button>
-           </div>
+          <div className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">
+            Page {currentPage} of {totalPages}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 glass border-white/10 text-gray-400 disabled:opacity-20 hover:text-white transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 glass border-white/10 text-gray-400 disabled:opacity-20 hover:text-white transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -3597,102 +3692,102 @@ function TransactionsView({ transactions, onUpdate }: { transactions: Transactio
       <AnimatePresence>
         {editingTransaction && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-             <motion.div 
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               exit={{ opacity: 0 }}
-               onClick={() => setEditingTransaction(null)}
-               className="absolute inset-0 bg-black/80 backdrop-blur-md"
-             />
-             <motion.div 
-               initial={{ opacity: 0, scale: 0.9, y: 20 }}
-               animate={{ opacity: 1, scale: 1, y: 0 }}
-               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-               className="relative glass w-full max-w-xl border-white/20 bg-dark-bg p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
-             >
-                <div className="flex justify-between items-start mb-8">
-                   <div>
-                      <h4 className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] mb-2">Record Authorization</h4>
-                      <h3 className="text-2xl font-black italic uppercase italic">Edit Transaction</h3>
-                   </div>
-                   <button onClick={() => setEditingTransaction(null)} className="text-gray-500 hover:text-white transition-colors">
-                      <X size={20} />
-                   </button>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingTransaction(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative glass w-full max-w-xl border-white/20 bg-dark-bg p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+            >
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h4 className="text-[9px] font-black text-intelligence uppercase tracking-[0.3em] mb-2">Record Authorization</h4>
+                  <h3 className="text-2xl font-black italic uppercase italic">Edit Transaction</h3>
+                </div>
+                <button onClick={() => setEditingTransaction(null)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Date</label>
+                    <input
+                      type="date"
+                      value={editingTransaction.t.date}
+                      onChange={(e) => setEditingTransaction({ ...editingTransaction, t: { ...editingTransaction.t, date: e.target.value } })}
+                      className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Type</label>
+                    <select
+                      value={editingTransaction.t.type}
+                      onChange={(e) => setEditingTransaction({ ...editingTransaction, t: { ...editingTransaction.t, type: e.target.value as any } })}
+                      className="w-full bg-white/5 border border-white/10 p-3 text-white font-black text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+                    >
+                      <option value="Inflow">Incoming</option>
+                      <option value="Outflow">Outgoing</option>
+                    </select>
+                  </div>
                 </div>
 
-                <form onSubmit={handleEditSubmit} className="space-y-6">
-                   <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-1">
-                         <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Date</label>
-                         <input 
-                           type="date"
-                           value={editingTransaction.t.date}
-                           onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, date: e.target.value}})}
-                           className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 [color-scheme:dark]"
-                         />
-                      </div>
-                      <div className="space-y-1">
-                         <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Type</label>
-                         <select 
-                           value={editingTransaction.t.type}
-                           onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, type: e.target.value as any}})}
-                           className="w-full bg-white/5 border border-white/10 p-3 text-white font-black text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
-                         >
-                            <option value="Inflow">Incoming</option>
-                            <option value="Outflow">Outgoing</option>
-                         </select>
-                      </div>
-                   </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Description</label>
+                  <input
+                    type="text"
+                    value={editingTransaction.t.description}
+                    onChange={(e) => setEditingTransaction({ ...editingTransaction, t: { ...editingTransaction.t, description: e.target.value } })}
+                    className="w-full bg-white/5 border border-white/10 p-3 text-white font-bold text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-tight"
+                  />
+                </div>
 
-                   <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Description</label>
-                      <input 
-                        type="text"
-                        value={editingTransaction.t.description}
-                        onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, description: e.target.value}})}
-                        className="w-full bg-white/5 border border-white/10 p-3 text-white font-bold text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-tight"
-                      />
-                   </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Amount</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editingTransaction.t.amount}
+                      onChange={(e) => setEditingTransaction({ ...editingTransaction, t: { ...editingTransaction.t, amount: Number(e.target.value) } })}
+                      className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/50"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Category</label>
+                    <input
+                      type="text"
+                      value={editingTransaction.t.category}
+                      onChange={(e) => setEditingTransaction({ ...editingTransaction, t: { ...editingTransaction.t, category: e.target.value } })}
+                      className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+                    />
+                  </div>
+                </div>
 
-                   <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-1">
-                         <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Amount</label>
-                         <input 
-                           type="number"
-                           step="0.01"
-                           value={editingTransaction.t.amount}
-                           onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, amount: Number(e.target.value)}})}
-                           className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/50"
-                         />
-                      </div>
-                      <div className="space-y-1">
-                         <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Category</label>
-                         <input 
-                           type="text"
-                           value={editingTransaction.t.category}
-                           onChange={(e) => setEditingTransaction({...editingTransaction, t: {...editingTransaction.t, category: e.target.value}})}
-                           className="w-full bg-white/5 border border-white/10 p-3 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
-                         />
-                      </div>
-                   </div>
-
-                   <div className="pt-4 flex gap-4">
-                      <button 
-                        type="button"
-                        onClick={() => setEditingTransaction(null)}
-                        className="flex-1 border border-white/10 text-gray-400 font-black uppercase text-[10px] tracking-widest p-4 hover:bg-white/5 transition-colors"
-                      >
-                         CANCEL_OP
-                      </button>
-                      <button 
-                        type="submit"
-                        className="flex-1 bg-intelligence text-black font-black uppercase text-[10px] tracking-widest p-4 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
-                      >
-                         COMMIT_CHANGES
-                      </button>
-                   </div>
-                </form>
-             </motion.div>
+                <div className="pt-4 flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTransaction(null)}
+                    className="flex-1 border border-white/10 text-gray-400 font-black uppercase text-[10px] tracking-widest p-4 hover:bg-white/5 transition-colors"
+                  >
+                    CANCEL_OP
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-intelligence text-black font-black uppercase text-[10px] tracking-widest p-4 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+                  >
+                    COMMIT_CHANGES
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
@@ -3727,8 +3822,8 @@ const SAMPLE_CHAT_HISTORY: Record<string, { sender: 'System' | 'Customer', messa
   ]
 };
 
-function CustomerQueriesView({ queries, setQueries, knowledgeBase }: { 
-  queries: typeof CUSTOMER_QUERIES_DATA, 
+function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
+  queries: typeof CUSTOMER_QUERIES_DATA,
   setQueries: React.Dispatch<React.SetStateAction<typeof CUSTOMER_QUERIES_DATA>>,
   knowledgeBase: any
 }) {
@@ -3738,18 +3833,59 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
   const [activeReply, setActiveReply] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedQueries, setSelectedQueries] = useState<string[]>([]);
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+
+  const handleSelectAll = () => {
+    if (selectedQueries.length === filteredQueries.length) {
+      setSelectedQueries([]);
+    } else {
+      setSelectedQueries(filteredQueries.map(q => q.id));
+    }
+  };
+
+  const handleBulkMarkAsReplied = () => {
+    setQueries(prev => prev.map(q => selectedQueries.includes(q.id) ? { ...q, status: 'Replied' } : q));
+    setReplies(prev => {
+      const newReplies = { ...prev };
+      selectedQueries.forEach(id => delete newReplies[id]);
+      return newReplies;
+    });
+    setSelectedQueries([]);
+  };
+
+  const handleBulkDelete = () => {
+    setQueries(prev => prev.filter(q => !selectedQueries.includes(q.id)));
+    setReplies(prev => {
+      const newReplies = { ...prev };
+      selectedQueries.forEach(id => delete newReplies[id]);
+      return newReplies;
+    });
+    setSelectedQueries([]);
+  };
+
+  const handleBulkGenerateAI = async () => {
+    setIsBulkGenerating(true);
+    for (const id of selectedQueries) {
+      const q = queries.find(query => query.id === id);
+      if (q && q.status === 'Pending' && !replies[id]) {
+        await handleGenerateReply(id, q.name, q.message);
+      }
+    }
+    setIsBulkGenerating(false);
+  };
 
   const filteredQueries = useMemo(() => {
     return queries.filter(q => {
-      const matchesSearch = q.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           q.message.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesFilter = activeFilter === 'ALL' || 
-                           (activeFilter === 'WhatsApp' && q.platform === 'WhatsApp') ||
-                           (activeFilter === 'Email' && q.platform === 'Email') ||
-                           (activeFilter === 'Facebook' && q.platform === 'Facebook') ||
-                           (activeFilter === 'Pending' && q.status === 'Pending') ||
-                           (activeFilter === 'Replied' && q.status === 'Replied');
+      const matchesSearch = q.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        q.message.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesFilter = activeFilter === 'ALL' ||
+        (activeFilter === 'WhatsApp' && q.platform === 'WhatsApp') ||
+        (activeFilter === 'Email' && q.platform === 'Email') ||
+        (activeFilter === 'Facebook' && q.platform === 'Facebook') ||
+        (activeFilter === 'Pending' && q.status === 'Pending') ||
+        (activeFilter === 'Replied' && q.status === 'Replied');
 
       return matchesSearch && matchesFilter;
     });
@@ -3813,166 +3949,212 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
       <div className="space-y-6">
         {/* Search and Filters */}
         <div className="glass p-6 border-white/10 bg-white/[0.01] flex flex-wrap gap-6 items-center">
-           <div className="flex-1 min-w-[300px] relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-              <input 
-                type="text" 
-                placeholder="SEARCH_BY_CUSTOMER_OR_CONTENT..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 pl-14 pr-6 py-4 text-[11px] font-mono text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+          <div className="flex-1 min-w-[300px] relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+            <input
+              type="text"
+              placeholder="SEARCH_BY_CUSTOMER_OR_CONTENT..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 pl-14 pr-6 py-4 text-[11px] font-mono text-white focus:outline-none focus:border-intelligence/50 uppercase tracking-widest"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {['ALL', 'WhatsApp', 'Email', 'Facebook', 'Pending', 'Replied'].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={cn(
+                  "px-6 py-3 text-[9px] font-black uppercase tracking-widest transition-all border",
+                  activeFilter === filter
+                    ? "bg-intelligence text-black border-intelligence shadow-[0_0_15px_rgba(0,242,255,0.3)]"
+                    : "bg-white/5 text-gray-500 border-white/10 hover:text-white hover:bg-white/10"
+                )}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Bulk Action Controls */}
+        <div className="flex items-center gap-4 px-2">
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <div className="relative flex items-center justify-center w-5 h-5 border border-white/20 bg-white/5 group-hover:border-intelligence transition-colors">
+              <input
+                type="checkbox"
+                className="opacity-0 absolute inset-0 cursor-pointer"
+                checked={filteredQueries.length > 0 && selectedQueries.length === filteredQueries.length}
+                onChange={handleSelectAll}
               />
-           </div>
-           
-           <div className="flex flex-wrap gap-2">
-              {['ALL', 'WhatsApp', 'Email', 'Facebook', 'Pending', 'Replied'].map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
-                  className={cn(
-                    "px-6 py-3 text-[9px] font-black uppercase tracking-widest transition-all border",
-                    activeFilter === filter 
-                      ? "bg-intelligence text-black border-intelligence shadow-[0_0_15px_rgba(0,242,255,0.3)]" 
-                      : "bg-white/5 text-gray-500 border-white/10 hover:text-white hover:bg-white/10"
-                  )}
-                >
-                  {filter}
-                </button>
-              ))}
-           </div>
+              {filteredQueries.length > 0 && selectedQueries.length === filteredQueries.length && (
+                <div className="w-3 h-3 bg-intelligence"></div>
+              )}
+            </div>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-hover:text-white transition-colors">
+              Select All {filteredQueries.length > 0 ? `(${filteredQueries.length})` : ''}
+            </span>
+          </label>
+
+          {selectedQueries.length > 0 && selectedQueries.length < filteredQueries.length && (
+            <span className="text-[10px] font-mono text-intelligence uppercase tracking-widest">
+              {selectedQueries.length} Selected
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6">
           {filteredQueries.map((query) => (
-          <div key={query.id} className="glass p-8 border-white/5 bg-white/[0.01] hover:bg-white/[0.02] transition-all relative overflow-hidden group">
-             <div className="absolute top-0 right-0 w-32 h-32 bg-intelligence/5 -mr-16 -mt-16 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-             
-             <div className="flex flex-col md:flex-row gap-8 relative z-10">
+            <div key={query.id} className="glass p-8 border-white/5 bg-white/[0.01] hover:bg-white/[0.02] transition-all relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-intelligence/5 -mr-16 -mt-16 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+              <div className="flex flex-col md:flex-row gap-8 relative z-10">
+                <div className="pt-1">
+                  <label className="flex items-center justify-center w-5 h-5 border border-white/20 bg-white/5 cursor-pointer hover:border-intelligence transition-colors relative">
+                    <input
+                      type="checkbox"
+                      className="opacity-0 absolute inset-0 cursor-pointer"
+                      checked={selectedQueries.includes(query.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedQueries(prev => [...prev, query.id]);
+                        } else {
+                          setSelectedQueries(prev => prev.filter(id => id !== query.id));
+                        }
+                      }}
+                    />
+                    {selectedQueries.includes(query.id) && (
+                      <div className="w-3 h-3 bg-intelligence"></div>
+                    )}
+                  </label>
+                </div>
+
                 <div className="md:w-1/4">
-                   <div className="flex items-center gap-3 mb-4">
-                      <div className={cn(
-                        "px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest border",
-                        query.platform === 'WhatsApp' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={cn(
+                      "px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest border",
+                      query.platform === 'WhatsApp' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
                         query.platform === 'Email' ? "bg-intelligence/10 text-intelligence border-intelligence/20" :
-                        "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                      )}>
-                        {query.platform}
-                      </div>
-                      <span className="text-[10px] font-mono text-gray-600">{query.time}</span>
-                   </div>
-                   <h3 className="text-lg font-black text-white italic uppercase mb-1">{query.name}</h3>
-                   <div className={cn(
-                     "inline-flex items-center gap-2 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em]",
-                     query.status === 'Pending' ? "text-brand animate-pulse" : "text-emerald-500"
-                   )}>
-                      <div className={cn("w-1 h-1 rounded-full", query.status === 'Pending' ? "bg-brand" : "bg-emerald-500")}></div>
-                      {query.status}
-                   </div>
+                          "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                    )}>
+                      {query.platform}
+                    </div>
+                    <span className="text-[10px] font-mono text-gray-600">{query.time}</span>
+                  </div>
+                  <h3 className="text-lg font-black text-white italic uppercase mb-1">{query.name}</h3>
+                  <div className={cn(
+                    "inline-flex items-center gap-2 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em]",
+                    query.status === 'Pending' ? "text-brand animate-pulse" : "text-emerald-500"
+                  )}>
+                    <div className={cn("w-1 h-1 rounded-full", query.status === 'Pending' ? "bg-brand" : "bg-emerald-500")}></div>
+                    {query.status}
+                  </div>
                 </div>
 
                 <div className="flex-1 space-y-6">
-                   <div className="bg-black/40 p-6 border border-white/5 relative">
-                      <MessageSquare className="absolute top-4 right-4 text-white/5" size={40} />
-                      <p className="text-sm font-mono text-gray-400 leading-relaxed italic truncate max-w-2xl">"{query.message}"</p>
-                   </div>
+                  <div className="bg-black/40 p-6 border border-white/5 relative">
+                    <MessageSquare className="absolute top-4 right-4 text-white/5" size={40} />
+                    <p className="text-sm font-mono text-gray-400 leading-relaxed italic truncate max-w-2xl">"{query.message}"</p>
+                  </div>
 
-                   <div className="flex gap-4">
-                      <button 
-                        onClick={() => openQueryModal(query)}
-                        className="group flex items-center gap-3 px-6 py-3 bg-intelligence/10 border border-intelligence/30 text-intelligence hover:bg-intelligence hover:text-black transition-all font-black text-[10px] uppercase tracking-widest"
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => openQueryModal(query)}
+                      className="group flex items-center gap-3 px-6 py-3 bg-intelligence/10 border border-intelligence/30 text-intelligence hover:bg-intelligence hover:text-black transition-all font-black text-[10px] uppercase tracking-widest"
+                    >
+                      <ExternalLink size={14} />
+                      VIEW_AND_REPLY
+                    </button>
+
+                    {query.status === 'Pending' && !replies[query.id] && (
+                      <button
+                        onClick={() => handleGenerateReply(query.id, query.name, query.message)}
+                        disabled={replyingTo === query.id}
+                        className="flex items-center gap-3 px-6 py-3 border border-white/10 text-white/40 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-50"
                       >
-                         <ExternalLink size={14} />
-                         VIEW_AND_REPLY
+                        {replyingTo === query.id ? (
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Brain size={14} />
+                        )}
+                        PREGENERATE_REPLY
                       </button>
-                      
-                      {query.status === 'Pending' && !replies[query.id] && (
-                        <button 
-                          onClick={() => handleGenerateReply(query.id, query.name, query.message)}
-                          disabled={replyingTo === query.id}
-                          className="flex items-center gap-3 px-6 py-3 border border-white/10 text-white/40 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-50"
-                        >
-                           {replyingTo === query.id ? (
-                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                           ) : (
-                             <Brain size={14} />
-                           )}
-                           PREGENERATE_REPLY
-                        </button>
-                      )}
-                   </div>
+                    )}
+                  </div>
 
-                   <AnimatePresence>
-                     {replies[query.id] && query.status === 'Pending' && !selectedQuery && (
-                       <motion.div 
-                         initial={{ height: 0, opacity: 0 }}
-                         animate={{ height: 'auto', opacity: 1 }}
-                         className="bg-intelligence/5 border border-intelligence/20 p-6 space-y-4"
-                       >
-                          <div className="flex items-center gap-2 text-intelligence text-[10px] font-black uppercase tracking-widest">
-                             <Sparkles size={14} />
-                             AI Suggested Response
-                          </div>
-                          <p className="text-sm font-mono text-white leading-relaxed">{replies[query.id]}</p>
-                          <div className="flex gap-4">
-                             <button 
-                               onClick={() => markAsReplied(query.id)}
-                               className="bg-intelligence text-black px-6 py-2 font-black text-[9px] uppercase tracking-widest flex items-center gap-2"
-                             >
-                                <Send size={12} />
-                                TRANSMIT_REPLY
-                             </button>
-                             <button 
-                               onClick={() => setReplies(prev => {
-                                 const nr = {...prev};
-                                 delete nr[query.id];
-                                 return nr;
-                               })}
-                               className="text-[9px] font-black text-gray-500 uppercase tracking-widest hover:text-white transition-colors"
-                             >
-                                DISCARD
-                             </button>
-                          </div>
-                       </motion.div>
-                     )}
-                   </AnimatePresence>
+                  <AnimatePresence>
+                    {replies[query.id] && query.status === 'Pending' && !selectedQuery && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        className="bg-intelligence/5 border border-intelligence/20 p-6 space-y-4"
+                      >
+                        <div className="flex items-center gap-2 text-intelligence text-[10px] font-black uppercase tracking-widest">
+                          <Sparkles size={14} />
+                          AI Suggested Response
+                        </div>
+                        <p className="text-sm font-mono text-white leading-relaxed">{replies[query.id]}</p>
+                        <div className="flex gap-4">
+                          <button
+                            onClick={() => markAsReplied(query.id)}
+                            className="bg-intelligence text-black px-6 py-2 font-black text-[9px] uppercase tracking-widest flex items-center gap-2"
+                          >
+                            <Send size={12} />
+                            TRANSMIT_REPLY
+                          </button>
+                          <button
+                            onClick={() => setReplies(prev => {
+                              const nr = { ...prev };
+                              delete nr[query.id];
+                              return nr;
+                            })}
+                            className="text-[9px] font-black text-gray-500 uppercase tracking-widest hover:text-white transition-colors"
+                          >
+                            DISCARD
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-
-    {/* Query Analytics Section */}
-    <div className="space-y-8 pt-12 border-t border-white/5 pb-24">
-      <div>
-        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Signal intelligence</h4>
-        <h3 className="text-3xl font-black italic uppercase">Query Analytics</h3>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="glass p-8 border-white/5 space-y-8">
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Activity size={14} className="text-intelligence" />
-                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Growth_Metric</span>
-              </div>
-              <p className="text-4xl font-black italic uppercase text-white">142</p>
-              <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Signals_Received_MTD</p>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Clock size={14} className="text-intelligence" />
-                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Efficiency_Index</span>
-              </div>
-              <p className="text-4xl font-black italic uppercase text-intelligence">4.8h</p>
-              <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Average_Response_Time</p>
-            </div>
-          </div>
+      {/* Query Analytics Section */}
+      <div className="space-y-8 pt-12 border-t border-white/5 pb-24">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Signal intelligence</h4>
+          <h3 className="text-3xl font-black italic uppercase">Query Analytics</h3>
+        </div>
 
-          <div className="h-[300px] w-full">
-             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6 px-4">Volume per Access Platform</h4>
-             <ResponsiveContainer width="100%" height="100%">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="glass p-8 border-white/5 space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity size={14} className="text-intelligence" />
+                  <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Growth_Metric</span>
+                </div>
+                <p className="text-4xl font-black italic uppercase text-white">142</p>
+                <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Signals_Received_MTD</p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock size={14} className="text-intelligence" />
+                  <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Efficiency_Index</span>
+                </div>
+                <p className="text-4xl font-black italic uppercase text-intelligence">4.8h</p>
+                <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Average_Response_Time</p>
+              </div>
+            </div>
+
+            <div className="h-[300px] w-full">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6 px-4">Volume per Access Platform</h4>
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={[
@@ -3991,13 +4173,13 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
                     <Cell fill="#ff2e73" />
                     <Cell fill="#ffffff10" />
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ backgroundColor: '#05070a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }}
                     itemStyle={{ color: '#fff' }}
                   />
                 </PieChart>
-             </ResponsiveContainer>
-             <div className="flex flex-wrap justify-center gap-6 mt-4">
+              </ResponsiveContainer>
+              <div className="flex flex-wrap justify-center gap-6 mt-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-intelligence"></div>
                   <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">WhatsApp (40%)</span>
@@ -4010,175 +4192,229 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
                   <div className="w-2 h-2 bg-white/10"></div>
                   <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Facebook (25%)</span>
                 </div>
-             </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="glass p-8 border-white/5 overflow-hidden">
-          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8">Classification Frequency (Top 5)</h4>
-          <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[
-                { topic: 'Network Feed', count: 45 },
-                { topic: 'API Auth', count: 32 },
-                { topic: 'Billing', count: 28 },
-                { topic: 'Hardware', count: 15 },
-                { topic: 'Compliance', count: 12 }
-              ]} layout="vertical" margin={{ left: 20, right: 40 }}>
-                <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="topic" 
-                  type="category" 
-                  width={100} 
-                  axisLine={false} 
-                  tickLine={false}
-                  tick={{ fill: '#4b5563', fontSize: 9, fontWeight: 900 }}
-                />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }}
-                  itemStyle={{ color: '#00f2ff' }}
-                />
-                <Bar dataKey="count" fill="#00f2ff" radius={[0, 4, 4, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="glass p-8 border-white/5 overflow-hidden">
+            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8">Classification Frequency (Top 5)</h4>
+            <div className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={[
+                  { topic: 'Network Feed', count: 45 },
+                  { topic: 'API Auth', count: 32 },
+                  { topic: 'Billing', count: 28 },
+                  { topic: 'Hardware', count: 15 },
+                  { topic: 'Compliance', count: 12 }
+                ]} layout="vertical" margin={{ left: 20, right: 40 }}>
+                  <XAxis type="number" hide />
+                  <YAxis
+                    dataKey="topic"
+                    type="category"
+                    width={100}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#4b5563', fontSize: 9, fontWeight: 900 }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    contentStyle={{ backgroundColor: '#05070a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }}
+                    itemStyle={{ color: '#00f2ff' }}
+                  />
+                  <Bar dataKey="count" fill="#00f2ff" radius={[0, 4, 4, 0]} barSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    {/* Reply Modal */}
-    <AnimatePresence>
+      {/* Bulk Action Bar */}
+      <AnimatePresence>
+        {selectedQueries.length > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none flex justify-center"
+          >
+            <div className="glass px-8 py-4 border-intelligence/30 flex items-center gap-8 pointer-events-auto shadow-[0_0_50px_rgba(0,242,255,0.1)]">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-intelligence animate-pulse"></div>
+                <span className="text-[12px] font-black text-white uppercase tracking-widest">
+                  {selectedQueries.length} Signals Selected
+                </span>
+              </div>
+
+              <div className="w-px h-8 bg-white/10"></div>
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleBulkMarkAsReplied}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-black transition-all font-black text-[9px] uppercase tracking-widest"
+                >
+                  <CheckCircle2 size={12} />
+                  Mark as Replied
+                </button>
+
+                <button
+                  onClick={handleBulkGenerateAI}
+                  disabled={isBulkGenerating}
+                  className="flex items-center gap-2 px-4 py-2 bg-intelligence/10 text-intelligence border border-intelligence/30 hover:bg-intelligence hover:text-black transition-all font-black text-[9px] uppercase tracking-widest disabled:opacity-50"
+                >
+                  {isBulkGenerating ? (
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Brain size={12} />
+                  )}
+                  Generate AI Replies
+                </button>
+
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 px-4 py-2 bg-brand/10 text-brand border border-brand/20 hover:bg-brand hover:text-black transition-all font-black text-[9px] uppercase tracking-widest"
+                >
+                  <Trash2 size={12} />
+                  Delete Selected
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reply Modal */}
+      <AnimatePresence>
         {selectedQuery && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedQuery(null)}
               className="absolute inset-0 bg-black/80 backdrop-blur-md"
             ></motion.div>
-            
-            <motion.div 
+
+            <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="bg-dark-bg border border-white/10 w-full max-w-3xl overflow-hidden relative z-10 glass"
             >
-               <div className="flex justify-between items-center p-8 border-b border-white/5 bg-white/[0.02]">
-                  <div>
-                    <p className="text-[10px] font-black text-intelligence uppercase tracking-[0.3em] mb-1">Reply Console</p>
-                    <h3 className="text-2xl font-black italic uppercase italic">SYSTEM_REPLY_PROTOCOL</h3>
-                  </div>
-                  <button onClick={() => setSelectedQuery(null)} className="text-gray-500 hover:text-white p-2">
-                    <X size={24} />
-                  </button>
-               </div>
+              <div className="flex justify-between items-center p-8 border-b border-white/5 bg-white/[0.02]">
+                <div>
+                  <p className="text-[10px] font-black text-intelligence uppercase tracking-[0.3em] mb-1">Reply Console</p>
+                  <h3 className="text-2xl font-black italic uppercase italic">SYSTEM_REPLY_PROTOCOL</h3>
+                </div>
+                <button onClick={() => setSelectedQuery(null)} className="text-gray-500 hover:text-white p-2">
+                  <X size={24} />
+                </button>
+              </div>
 
-               <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
-                  {/* Conversation History */}
-                  <div className="space-y-6">
-                     <div className="flex items-center gap-3">
-                        <History className="text-gray-600" size={16} />
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Conversation History</span>
-                     </div>
-                     <div className="space-y-4">
-                        {(SAMPLE_CHAT_HISTORY[selectedQuery.id] || [{ sender: 'Customer', message: selectedQuery.message, time: selectedQuery.time }]).map((msg, idx) => (
-                           <div key={idx} className={cn(
-                             "p-4 border max-w-[85%] relative group",
-                             msg.sender === 'System' 
-                               ? "ml-auto bg-intelligence/5 border-intelligence/20 text-right" 
-                               : "bg-white/5 border-white/10"
-                           )}>
-                              <div className={cn(
-                                "text-[8px] font-black uppercase tracking-widest mb-1",
-                                msg.sender === 'System' ? "text-intelligence" : "text-brand"
-                              )}>
-                                 {msg.sender} // {msg.time}
-                              </div>
-                              <p className="text-xs font-mono text-gray-300 leading-relaxed">{msg.message}</p>
-                           </div>
+              <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
+                {/* Conversation History */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <History className="text-gray-600" size={16} />
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Conversation History</span>
+                  </div>
+                  <div className="space-y-4">
+                    {(SAMPLE_CHAT_HISTORY[selectedQuery.id] || [{ sender: 'Customer', message: selectedQuery.message, time: selectedQuery.time }]).map((msg, idx) => (
+                      <div key={idx} className={cn(
+                        "p-4 border max-w-[85%] relative group",
+                        msg.sender === 'System'
+                          ? "ml-auto bg-intelligence/5 border-intelligence/20 text-right"
+                          : "bg-white/5 border-white/10"
+                      )}>
+                        <div className={cn(
+                          "text-[8px] font-black uppercase tracking-widest mb-1",
+                          msg.sender === 'System' ? "text-intelligence" : "text-brand"
+                        )}>
+                          {msg.sender} // {msg.time}
+                        </div>
+                        <p className="text-xs font-mono text-gray-300 leading-relaxed">{msg.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Business Context (Knowledge Base) */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Database className="text-gray-600" size={16} />
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Business Intelligence Context</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-white/5 border border-white/5">
+                      <span className="text-[8px] font-black text-intelligence uppercase tracking-widest block mb-1">Hours_&_Services</span>
+                      <p className="text-[10px] font-mono text-gray-400 leading-relaxed truncate">{knowledgeBase.hours}</p>
+                      <p className="text-[10px] font-mono text-gray-500 leading-relaxed line-clamp-2 mt-1">{knowledgeBase.description}</p>
+                    </div>
+                    <div className="p-4 bg-white/5 border border-white/5">
+                      <span className="text-[8px] font-black text-intelligence uppercase tracking-widest block mb-1">FAQs_Matched</span>
+                      <div className="space-y-1">
+                        {knowledgeBase.faqs.slice(0, 2).map((faq: any, i: number) => (
+                          <p key={i} className="text-[9px] font-mono text-gray-500 truncate italic">"{faq.q}"</p>
                         ))}
-                     </div>
+                        {knowledgeBase.faqs.length === 0 && <p className="text-[9px] font-mono text-gray-700 italic uppercase">No FAQs found</p>}
+                      </div>
+                    </div>
                   </div>
+                </div>
 
-                  {/* Business Context (Knowledge Base) */}
-                  <div className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Database className="text-gray-600" size={16} />
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Business Intelligence Context</span>
-                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 bg-white/5 border border-white/5">
-                           <span className="text-[8px] font-black text-intelligence uppercase tracking-widest block mb-1">Hours_&_Services</span>
-                           <p className="text-[10px] font-mono text-gray-400 leading-relaxed truncate">{knowledgeBase.hours}</p>
-                           <p className="text-[10px] font-mono text-gray-500 leading-relaxed line-clamp-2 mt-1">{knowledgeBase.description}</p>
+                      <Brain className="text-intelligence" size={16} />
+                      <span className="text-[10px] font-black text-intelligence uppercase tracking-widest">AI Intelligence Draft</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {replyingTo === selectedQuery.id && (
+                        <div className="flex items-center gap-2 text-[8px] font-mono text-intelligence animate-pulse">
+                          <div className="w-1 h-1 bg-intelligence rounded-full"></div>
+                          THINKING...
                         </div>
-                        <div className="p-4 bg-white/5 border border-white/5">
-                           <span className="text-[8px] font-black text-intelligence uppercase tracking-widest block mb-1">FAQs_Matched</span>
-                           <div className="space-y-1">
-                              {knowledgeBase.faqs.slice(0, 2).map((faq: any, i: number) => (
-                                 <p key={i} className="text-[9px] font-mono text-gray-500 truncate italic">"{faq.q}"</p>
-                              ))}
-                              {knowledgeBase.faqs.length === 0 && <p className="text-[9px] font-mono text-gray-700 italic uppercase">No FAQs found</p>}
-                           </div>
-                        </div>
-                     </div>
+                      )}
+                      <button
+                        onClick={() => handleGenerateReply(selectedQuery.id, selectedQuery.name, selectedQuery.message).then(setActiveReply)}
+                        disabled={replyingTo === selectedQuery.id}
+                        className="flex items-center gap-2 px-3 py-1 bg-intelligence/10 border border-intelligence/30 text-intelligence hover:bg-intelligence hover:text-black transition-all font-black text-[8px] uppercase tracking-widest disabled:opacity-50"
+                      >
+                        <Sparkles size={12} />
+                        REGENERATE_INTEL
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="space-y-4">
-                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                           <Brain className="text-intelligence" size={16} />
-                           <span className="text-[10px] font-black text-intelligence uppercase tracking-widest">AI Intelligence Draft</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                           {replyingTo === selectedQuery.id && (
-                              <div className="flex items-center gap-2 text-[8px] font-mono text-intelligence animate-pulse">
-                                 <div className="w-1 h-1 bg-intelligence rounded-full"></div>
-                                 THINKING...
-                              </div>
-                           )}
-                           <button 
-                             onClick={() => handleGenerateReply(selectedQuery.id, selectedQuery.name, selectedQuery.message).then(setActiveReply)}
-                             disabled={replyingTo === selectedQuery.id}
-                             className="flex items-center gap-2 px-3 py-1 bg-intelligence/10 border border-intelligence/30 text-intelligence hover:bg-intelligence hover:text-black transition-all font-black text-[8px] uppercase tracking-widest disabled:opacity-50"
-                           >
-                              <Sparkles size={12} />
-                              REGENERATE_INTEL
-                           </button>
-                        </div>
-                     </div>
-                     <div className="relative">
-                        <textarea 
-                          value={activeReply}
-                          onChange={(e) => setActiveReply(e.target.value)}
-                          rows={6}
-                          className="w-full bg-white/5 border border-white/10 p-6 text-sm font-mono text-white focus:outline-none focus:border-intelligence/50 transition-all resize-none"
-                          placeholder="Compiling AI response..."
-                        />
-                        <div className="absolute bottom-4 right-4 pointer-events-none opacity-5">
-                           <Sparkles size={60} className="text-intelligence" />
-                        </div>
-                     </div>
+                  <div className="relative">
+                    <textarea
+                      value={activeReply}
+                      onChange={(e) => setActiveReply(e.target.value)}
+                      rows={6}
+                      className="w-full bg-white/5 border border-white/10 p-6 text-sm font-mono text-white focus:outline-none focus:border-intelligence/50 transition-all resize-none"
+                      placeholder="Compiling AI response..."
+                    />
+                    <div className="absolute bottom-4 right-4 pointer-events-none opacity-5">
+                      <Sparkles size={60} className="text-intelligence" />
+                    </div>
                   </div>
-               </div>
+                </div>
+              </div>
 
-               <div className="p-8 border-t border-white/5 flex gap-6 bg-white/[0.01]">
-                  <button 
-                    onClick={() => handleApproveAndSend(selectedQuery.id)}
-                    className="flex-1 bg-intelligence text-black font-black uppercase text-[11px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
-                  >
-                     <Send size={16} />
-                     APPROVE_AND_SEND
-                  </button>
-                  <button 
-                    onClick={() => setSelectedQuery(null)}
-                    className="px-8 border border-white/10 text-gray-500 hover:text-white font-black uppercase text-[11px] tracking-[0.3em] transition-colors"
-                  >
-                     ABORT
-                  </button>
-               </div>
+              <div className="p-8 border-t border-white/5 flex gap-6 bg-white/[0.01]">
+                <button
+                  onClick={() => handleApproveAndSend(selectedQuery.id)}
+                  className="flex-1 bg-intelligence text-black font-black uppercase text-[11px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+                >
+                  <Send size={16} />
+                  APPROVE_AND_SEND
+                </button>
+                <button
+                  onClick={() => setSelectedQuery(null)}
+                  className="px-8 border border-white/10 text-gray-500 hover:text-white font-black uppercase text-[11px] tracking-[0.3em] transition-colors"
+                >
+                  ABORT
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -4197,9 +4433,40 @@ const TEAM_MEMBERS = [
   { id: '5', name: 'Elena Kostic', role: 'Pending', joined: '2024-05-12' },
 ];
 
+const ACTIVITY_LOG = [
+  { id: '1', who: 'Raj Sharma', action: 'added transaction', record: 'Room Revenue — NPR 45,000', when: '2 hours ago' },
+  { id: '2', who: 'Alice Vancity', action: 'modified entry', record: 'Inventory Level — Alpha Node', when: '4 hours ago' },
+  { id: '3', who: 'Robert Chen', action: 'deleted record', record: 'Stale Cache — Sector 7', when: '5 hours ago' },
+  { id: '4', who: 'Sarah Jenkins', action: 'generated report', record: 'Q1 Fiscal Handshake', when: '6 hours ago' },
+  { id: '5', who: 'Michael Scott', action: 'initiated invite', record: 'Candidate: dwight@dunder.sys', when: '8 hours ago' },
+  { id: '6', who: 'Elena Kostic', action: 'updated profile', record: 'Business HQ Address', when: '10 hours ago' },
+  { id: '7', who: 'Raj Sharma', action: 'exported data', record: 'Transactions — CSV Export', when: '12 hours ago' },
+  { id: '8', who: 'Alice Vancity', action: 'changed role', record: 'Elena Kostic — Manager', when: '14 hours ago' },
+  { id: '9', who: 'Sarah Jenkins', action: 'archived logs', record: 'System Logs — 2023', when: '1 day ago' },
+  { id: '10', who: 'Robert Chen', action: 'verified node', record: 'Global Cluster Alpha', when: '1 day ago' },
+  { id: '11', who: 'Michael Scott', action: 'reset key', record: 'API Access — Secondary', when: '1 day ago' },
+  { id: '12', who: 'Raj Sharma', action: 'added transaction', record: 'F&B Inflow — NPR 12,000', when: '2 days ago' },
+  { id: '13', who: 'Alice Vancity', action: 'modified entry', record: 'SaaS Pricing Model', when: '2 days ago' },
+  { id: '14', who: 'Elena Kostic', action: 'deleted record', record: 'Duplicate Entry — Room 402', when: '2 days ago' },
+  { id: '15', who: 'Sarah Jenkins', action: 'generated report', record: 'Cash Flow — Monthly Sync', when: '3 days ago' },
+  { id: '16', who: 'Robert Chen', action: 'initiated invite', record: 'Candidate: pam@beesly.sys', when: '3 days ago' },
+  { id: '17', who: 'Michael Scott', action: 'updated profile', record: 'Fiscal Year Start', when: '4 days ago' },
+  { id: '18', who: 'Raj Sharma', action: 'exported data', record: 'Balance Sheet — PDF', when: '4 days ago' },
+  { id: '19', who: 'Alice Vancity', action: 'changed role', record: 'Robert Chen — Senior Admin', when: '5 days ago' },
+  { id: '20', who: 'Sarah Jenkins', action: 'archived logs', record: 'Financial History — 2022', when: '5 days ago' },
+];
+
 function TeamManagementView() {
   const [members, setMembers] = useState(TEAM_MEMBERS);
   const [copied, setCopied] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState([
+    { email: 'john@example.com', sentDate: '2024-05-10', role: 'Manager' },
+    { email: 'sarah.d@finance.sys', sentDate: '2024-05-14', role: 'Accountant' }
+  ]);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('Manager');
+  const [message, setMessage] = useState('');
 
   const copyInvite = () => {
     navigator.clipboard.writeText('HOTEL1');
@@ -4233,74 +4500,265 @@ function TeamManagementView() {
           <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Network Control</h4>
           <h2 className="text-5xl font-black italic uppercase">TEAM MANAGEMENT</h2>
         </div>
-        <button className="bg-intelligence text-black px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3">
-          <UserPlus size={16} />
-          INVITE_NEW_AGENT
+        <button
+          onClick={() => setIsInviteModalOpen(true)}
+          className="bg-intelligence text-black px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+        >
+          <Mail size={16} />
+          INVITE_BY_EMAIL
         </button>
       </div>
 
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-intelligence/20 border border-intelligence/40 p-4 text-intelligence font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-3"
+          >
+            <Zap size={14} className="animate-pulse" />
+            {message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Invite Code Section */}
       <div className="glass p-8 border-brand/30 bg-brand/5 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
-         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-            <Key size={100} className="text-brand" />
-         </div>
-         <div>
-            <h4 className="text-xl font-black italic uppercase mb-2 text-white">NETWORK ACCESS KEY</h4>
-            <p className="text-xs font-mono text-gray-500 uppercase tracking-widest max-w-sm">Share this encrypted identifier with your personnel to grant bypass access to the node cluster.</p>
-         </div>
-         <div className="flex items-center gap-4">
-            <div className="bg-black/40 border border-brand/40 px-12 py-4 text-3xl font-mono font-black text-brand italic tracking-[0.2em]">
-               HOTEL1
-            </div>
-            <button 
-              onClick={copyInvite}
-              className="bg-white text-black p-4 hover:bg-brand hover:text-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-            >
-               {copied ? <CheckCircle2 size={24} /> : <Copy size={24} />}
-            </button>
-         </div>
+        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+          <Key size={100} className="text-brand" />
+        </div>
+        <div>
+          <h4 className="text-xl font-black italic uppercase mb-2 text-white">NETWORK ACCESS KEY</h4>
+          <p className="text-xs font-mono text-gray-500 uppercase tracking-widest max-w-sm">Share this encrypted identifier with your personnel to grant bypass access to the node cluster.</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="bg-black/40 border border-brand/40 px-12 py-4 text-3xl font-mono font-black text-brand italic tracking-[0.2em]">
+            HOTEL1
+          </div>
+          <button
+            onClick={copyInvite}
+            className="bg-white text-black p-4 hover:bg-brand hover:text-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+          >
+            {copied ? <CheckCircle2 size={24} /> : <Copy size={24} />}
+          </button>
+        </div>
       </div>
 
       {/* Team Table */}
       <div className="glass border-white/5 overflow-hidden">
-         <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-white/5 bg-white/[0.02]">
+              <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Agent Identity</th>
+              <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Clearance Protocol</th>
+              <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Deployment Date</th>
+              <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((member) => (
+              <tr key={member.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-all group">
+                <td className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-white/5 border border-white/10 flex items-center justify-center font-mono text-xs text-intelligence font-black lowercase">
+                      {member.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <p className="text-sm font-bold text-white uppercase group-hover:text-intelligence transition-all">{member.name}</p>
+                  </div>
+                </td>
+                <td className="p-6">
+                  {getRoleBadge(member.role)}
+                </td>
+                <td className="p-6 font-mono text-xs text-gray-600 uppercase">
+                  {member.joined}
+                </td>
+                <td className="p-6 text-right">
+                  <button
+                    onClick={() => removeMember(member.id)}
+                    className="p-3 text-gray-700 hover:text-brand hover:bg-brand/10 transition-all rounded-sm"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pending Invites Section */}
+      <div className="space-y-6 pt-12">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Awaiting Authentication</h4>
+          <h3 className="text-3xl font-black italic uppercase italic">PENDING_INVITATIONS</h3>
+        </div>
+
+        <div className="glass border-white/5 overflow-hidden">
+          <table className="w-full text-left border-collapse">
             <thead>
-               <tr className="border-b border-white/5 bg-white/[0.02]">
-                  <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Agent Identity</th>
-                  <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Clearance Protocol</th>
-                  <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Deployment Date</th>
-                  <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
-               </tr>
+              <tr className="border-b border-white/5 bg-white/[0.02]">
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Candidate Identifier</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Transmission Date</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Role Clearance</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
+              </tr>
             </thead>
             <tbody>
-               {members.map((member) => (
-                  <tr key={member.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-all group">
-                     <td className="p-6">
-                        <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 bg-white/5 border border-white/10 flex items-center justify-center font-mono text-xs text-intelligence font-black lowercase">
-                              {member.name.split(' ').map(n => n[0]).join('')}
-                           </div>
-                           <p className="text-sm font-bold text-white uppercase group-hover:text-intelligence transition-all">{member.name}</p>
-                        </div>
-                     </td>
-                     <td className="p-6">
-                        {getRoleBadge(member.role)}
-                     </td>
-                     <td className="p-6 font-mono text-xs text-gray-600 uppercase">
-                        {member.joined}
-                     </td>
-                     <td className="p-6 text-right">
-                        <button 
-                          onClick={() => removeMember(member.id)}
-                          className="p-3 text-gray-700 hover:text-brand hover:bg-brand/10 transition-all rounded-sm"
-                        >
-                           <Trash2 size={18} />
-                        </button>
-                     </td>
-                  </tr>
-               ))}
+              {pendingInvites.map((invite, idx) => (
+                <tr key={idx} className="border-b border-white/5 hover:bg-white/[0.01] transition-all group">
+                  <td className="p-6 font-mono text-xs text-white italic">{invite.email}</td>
+                  <td className="p-6 font-mono text-xs text-gray-600 uppercase">{invite.sentDate}</td>
+                  <td className="p-6">{getRoleBadge(invite.role)}</td>
+                  <td className="p-6 text-right">
+                    <button
+                      onClick={() => {
+                        setMessage('INVITE_RESENT');
+                        setTimeout(() => setMessage(''), 2000);
+                      }}
+                      className="bg-intelligence/10 text-intelligence border border-intelligence/20 px-4 py-2 font-black text-[9px] uppercase tracking-widest hover:bg-intelligence hover:text-black transition-all"
+                    >
+                      RESEND INVITE
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {pendingInvites.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-12 text-center text-gray-600 font-mono text-[10px] uppercase tracking-widest italic">
+                    No Pending Transmissions Detected
+                  </td>
+                </tr>
+              )}
             </tbody>
-         </table>
+          </table>
+        </div>
+      </div>
+
+      {/* Invite Modal */}
+      <AnimatePresence>
+        {isInviteModalOpen && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsInviteModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            ></motion.div>
+
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-dark-bg border border-white/10 w-full max-w-md overflow-hidden relative z-10 glass p-8"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <p className="text-[10px] font-black text-intelligence uppercase tracking-[0.3em] mb-1">Authorization Request</p>
+                  <h3 className="text-2xl font-black italic uppercase italic">INVITE_NEW_PERSONNEL</h3>
+                </div>
+                <button onClick={() => setIsInviteModalOpen(false)} className="text-gray-500 hover:text-white p-2">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Target Identifier (Email)</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                    <input
+                      type="email"
+                      placeholder="AGENT_EMAIL@ENTITY.SYS"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all uppercase tracking-widest"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Assigned Protocol Role</label>
+                  <div className="relative group">
+                    <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence transition-colors" size={18} />
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                    >
+                      <option value="Owner">Owner</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Accountant">Accountant</option>
+                      <option value="Marketer">Marketer</option>
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    onClick={() => {
+                      if (inviteEmail) {
+                        setPendingInvites(prev => [{ email: inviteEmail, sentDate: new Date().toISOString().split('T')[0], role: inviteRole }, ...prev]);
+                        setInviteEmail('');
+                        setIsInviteModalOpen(false);
+                      }
+                    }}
+                    className="w-full bg-intelligence text-black font-black uppercase text-[11px] tracking-[0.4em] py-5 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] transition-all flex items-center justify-center gap-3"
+                  >
+                    <Send size={16} />
+                    DISPATCH_INVITATION
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Activity Log Section */}
+      <div className="space-y-6 pt-12 pb-12">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Neural Telemetry</h4>
+          <h3 className="text-3xl font-black italic uppercase italic">ACTIVITY_LOG</h3>
+        </div>
+
+        <div className="glass border-white/5 overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/5 bg-white/[0.02]">
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Agent</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Operation</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Target Record</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ACTIVITY_LOG.map((log) => (
+                <tr key={log.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-all group">
+                  <td className="p-6">
+                    <div className="flex items-center gap-3">
+                       <div className="w-2 h-2 rounded-full bg-intelligence/40 animate-pulse"></div>
+                       <span className="text-xs font-bold text-white uppercase">{log.who}</span>
+                    </div>
+                  </td>
+                  <td className="p-6">
+                    <span className="px-2 py-0.5 bg-white/5 border border-white/10 text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                       {log.action}
+                    </span>
+                  </td>
+                  <td className="p-6 font-mono text-xs text-intelligence/80 italic">
+                    {log.record}
+                  </td>
+                  <td className="p-6 text-right font-mono text-[10px] text-gray-600 uppercase">
+                    {log.when}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -4308,10 +4766,10 @@ function TeamManagementView() {
 
 // --- SETTINGS VIEW ---
 
-function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, knowledgeBase, onUpdateKnowledgeBase }: { 
-  onUpdateBusinessName: (name: string) => void, 
-  categories: {name: string, type: 'Inflow' | 'Outflow'}[],
-  onUpdateCategories: React.Dispatch<React.SetStateAction<{name: string, type: 'Inflow' | 'Outflow'}[]>>,
+function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, knowledgeBase, onUpdateKnowledgeBase }: {
+  onUpdateBusinessName: (name: string) => void,
+  categories: { name: string, type: 'Inflow' | 'Outflow' }[],
+  onUpdateCategories: React.Dispatch<React.SetStateAction<{ name: string, type: 'Inflow' | 'Outflow' }[]>>,
   knowledgeBase: any,
   onUpdateKnowledgeBase: (kb: any) => void
 }) {
@@ -4326,7 +4784,18 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
   });
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
-  
+
+  const [permissions, setPermissions] = useState(() => {
+    const saved = localStorage.getItem('app_permissions');
+    if (saved) return JSON.parse(saved);
+    return {
+      'Owner': { Transactions: true, PnL: true, CashFlow: true, Inventory: true, Queries: true, Team: true, Settings: true },
+      'Manager': { Transactions: true, PnL: true, CashFlow: true, Inventory: true, Queries: true, Team: false, Settings: true },
+      'Accountant': { Transactions: true, PnL: true, CashFlow: true, Inventory: true, Queries: false, Team: false, Settings: true },
+      'Marketer': { Transactions: true, PnL: false, CashFlow: false, Inventory: true, Queries: true, Team: false, Settings: true }
+    };
+  });
+
   const [newCat, setNewCat] = useState({ name: '', type: 'Inflow' });
 
   // Knowledge Base State
@@ -4411,14 +4880,14 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
                 <span className="text-[9px] font-black uppercase tracking-widest">Upload Alpha Source</span>
               </div>
             )}
-            <input 
-              type="file" 
+            <input
+              type="file"
               accept="image/*"
               onChange={handleLogoUpload}
               className="absolute inset-0 opacity-0 cursor-pointer"
             />
             <div className="absolute inset-0 bg-intelligence/20 flex items-center justify-center translate-y-full group-hover:translate-y-0 transition-transform pointer-events-none">
-               <ImageIcon className="text-white" size={32} />
+              <ImageIcon className="text-white" size={32} />
             </div>
           </div>
           <p className="text-[8px] font-mono text-gray-600 uppercase text-center">Supported: PNG, JPG, SVG (Max 2MB)</p>
@@ -4426,118 +4895,118 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
 
         {/* Form Fields */}
         <div className="md:col-span-2 space-y-8">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Name</label>
-                 <div className="relative group">
-                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence" size={18} />
-                    <input 
-                      type="text" 
-                      value={profile.businessName}
-                      onChange={(e) => setProfile({...profile, businessName: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all uppercase"
-                    />
-                 </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Name</label>
+              <div className="relative group">
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence" size={18} />
+                <input
+                  type="text"
+                  value={profile.businessName}
+                  onChange={(e) => setProfile({ ...profile, businessName: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all uppercase"
+                />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Protocol Sector</label>
-                 <div className="relative group">
-                    <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence" size={18} />
-                    <select 
-                      value={profile.businessType}
-                      onChange={(e) => setProfile({...profile, businessType: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
-                    >
-                      <option value="Hotel">Hotel</option>
-                      <option value="Restaurant">Restaurant</option>
-                      <option value="Retail">Retail</option>
-                      <option value="Manufacturing">Manufacturing</option>
-                      <option value="Service">Service</option>
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
-                 </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Protocol Sector</label>
+              <div className="relative group">
+                <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence" size={18} />
+                <select
+                  value={profile.businessType}
+                  onChange={(e) => setProfile({ ...profile, businessType: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                >
+                  <option value="Hotel">Hotel</option>
+                  <option value="Restaurant">Restaurant</option>
+                  <option value="Retail">Retail</option>
+                  <option value="Manufacturing">Manufacturing</option>
+                  <option value="Service">Service</option>
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Primary Agent Name</label>
-                 <div className="relative group">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                    <input 
-                      type="text" 
-                      value={profile.ownerName}
-                      onChange={(e) => setProfile({...profile, ownerName: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
-                    />
-                 </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Primary Agent Name</label>
+              <div className="relative group">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                <input
+                  type="text"
+                  value={profile.ownerName}
+                  onChange={(e) => setProfile({ ...profile, ownerName: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Signal (Phone)</label>
-                 <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                    <input 
-                      type="text" 
-                      value={profile.phone}
-                      onChange={(e) => setProfile({...profile, phone: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
-                    />
-                 </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Signal (Phone)</label>
+              <div className="relative group">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                <input
+                  type="text"
+                  value={profile.phone}
+                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                />
               </div>
+            </div>
 
-              <div className="space-y-2 md:col-span-2">
-                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Base Location (Address)</label>
-                 <div className="relative group">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                    <input 
-                      type="text" 
-                      value={profile.address}
-                      onChange={(e) => setProfile({...profile, address: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
-                    />
-                 </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Base Location (Address)</label>
+              <div className="relative group">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                <input
+                  type="text"
+                  value={profile.address}
+                  onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all"
+                />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">PAN Identifier</label>
-                 <div className="relative group">
-                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                    <input 
-                      type="text" 
-                      value={profile.panNumber}
-                      onChange={(e) => setProfile({...profile, panNumber: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all font-mono"
-                    />
-                 </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">PAN Identifier</label>
+              <div className="relative group">
+                <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                <input
+                  type="text"
+                  value={profile.panNumber}
+                  onChange={(e) => setProfile({ ...profile, panNumber: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all font-mono"
+                />
               </div>
-           </div>
+            </div>
+          </div>
 
-           <div className="pt-6 flex items-center gap-6">
-              <button 
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex-1 bg-intelligence text-black font-black uppercase text-[11px] tracking-[0.3em] py-5 flex items-center justify-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] disabled:opacity-50 transition-all relative overflow-hidden group"
-              >
-                 <span className="relative z-10 flex items-center gap-3">
-                   {isSaving ? "RECALIBRATING..." : "COMMIT_PROFILE_CHANGES"}
-                   <Shield size={16} />
-                 </span>
-                 <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              </button>
-              
-              <AnimatePresence>
-                {message && (
-                  <motion.div 
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="text-intelligence text-[10px] font-black uppercase tracking-widest animate-pulse"
-                  >
-                    {message}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-           </div>
+          <div className="pt-6 flex items-center gap-6">
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex-1 bg-intelligence text-black font-black uppercase text-[11px] tracking-[0.3em] py-5 flex items-center justify-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] disabled:opacity-50 transition-all relative overflow-hidden group"
+            >
+              <span className="relative z-10 flex items-center gap-3">
+                {isSaving ? "RECALIBRATING..." : "COMMIT_PROFILE_CHANGES"}
+                <Shield size={16} />
+              </span>
+              <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+            </button>
+
+            <AnimatePresence>
+              {message && (
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-intelligence text-[10px] font-black uppercase tracking-widest animate-pulse"
+                >
+                  {message}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -4559,10 +5028,10 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Hours</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={localKB.hours}
-                  onChange={(e) => setLocalKB({...localKB, hours: e.target.value})}
+                  onChange={(e) => setLocalKB({ ...localKB, hours: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 px-6 py-4 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 transition-all"
                   placeholder="e.g. Mon-Fri: 9AM-5PM"
                 />
@@ -4570,9 +5039,9 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
 
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Menu / Services Description</label>
-                <textarea 
+                <textarea
                   value={localKB.description}
-                  onChange={(e) => setLocalKB({...localKB, description: e.target.value})}
+                  onChange={(e) => setLocalKB({ ...localKB, description: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 px-6 py-4 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 transition-all min-h-[100px] resize-none"
                   placeholder="Describe your services or menu items..."
                 />
@@ -4580,9 +5049,9 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
 
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Pricing Information</label>
-                <textarea 
+                <textarea
                   value={localKB.pricing}
-                  onChange={(e) => setLocalKB({...localKB, pricing: e.target.value})}
+                  onChange={(e) => setLocalKB({ ...localKB, pricing: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 px-6 py-4 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 transition-all min-h-[80px] resize-none"
                   placeholder="List pricing tiers or standard rates..."
                 />
@@ -4599,20 +5068,20 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
 
             <div className="space-y-4">
               <div className="p-4 bg-white/5 border border-white/5 space-y-4">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={newFAQ.q}
-                  onChange={(e) => setNewFAQ({...newFAQ, q: e.target.value})}
+                  onChange={(e) => setNewFAQ({ ...newFAQ, q: e.target.value })}
                   className="w-full bg-black/20 border border-white/10 px-4 py-2 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/30"
                   placeholder="PATTERN_QUERY (Question)"
                 />
-                <textarea 
+                <textarea
                   value={newFAQ.a}
-                  onChange={(e) => setNewFAQ({...newFAQ, a: e.target.value})}
+                  onChange={(e) => setNewFAQ({ ...newFAQ, a: e.target.value })}
                   className="w-full bg-black/20 border border-white/10 px-4 py-2 text-white font-mono text-[10px] focus:outline-none focus:border-intelligence/30 resize-none h-20"
                   placeholder="RESPONSE_TEMPLATE (Answer)"
                 />
-                <button 
+                <button
                   onClick={addFAQ}
                   className="w-full bg-intelligence/10 text-intelligence border border-intelligence/20 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-intelligence hover:text-black transition-all"
                 >
@@ -4623,7 +5092,7 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
               <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                 {localKB.faqs.map((faq: any, i: number) => (
                   <div key={i} className="p-4 border border-white/5 bg-white/[0.01] relative group">
-                    <button 
+                    <button
                       onClick={() => removeFAQ(i)}
                       className="absolute top-2 right-2 text-gray-700 hover:text-brand opacity-0 group-hover:opacity-100 transition-all"
                     >
@@ -4653,14 +5122,14 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
               <Plus size={14} />
               Inject New Taxonomy
             </h3>
-            
+
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-1">Category Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={newCat.name}
-                  onChange={(e) => setNewCat({...newCat, name: e.target.value})}
+                  onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
                   placeholder="E.G. LOGISTICS_REPAIR"
                   className="w-full bg-white/5 border border-white/10 px-6 py-4 text-white font-mono text-xs focus:outline-none focus:border-intelligence/50 transition-all uppercase"
                 />
@@ -4672,7 +5141,7 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
                   {['Inflow', 'Outflow'].map(t => (
                     <button
                       key={t}
-                      onClick={() => setNewCat({...newCat, type: t as any})}
+                      onClick={() => setNewCat({ ...newCat, type: t as any })}
                       className={cn(
                         "flex-1 py-3 text-[9px] font-black uppercase tracking-widest transition-all border text-center",
                         newCat.type === t ? "bg-intelligence text-black border-intelligence" : "border-white/10 text-gray-500 hover:text-white"
@@ -4684,7 +5153,7 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={addCat}
                 className="w-full bg-white/5 border border-white/10 py-4 text-[10px] font-black uppercase tracking-widest hover:bg-intelligence hover:text-black transition-all"
               >
@@ -4709,7 +5178,7 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
                     <div key={i} className="group relative">
                       <div className="bg-white/5 border border-white/10 px-4 py-2 text-[9px] font-mono text-gray-400 uppercase flex items-center gap-4 group-hover:border-intelligence/30 transition-all">
                         {c.name}
-                        <button 
+                        <button
                           onClick={() => removeCat(c.name, c.type)}
                           className="text-gray-700 hover:text-brand transition-colors p-1"
                         >
@@ -4725,6 +5194,75 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Permissions Matrix Section */}
+      <div className="pt-20 space-y-12 border-t border-white/5">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Access Control Protocol</h4>
+          <h2 className="text-5xl font-black italic uppercase">PERMISSIONS_MATRIX</h2>
+        </div>
+
+        <div className="glass border-white/10 bg-white/[0.01] overflow-hidden">
+           <div className="overflow-x-auto">
+             <table className="w-full text-left border-collapse min-w-[800px]">
+                <thead>
+                   <tr className="border-b border-white/10 bg-white/[0.02]">
+                      <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Protocol Role</th>
+                      <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">TX_DATA</th>
+                      <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">P&L</th>
+                      <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">CASH_FLOW</th>
+                      <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">INV_SYS</th>
+                      <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">QUERIES</th>
+                      <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">TEAM</th>
+                      <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">SETTINGS</th>
+                   </tr>
+                </thead>
+                <tbody>
+                   {Object.entries(permissions).map(([role, rolesPerms]: [string, any]) => (
+                      <tr key={role} className="border-b border-white/5 hover:bg-white/[0.01] transition-all">
+                         <td className="p-6 font-black text-xs text-white uppercase italic">{role}</td>
+                         {Object.keys(rolesPerms).map((feature) => (
+                            <td key={feature} className="p-6 text-center">
+                               <button
+                                 disabled={role === 'Owner'}
+                                 onClick={() => {
+                                    setPermissions((prev: any) => ({
+                                       ...prev,
+                                       [role]: { ...prev[role], [feature]: !prev[role][feature] }
+                                    }));
+                                 }}
+                                 className={cn(
+                                    "w-10 h-5 rounded-full relative transition-all duration-300 mx-auto block",
+                                    rolesPerms[feature] ? "bg-intelligence" : "bg-white/10",
+                                    role === 'Owner' ? "opacity-100 cursor-not-allowed" : "cursor-pointer hover:shadow-[0_0_10px_rgba(0,242,255,0.3)]"
+                                 )}
+                               >
+                                  <div className={cn(
+                                     "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-md",
+                                     rolesPerms[feature] ? "left-5.5" : "left-0.5"
+                                  )}></div>
+                               </button>
+                            </td>
+                         ))}
+                      </tr>
+                   ))}
+                </tbody>
+             </table>
+           </div>
+           <div className="p-8 border-t border-white/5 bg-black/20">
+              <button
+                onClick={() => {
+                   localStorage.setItem('app_permissions', JSON.stringify(permissions));
+                   setMessage('PERMISSIONS_SYNC_SUCCESS');
+                   setTimeout(() => setMessage(''), 3000);
+                }}
+                className="w-full bg-intelligence/20 text-intelligence border border-intelligence/40 py-4 font-black text-[11px] uppercase tracking-[0.4em] hover:bg-intelligence hover:text-black transition-all"
+              >
+                 SAVE_PROTOCOL_CONFIGURATION
+              </button>
+           </div>
         </div>
       </div>
     </div>
@@ -4811,7 +5349,7 @@ function BalanceSheetView() {
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
   const getMultiplier = () => {
-    switch(range) {
+    switch (range) {
       case 'This Month': return 1;
       case 'Last Month': return 0.98;
       case 'This Quarter': return 3.0;
@@ -4833,7 +5371,7 @@ function BalanceSheetView() {
   const exportPDF = () => {
     const doc = new jsPDF();
     const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-    
+
     doc.setFontSize(20);
     doc.text('Balance Sheet', 14, 22);
     doc.setFontSize(11);
@@ -4875,7 +5413,7 @@ function BalanceSheetView() {
           <h2 className="text-5xl font-black italic uppercase">BALANCE SHEET</h2>
         </div>
         <div className="flex gap-4 items-center">
-          <button 
+          <button
             onClick={exportPDF}
             className="bg-purple-600 text-white px-8 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(147,51,234,0.4)] transition-all h-fit"
           >
@@ -4887,19 +5425,19 @@ function BalanceSheetView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="glass border-white/5 overflow-hidden p-2 space-y-2">
-           <PLSection section={bsData.sections[0] as any} />
-           <PLSection section={bsData.sections[1] as any} />
-           <div className="p-6 bg-white/[0.02] border border-white/5 flex justify-between items-center mt-4">
-              <span className="text-xs font-black uppercase tracking-widest text-white">Total Assets</span>
-              <span className="text-lg font-black text-white">{bsData.summary.totalAssets}</span>
-           </div>
+          <PLSection section={bsData.sections[0] as any} />
+          <PLSection section={bsData.sections[1] as any} />
+          <div className="p-6 bg-white/[0.02] border border-white/5 flex justify-between items-center mt-4">
+            <span className="text-xs font-black uppercase tracking-widest text-white">Total Assets</span>
+            <span className="text-lg font-black text-white">{bsData.summary.totalAssets}</span>
+          </div>
         </div>
 
         <div className="space-y-8">
           <div className="glass border-white/5 overflow-hidden p-2 space-y-2">
-             <PLSection section={bsData.sections[2] as any} />
-             <PLSection section={bsData.sections[3] as any} />
-             <PLSection section={bsData.sections[4] as any} />
+            <PLSection section={bsData.sections[2] as any} />
+            <PLSection section={bsData.sections[3] as any} />
+            <PLSection section={bsData.sections[4] as any} />
           </div>
 
           <div className={cn(
@@ -4925,10 +5463,206 @@ function BalanceSheetView() {
 
 // --- MAIN PLATFORM APP ---
 
+function CommandPalette({ 
+  isOpen, 
+  onClose, 
+  onSelectTab, 
+  onSelectRecord,
+  transactions,
+  queries
+}: { 
+  isOpen: boolean, 
+  onClose: () => void, 
+  onSelectTab: (tab: string) => void,
+  onSelectRecord: (type: string, record: any) => void,
+  transactions: any[],
+  queries: any[]
+}) {
+  const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Get inventory from localStorage safely
+  const inventory = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('quantum_inventory') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }, [isOpen]);
+
+  const navigationItems = [
+    { id: 'Overview', label: 'OVERVIEW', type: 'Nav' },
+    { id: 'Inventory', label: 'INVENTORY', type: 'Nav' },
+    { id: 'Transactions', label: 'TRANSACTIONS', type: 'Nav' },
+    { id: 'P&L Statement', label: 'P&L_REPORT', type: 'Nav' },
+    { id: 'Cash Flow', label: 'CASH_FLOW', type: 'Nav' },
+    { id: 'Balance Sheet', label: 'BALANCE_SHEET', type: 'Nav' },
+    { id: 'Customer Queries', label: 'QUERIES', type: 'Nav' },
+    { id: 'Team Management', label: 'TEAM_INTEL', type: 'Nav' },
+    { id: 'Data Entry', label: 'DATA_INPUT', type: 'Nav' },
+    { id: 'Settings', label: 'SETTINGS', type: 'Nav' },
+  ];
+
+  const results = useMemo(() => {
+    if (!query) return [];
+    
+    const lowerQuery = query.toLowerCase();
+    
+    const filteredNav = navigationItems.filter(i => i.label.toLowerCase().includes(lowerQuery));
+    const filteredTx = transactions.filter(t => t.description.toLowerCase().includes(lowerQuery)).map(t => ({ ...t, label: t.description, type: 'Transaction' }));
+    const filteredInv = inventory.filter((i: any) => i.name.toLowerCase().includes(lowerQuery)).map((i: any) => ({ ...i, label: i.name, type: 'Inventory' }));
+    const filteredQueries = queries.filter(q => q.user.toLowerCase().includes(lowerQuery) || q.message.toLowerCase().includes(lowerQuery)).map(q => ({ ...q, label: `${q.user}: ${q.message.substring(0, 20)}...`, type: 'Query' }));
+
+    return [...filteredNav, ...filteredTx, ...filteredInv, ...filteredQueries].slice(0, 10);
+  }, [query, transactions, queries, inventory]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [query]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isOpen, onClose]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (results.length > 0 ? (prev + 1) % results.length : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (results.length > 0 ? (prev - 1 + results.length) % results.length : 0));
+    } else if (e.key === 'Enter' && results[selectedIndex]) {
+      const item = results[selectedIndex];
+      if (item.type === 'Nav') {
+        onSelectTab(item.id);
+      } else {
+        onSelectRecord(item.type, item);
+      }
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-start justify-center pt-[15vh] px-6">
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }} 
+        onClick={onClose}
+        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+      ></motion.div>
+      
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0, y: -20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: -20 }}
+        className="bg-dark-bg border border-white/10 w-full max-w-2xl overflow-hidden relative z-10 glass shadow-[0_0_50px_rgba(0,0,0,1)]"
+      >
+        <div className="p-6 border-b border-white/10 flex items-center gap-4 bg-white/[0.02]">
+          <Search size={24} className="text-intelligence" />
+          <input
+            autoFocus
+            type="text"
+            placeholder="TYPE_COMMAND_OR_SEARCH_RECORDS..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full bg-transparent border-none text-xl font-mono text-white placeholder:text-gray-700 focus:outline-none uppercase tracking-widest"
+          />
+          <div className="flex items-center gap-1">
+             <span className="px-2 py-1 bg-white/10 text-[9px] font-mono text-gray-500 rounded">ESC</span>
+          </div>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+           {!query && (
+             <div className="p-12 text-center">
+                <Terminal size={40} className="text-gray-800 mx-auto mb-4 opacity-20" />
+                <p className="text-[10px] font-mono text-gray-600 uppercase italic tracking-widest leading-loose">
+                  Waiting for kernel instructions...<br/>
+                  Search for Navigation, Transactions, Inventory, or Queries.
+                </p>
+             </div>
+           )}
+
+           {results.length > 0 && (
+             <div className="divide-y divide-white/5">
+                {results.map((result, idx) => (
+                  <div 
+                    key={idx}
+                    className={cn(
+                      "p-4 flex items-center justify-between transition-all cursor-pointer",
+                      idx === selectedIndex ? "bg-intelligence/10 border-l-4 border-intelligence" : "hover:bg-white/[0.02] border-l-4 border-transparent"
+                    )}
+                    onClick={() => {
+                      if (result.type === 'Nav') onSelectTab(result.id);
+                      else onSelectRecord(result.type, result);
+                      onClose();
+                    }}
+                  >
+                    <div className="flex items-center gap-4">
+                       <div className="w-8 h-8 bg-white/5 flex items-center justify-center text-gray-500">
+                          {result.type === 'Nav' && <LayoutDashboard size={14} />}
+                          {result.type === 'Transaction' && <List size={14} />}
+                          {result.type === 'Inventory' && <Package size={14} />}
+                          {result.type === 'Query' && <MessageSquare size={14} />}
+                       </div>
+                       <div>
+                          <p className={cn("text-[11px] font-black uppercase tracking-widest", idx === selectedIndex ? "text-intelligence" : "text-white")}>
+                            {result.label}
+                          </p>
+                          <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">{result.type}</p>
+                       </div>
+                    </div>
+                    {idx === selectedIndex && (
+                      <span className="text-[9px] font-mono text-intelligence animate-pulse">{"[ENTER_TO_SELECT]"}</span>
+                    )}
+                  </div>
+                ))}
+             </div>
+           )}
+           
+           {query && results.length === 0 && (
+             <div className="p-12 text-center">
+                <Search size={32} className="text-gray-800 mx-auto mb-4 opacity-20" />
+                <p className="text-[10px] font-mono text-gray-600 uppercase italic">No records found matching "{query}"</p>
+             </div>
+           )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<PlatformTab>('Overview');
   const [businessName, setBusinessName] = useState(localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL');
   const businessLogo = localStorage.getItem('business_logo');
+  const [userRole, setUserRole] = useState(localStorage.getItem('user_role') || 'Owner');
+
+  useEffect(() => {
+    // Initial role setup as requested
+    if (!localStorage.getItem('user_role')) {
+      localStorage.setItem('user_role', 'Owner');
+    }
+  }, []);
+
+  useEffect(() => {
+     const isRestricted = (
+       (userRole === 'Accountant' && ['Team Management', 'Customer Queries'].includes(activeTab)) ||
+       (userRole === 'Marketer' && ['P&L Statement', 'Cash Flow', 'Balance Sheet'].includes(activeTab)) ||
+       (userRole === 'Manager' && activeTab === 'Team Management')
+     );
+     if (isRestricted) {
+       setActiveTab('Overview');
+     }
+  }, [userRole, activeTab]);
 
   const [transactions, setTransactions] = useState<Transaction[]>([
     { date: '2024-01-15', description: 'Q1 SaaS Subscriptions', amount: 450000, category: 'Sales', type: 'Inflow' },
@@ -4943,7 +5677,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     { date: '2024-05-12', description: 'Maintenance Services', amount: 45000, category: 'Inventory', type: 'Inflow' },
   ]);
 
-  const [categories, setCategories] = useState<{name: string, type: 'Inflow' | 'Outflow'}[]>(() => {
+  const [categories, setCategories] = useState<{ name: string, type: 'Inflow' | 'Outflow' }[]>(() => {
     const saved = localStorage.getItem('app_categories');
     if (saved) return JSON.parse(saved);
     return [
@@ -4990,6 +5724,38 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     localStorage.setItem('business_knowledge_base', JSON.stringify(knowledgeBase));
   }, [knowledgeBase]);
 
+  const [notifications, setNotifications] = useState([
+    { id: '1', type: 'alert', message: 'CRITICAL: Low stock for item "Alpha Node"', time: '10 mins ago', read: false },
+    { id: '2', type: 'query', message: 'New customer query from "John Doe"', time: '1 hour ago', read: false },
+    { id: '3', type: 'team', message: 'Agent "Elena Kostic" joined the network', time: '3 hours ago', read: false },
+    { id: '4', type: 'finance', message: 'Overdue transaction: Cloud Infra Payment', time: '5 hours ago', read: false },
+  ]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  const markAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className="h-screen bg-dark-bg text-white overflow-hidden flex font-sans noise scanlines">
       {/* Main Sidebar */}
@@ -4998,7 +5764,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <Activity className="text-intelligence w-10 h-10 mb-2 shadow-[0_0_15px_#00f2ff]" />
           <span className="text-[10px] font-black text-intelligence tracking-[0.3em] uppercase">Control_Unit</span>
         </div>
-        
+
         <div className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar px-2">
           {[
             { id: 'Overview', icon: LayoutDashboard, label: 'OVERVIEW' },
@@ -5010,8 +5776,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             { id: 'Customer Queries', icon: MessageSquare, label: 'QUERIES' },
             { id: 'Team Management', icon: Users, label: 'TEAM_INTEL' },
             { id: 'Data Entry', icon: Plus, label: 'DATA_INPUT' },
-          ].map((item) => (
-            <button 
+          ].filter(item => {
+            if (userRole === 'Accountant') {
+              return !['Team Management', 'Customer Queries'].includes(item.id);
+            }
+            if (userRole === 'Marketer') {
+              return !['P&L Statement', 'Cash Flow', 'Balance Sheet'].includes(item.id);
+            }
+            if (userRole === 'Manager') {
+              return item.id !== 'Team Management';
+            }
+            return true;
+          }).map((item) => (
+            <button
               key={item.id}
               onClick={() => setActiveTab(item.id as PlatformTab)}
               className={cn(
@@ -5035,7 +5812,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <div className="flex flex-col gap-2 mt-auto px-2 pt-4 border-t border-white/5">
-          <button 
+          <button
             onClick={() => setActiveTab('Settings')}
             className={cn(
               "w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all group",
@@ -5045,10 +5822,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <Settings size={18} />
             <span className="text-[9px] font-black tracking-widest uppercase">SETTINGS</span>
           </button>
-          
-          <button 
-             onClick={onLogout}
-             className="w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all text-brand/60 hover:text-brand hover:bg-brand/5"
+
+          <button
+            onClick={onLogout}
+            className="w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all text-brand/60 hover:text-brand hover:bg-brand/5"
           >
             <Lock size={18} />
             <span className="text-[9px] font-black tracking-widest uppercase">LOGOUT</span>
@@ -5059,126 +5836,330 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Dashboard Header */}
         <header className="h-20 border-b border-white/5 flex items-center justify-between px-10 bg-black/20 backdrop-blur-md">
-           <div className="flex items-center gap-6">
-              {/* PROJECT-N Logo Area */}
-              <div className="flex items-center gap-3 pr-6 border-r border-white/10">
-                 <div className="w-8 h-8 border border-intelligence flex items-center justify-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-intelligence/10 animate-pulse"></div>
-                    <Activity className="text-intelligence w-5 h-5 relative z-10" />
-                 </div>
-                 <h2 className="text-lg font-black italic tracking-tighter uppercase glow-text">PROJECT-N</h2>
+          <div className="flex items-center gap-6">
+            {/* PROJECT-N Logo Area */}
+            <div className="flex items-center gap-3 pr-6 border-r border-white/10">
+              <div className="w-8 h-8 border border-intelligence flex items-center justify-center relative overflow-hidden group">
+                <div className="absolute inset-0 bg-intelligence/10 animate-pulse"></div>
+                <Activity className="text-intelligence w-5 h-5 relative z-10" />
               </div>
-              
-              {/* Business Name / Entity Context */}
-              <div className="flex flex-col">
-                 <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest leading-none mb-1">Corporate Entity</p>
-                 <div className="flex items-center gap-3">
-                   {businessLogo && (
-                     <div className="w-6 h-6 border border-white/10 overflow-hidden">
-                       <img src={businessLogo} alt="Logo" className="w-full h-full object-cover" />
-                     </div>
-                   )}
-                   <h3 className="text-xs font-bold text-white uppercase tracking-widest">
-                     {businessName}
-                   </h3>
-                 </div>
-              </div>
+              <h2 className="text-lg font-black italic tracking-tighter uppercase glow-text">PROJECT-N</h2>
+            </div>
 
-              <div className="h-8 w-px bg-white/10 mx-2"></div>
-              
+            {/* Business Name / Entity Context */}
+            <div className="flex flex-col">
+              <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest leading-none mb-1">Corporate Entity</p>
               <div className="flex items-center gap-3">
-                 <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse shadow-[0_0_8px_#00f2ff]"></div>
-                 <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest font-black">
-                   {activeTab} COMMAND ACTIVE
-                 </span>
+                {businessLogo && (
+                  <div className="w-6 h-6 border border-white/10 overflow-hidden">
+                    <img src={businessLogo} alt="Logo" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <h3 className="text-xs font-bold text-white uppercase tracking-widest">
+                  {businessName}
+                </h3>
               </div>
-           </div>
-           
-           <div className="flex items-center gap-8">
-              <div className="hidden lg:flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 hover:bg-white/10 transition-colors group">
-                 <Search size={14} className="text-gray-500 group-hover:text-intelligence transition-colors" />
-                 <input 
-                   type="text" 
-                   placeholder="SCAN_ENTITIES..." 
-                   className="bg-transparent border-none focus:outline-none text-[10px] font-mono text-white placeholder:text-gray-700 uppercase tracking-widest w-32" 
-                 />
-              </div>
+            </div>
 
-              {/* Prominent Logout Button */}
-              <button 
-                 onClick={onLogout}
-                 className="flex items-center gap-3 px-6 py-2 border border-brand/40 bg-brand/5 text-brand hover:bg-brand/20 hover:border-brand/60 transition-all font-black text-[10px] uppercase tracking-[0.25em] group relative overflow-hidden"
-              >
-                 <Lock size={12} className="group-hover:scale-110 transition-transform relative z-10" />
-                 <span className="relative z-10">TERMINATE_SESSION</span>
-                 <div className="absolute inset-0 bg-brand/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              </button>
+            <div className="h-8 w-px bg-white/10 mx-2"></div>
 
-              <div className="flex items-center gap-4 pl-4 border-l border-white/5">
-                 <div className="text-right">
-                    <p className="text-[10px] font-bold text-white uppercase italic">Agent_042</p>
-                    <p className="text-[8px] text-intelligence font-black uppercase tracking-widest">CLEARANCE_L7</p>
-                 </div>
-                 <div className="w-10 h-10 border border-intelligence/30 p-1 group cursor-pointer hover:border-intelligence/60 transition-colors">
-                    <div className="w-full h-full bg-intelligence/10 flex items-center justify-center group-hover:bg-intelligence/20">
-                       <Shield size={18} className="text-intelligence opacity-70 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                 </div>
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse shadow-[0_0_8px_#00f2ff]"></div>
+              <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest font-black">
+                {activeTab} COMMAND ACTIVE
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-8">
+            <div className="flex flex-col items-end">
+               <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest leading-none mb-1">Clearance_Level</p>
+               <div className="flex items-center gap-2">
+                  <Shield size={10} className="text-intelligence" />
+                  <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{userRole}</span>
+               </div>
+            </div>
+
+            <div className="h-10 w-px bg-white/5"></div>
+
+            <div className="hidden lg:flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 hover:bg-white/10 transition-colors group">
+              <Search size={14} className="text-gray-500 group-hover:text-intelligence transition-colors" />
+              <input
+                type="text"
+                placeholder="SCAN_ENTITIES..."
+                className="bg-transparent border-none focus:outline-none text-[10px] font-mono text-white placeholder:text-gray-700 uppercase tracking-widest w-32"
+              />
+            </div>
+
+            <button 
+              onClick={() => setIsHelpModalOpen(true)}
+              className="p-3 rounded-full text-gray-500 hover:text-white hover:bg-white/5 transition-all group"
+            >
+              <HelpCircle size={20} />
+            </button>
+
+            <div className="relative">
+               <button 
+                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} 
+                 className={cn(
+                   "p-3 rounded-full transition-all relative group",
+                   isNotificationsOpen ? "bg-intelligence/10 text-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
+                 )}
+               >
+                  <Bell size={20} className={cn(unreadCount > 0 && !isNotificationsOpen && "animate-bounce")} />
+                  {unreadCount > 0 && (
+                     <span className="absolute top-2 right-2 w-4 h-4 bg-brand text-white text-[8px] font-black flex items-center justify-center rounded-full border border-dark-bg shadow-[0_0_10px_rgba(255,46,115,0.6)]">
+                        {unreadCount}
+                     </span>
+                  )}
+               </button>
+
+               <AnimatePresence>
+                  {isNotificationsOpen && (
+                     <>
+                        <div className="fixed inset-0 z-[90]" onClick={() => setIsNotificationsOpen(false)}></div>
+                        <motion.div 
+                           initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                           animate={{ opacity: 1, y: 0, scale: 1 }}
+                           exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                           className="absolute right-0 mt-4 w-96 bg-black/80 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] glass backdrop-blur-2xl overflow-hidden"
+                        >
+                           <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                              <div>
+                                 <h4 className="text-[10px] font-black text-intelligence uppercase tracking-[0.2em] mb-0.5">Telemetry Notifications</h4>
+                                 <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest">{unreadCount} Active Signal{unreadCount !== 1 ? 's' : ''}</p>
+                              </div>
+                              <button 
+                                onClick={markAllRead}
+                                className="text-[8px] font-black text-gray-400 hover:text-white uppercase tracking-widest border border-white/10 px-3 py-1.5 hover:bg-white/5 transition-all"
+                              >
+                                 MARK_ALL_READ
+                              </button>
+                           </div>
+
+                           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                              {notifications.length === 0 ? (
+                                 <div className="p-12 text-center">
+                                    <Bell size={32} className="text-gray-800 mx-auto mb-4 opacity-20" />
+                                    <p className="text-[10px] font-mono text-gray-600 uppercase italic">No signals detected in the network buffer</p>
+                                 </div>
+                              ) : (
+                                 <div className="divide-y divide-white/5">
+                                    {notifications.map((n) => (
+                                       <div 
+                                         key={n.id} 
+                                         className={cn(
+                                           "p-5 transition-all relative group",
+                                           n.read ? "opacity-50" : "bg-intelligence/[0.03]"
+                                         )}
+                                       >
+                                          <div className="flex items-start gap-4">
+                                             <div className={cn(
+                                               "mt-1 w-2 h-2 rounded-full shrink-0",
+                                               n.type === 'alert' ? "bg-brand" : n.type === 'finance' ? "bg-orange-500" : "bg-intelligence"
+                                             )}></div>
+                                             <div className="flex-1 space-y-1">
+                                                <p className="text-[11px] font-bold text-white uppercase leading-tight">{n.message}</p>
+                                                <div className="flex items-center justify-between gap-4">
+                                                   <span className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">{n.time}</span>
+                                                   {!n.read && (
+                                                      <button 
+                                                        onClick={() => markAsRead(n.id)}
+                                                        className="text-[8px] font-black text-intelligence uppercase tracking-widest hover:underline"
+                                                      >
+                                                         MARK_AS_READ
+                                                      </button>
+                                                   )}
+                                                </div>
+                                             </div>
+                                          </div>
+                                       </div>
+                                    ))}
+                                 </div>
+                              )}
+                           </div>
+
+                           <div className="p-4 bg-white/[0.02] border-t border-white/5 text-center">
+                              <button className="text-[9px] font-black text-gray-500 hover:text-intelligence uppercase tracking-[0.2em] transition-colors">
+                                 VIEW_ALL_HISTORY
+                              </button>
+                           </div>
+                        </motion.div>
+                     </>
+                  )}
+               </AnimatePresence>
+            </div>
+
+            {/* Prominent Logout Button */}
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-3 px-6 py-2 border border-brand/40 bg-brand/5 text-brand hover:bg-brand/20 hover:border-brand/60 transition-all font-black text-[10px] uppercase tracking-[0.25em] group relative overflow-hidden"
+            >
+              <Lock size={12} className="group-hover:scale-110 transition-transform relative z-10" />
+              <span className="relative z-10">TERMINATE_SESSION</span>
+              <div className="absolute inset-0 bg-brand/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+            </button>
+
+            <div className="flex items-center gap-4 pl-4 border-l border-white/5">
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-white uppercase italic">Agent_042</p>
+                <p className="text-[8px] text-intelligence font-black uppercase tracking-widest">CLEARANCE_L7</p>
               </div>
-           </div>
+              <div className="w-10 h-10 border border-intelligence/30 p-1 group cursor-pointer hover:border-intelligence/60 transition-colors">
+                <div className="w-full h-full bg-intelligence/10 flex items-center justify-center group-hover:bg-intelligence/20">
+                  <Shield size={18} className="text-intelligence opacity-70 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </div>
+          </div>
         </header>
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-10 custom-scrollbar relative">
-           <AnimatePresence mode="wait">
-             <motion.div
-               key={activeTab}
-               initial={{ opacity: 0, x: 20 }}
-               animate={{ opacity: 1, x: 0 }}
-               exit={{ opacity: 0, x: -20 }}
-               transition={{ duration: 0.3 }}
-             >
-               {activeTab === 'Overview' && <OverviewView transactions={transactions} setTransactions={setTransactions} onViewReport={() => setActiveTab('Financial Summary')} />}
-               {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
-               {activeTab === 'P&L Statement' && <PandLView />}
-               {activeTab === 'Cash Flow' && <CashFlowView />}
-               {activeTab === 'Balance Sheet' && <BalanceSheetView />}
-               {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={setTransactions} />}
-               {activeTab === 'Inventory' && <InventoryView />}
-               {activeTab === 'Customer Queries' && <CustomerQueriesView queries={queries} setQueries={setQueries} knowledgeBase={knowledgeBase} />}
-               {activeTab === 'Team Management' && <TeamManagementView />}
-               {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} />}
-               {activeTab === 'Settings' && <SettingsView onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} />}
-               {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings'].includes(activeTab) && <PlaceholderView name={activeTab} />}
-             </motion.div>
-           </AnimatePresence>
-           
-           {/* Terminal Output Layer */}
-           <div className="mt-12 glass border-white/5 p-8 relative overflow-hidden bg-white/[0.01]">
-              <div className="flex items-center gap-4 mb-8">
-                 <div className="w-2 h-2 bg-intelligence rounded-full"></div>
-                 <p className="text-[11px] font-black text-white uppercase tracking-[0.4em]">PROJECT-N KERNEL OUTPUT</p>
-              </div>
-              <div className="space-y-2 font-mono text-xs text-gray-600">
-                 <p className="text-intelligence">{"$ SYSTEM_READY: LOADING GLOBAL INTELLIGENCE GRAPH..."}</p>
-                 <p>{"[INFO] CLUSTER ALPHA COMMUNICATING AT 10.42.0.1"}</p>
-                 <p>{"[WARN] UNEXPECTED CAPITAL FLOW DETECTED IN SECTOR 4"}</p>
-                 <p>{"[SUCCESS] ENCRYPTION HANDSHAKE VERIFIED: RSA-4096"}</p>
-                 <p className="text-brand">{"$ ANOMALY DETECTED: HIGH SIGNAL FREQUENCY SPOTTED IN OFFSHORE ENTITIES"}</p>
-                 <p className="animate-pulse">{"_ BLINKING CURSOR WAITING FOR INPUT..."}</p>
-              </div>
-           </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {activeTab === 'Overview' && <OverviewView transactions={transactions} setTransactions={setTransactions} onViewReport={() => setActiveTab('Financial Summary')} />}
+              {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
+              {activeTab === 'P&L Statement' && <PandLView />}
+              {activeTab === 'Cash Flow' && <CashFlowView />}
+              {activeTab === 'Balance Sheet' && <BalanceSheetView />}
+              {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={setTransactions} />}
+              {activeTab === 'Inventory' && <InventoryView />}
+              {activeTab === 'Customer Queries' && <CustomerQueriesView queries={queries} setQueries={setQueries} knowledgeBase={knowledgeBase} />}
+              {activeTab === 'Team Management' && <TeamManagementView />}
+              {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} />}
+              {activeTab === 'Settings' && <SettingsView onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} />}
+              {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings'].includes(activeTab) && <PlaceholderView name={activeTab} />}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Terminal Output Layer */}
+          <div className="mt-12 glass border-white/5 p-8 relative overflow-hidden bg-white/[0.01]">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-2 h-2 bg-intelligence rounded-full"></div>
+              <p className="text-[11px] font-black text-white uppercase tracking-[0.4em]">PROJECT-N KERNEL OUTPUT</p>
+            </div>
+            <div className="space-y-2 font-mono text-xs text-gray-600">
+              <p className="text-intelligence">{"$ SYSTEM_READY: LOADING GLOBAL INTELLIGENCE GRAPH..."}</p>
+              <p>{"[INFO] CLUSTER ALPHA COMMUNICATING AT 10.42.0.1"}</p>
+              <p>{"[WARN] UNEXPECTED CAPITAL FLOW DETECTED IN SECTOR 4"}</p>
+              <p>{"[SUCCESS] ENCRYPTION HANDSHAKE VERIFIED: RSA-4096"}</p>
+              <p className="text-brand">{"$ ANOMALY DETECTED: HIGH SIGNAL FREQUENCY SPOTTED IN OFFSHORE ENTITIES"}</p>
+              <p className="animate-pulse">{"_ BLINKING CURSOR WAITING FOR INPUT..."}</p>
+            </div>
+          </div>
         </main>
       </div>
 
       {/* Floating Global Stats Overlays */}
       <div className="fixed top-1/2 -right-8 -rotate-90 origin-right transition-all hover:translate-x-2 pointer-events-none opacity-40">
-         <p className="text-[10px] font-mono text-intelligence font-bold tracking-[1em] uppercase">SYSTEM.STATUS.OPTIMAL</p>
+        <p className="text-[10px] font-mono text-intelligence font-bold tracking-[1em] uppercase">SYSTEM.STATUS.OPTIMAL</p>
       </div>
       <div className="fixed top-1/2 -left-8 rotate-90 origin-left transition-all hover:translate-x-2 pointer-events-none opacity-40">
-         <p className="text-[10px] font-mono text-brand font-bold tracking-[1em] uppercase">SECURITY.LEVEL.7</p>
+        <p className="text-[10px] font-mono text-brand font-bold tracking-[1em] uppercase">SECURITY.LEVEL.7</p>
       </div>
 
+      <CommandPalette 
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectTab={(tab) => setActiveTab(tab as PlatformTab)}
+        onSelectRecord={(type, record) => {
+          if (type === 'Transaction') setActiveTab('Transactions');
+          else if (type === 'Inventory') setActiveTab('Inventory');
+          else if (type === 'Query') setActiveTab('Customer Queries');
+        }}
+        transactions={transactions}
+        queries={queries}
+      />
+
+      {/* Help & Shortcuts Modal */}
+      <AnimatePresence>
+         {isHelpModalOpen && (
+           <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6">
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }} 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+              ></motion.div>
+              
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-dark-bg border border-white/10 w-full max-w-4xl overflow-hidden relative z-10 glass p-10 grid grid-cols-1 md:grid-cols-2 gap-12"
+              >
+                 <button onClick={() => setIsHelpModalOpen(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white p-2">
+                    <X size={24} />
+                 </button>
+
+                 <div className="space-y-10">
+                    <div>
+                       <h4 className="text-[10px] font-black text-intelligence uppercase tracking-[0.4em] mb-2">Protocol Assistance</h4>
+                       <h3 className="text-4xl font-black italic uppercase italic">SYSTEM_HELP</h3>
+                    </div>
+
+                    <div className="space-y-6">
+                       <h4 className="text-xs font-black uppercase tracking-widest text-white border-l-2 border-intelligence pl-4">KEYBOARD_HOTKEYS</h4>
+                       <div className="grid grid-cols-1 gap-3">
+                          {[
+                             { key: 'CTRL + K', desc: 'OPEN_COMMAND_PALETTE' },
+                             { key: 'ESC', desc: 'CLOSE_MODALS_PANELS' },
+                             { key: 'ALT + ↑/↓', desc: 'NAVIGATE_RESULTS' },
+                             { key: 'ENTER', desc: 'SELECT_OR_EXECUTE' },
+                          ].map(hk => (
+                             <div key={hk.key} className="flex items-center justify-between p-3 bg-white/5 border border-white/5">
+                                <span className="px-2 py-1 bg-intelligence/20 text-intelligence font-mono text-[10px] font-black">{hk.key}</span>
+                                <span className="text-[10px] font-mono text-gray-500 uppercase">{hk.desc}</span>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+
+                    <div className="pt-6">
+                       <a 
+                         href="mailto:support@neuralis.sys" 
+                         className="flex items-center gap-3 text-intelligence hover:text-white transition-colors group"
+                       >
+                          <Mail size={18} className="group-hover:animate-bounce" />
+                          <span className="text-xs font-black uppercase tracking-widest">CONTACT_NEURAL_SUPPORT</span>
+                       </a>
+                    </div>
+                 </div>
+
+                 <div className="space-y-10">
+                    <div className="space-y-6">
+                       <h4 className="text-xs font-black uppercase tracking-widest text-white border-l-2 border-brand pl-4">QUICK_START_PROTOCOL</h4>
+                       <div className="space-y-6">
+                          {[
+                             { step: '01', title: 'INITIALIZE_PROFILE', desc: 'HEAD TO SETTINGS TO CONFIGURE YOUR BUSINESS ENTITY AND KNOWLEDGE BASE.' },
+                             { step: '02', title: 'IMPORT_INVENTORY', desc: 'SCAN OR MANUALLY INPUT YOUR ASSETS INTO THE QUANTUM INVENTORY TRACKER.' },
+                             { step: '03', title: 'LOG_TRANSACTIONS', desc: 'USE THE DATA_INPUT COMMAND TO SYNC REVENUE AND EXPENSE STREAMS.' },
+                             { step: '04', title: 'ASSIGN_PERSONNEL', desc: 'INVITE AGENTS IN TEAM_INTEL AND CONFIGURE THEIR CLEARANCE LEVELS.' },
+                             { step: '05', title: 'MONITOR_TELEMETRY', desc: 'USE THE OVERVIEW AND P&L REPORTS TO TRACK SYSTEM PERFORMANCE.' },
+                          ].map(item => (
+                             <div key={item.step} className="flex gap-4">
+                                <span className="text-lg font-black italic text-brand/40">{item.step}</span>
+                                <div>
+                                   <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">{item.title}</p>
+                                   <p className="text-[9px] font-mono text-gray-600 uppercase leading-relaxed">{item.desc}</p>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+              </motion.div>
+           </div>
+         )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -5201,11 +6182,11 @@ export default function App() {
     <AnimatePresence mode="wait">
       {view === 'dashboard' && (
         <motion.div
-           key="dashboard"
-           initial={{ opacity: 0 }}
-           animate={{ opacity: 1 }}
-           exit={{ opacity: 0 }}
-           className="w-full h-full"
+          key="dashboard"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="w-full h-full"
         >
           <Dashboard onLogout={() => setView('landing')} />
         </motion.div>
@@ -5213,27 +6194,27 @@ export default function App() {
 
       {view === 'onboarding' && (
         <motion.div
-           key="onboarding"
-           initial={{ opacity: 0, scale: 1.1 }}
-           animate={{ opacity: 1, scale: 1 }}
-           exit={{ opacity: 0 }}
-           className="w-full h-full"
+          key="onboarding"
+          initial={{ opacity: 0, scale: 1.1 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          className="w-full h-full"
         >
           <OnboardingPage onComplete={() => setView('dashboard')} />
         </motion.div>
       )}
-      
+
       {view === 'login' && (
         <motion.div
-           key="login"
-           initial={{ opacity: 0, scale: 1.1 }}
-           animate={{ opacity: 1, scale: 1 }}
-           exit={{ opacity: 0, scale: 0.9 }}
-           className="w-full h-full"
+          key="login"
+          initial={{ opacity: 0, scale: 1.1 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="w-full h-full"
         >
-          <LoginPage 
-            onLogin={handleLoginSuccess} 
-            onBack={() => setView('landing')} 
+          <LoginPage
+            onLogin={handleLoginSuccess}
+            onBack={() => setView('landing')}
             onRegister={() => setView('register')}
           />
         </motion.div>
@@ -5241,11 +6222,11 @@ export default function App() {
 
       {view === 'register' && (
         <motion.div
-           key="register"
-           initial={{ opacity: 0, scale: 1.1 }}
-           animate={{ opacity: 1, scale: 1 }}
-           exit={{ opacity: 0, scale: 0.9 }}
-           className="w-full h-full"
+          key="register"
+          initial={{ opacity: 0, scale: 1.1 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="w-full h-full"
         >
           <RegisterPage onRegistered={() => setView('login')} onBack={() => setView('landing')} onLogin={() => setView('login')} />
         </motion.div>
@@ -5253,11 +6234,11 @@ export default function App() {
 
       {view === 'landing' && (
         <motion.div
-           key="landing"
-           initial={{ opacity: 0 }}
-           animate={{ opacity: 1 }}
-           exit={{ opacity: 0 }}
-           className="w-full h-full"
+          key="landing"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="w-full h-full"
         >
           <LandingPage onLogin={() => setView('login')} onRegister={() => setView('register')} />
         </motion.div>
