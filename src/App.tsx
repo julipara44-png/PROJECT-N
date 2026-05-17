@@ -136,7 +136,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'Dead Capital': 'मृत पूँजी',
 };
 
-export const LanguageContext = React.createContext<{ t: (text: string) => string, language: string, setLanguage: (lang: string) => void }>({
+export const LanguageContext = React.createContext<{ t: (text: string) => string, language: 'EN' | 'NP', setLanguage: (lang: 'EN' | 'NP') => void }>({
   t: (text) => text,
   language: 'EN',
   setLanguage: () => {}
@@ -5090,6 +5090,7 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
   dateFormat: 'AD' | 'BS',
   onChangeDateFormat: (val: 'AD' | 'BS') => void
 }) {
+  const { t, language, setLanguage } = React.useContext(LanguageContext);
   const [profile, setProfile] = useState({
     businessName: localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL',
     businessType: localStorage.getItem('business_type') || 'Retail',
