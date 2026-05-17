@@ -97,6 +97,51 @@ import { getPredictiveAnalytics, AnalyticsInsight, generateCustomerReply } from 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const NEPALI_TRANSLATIONS: Record<string, string> = {
+  // Tabs & Sidebar
+  'OVERVIEW': 'सिंहावलोकन',
+  'INVENTORY': 'वस्तुसूची',
+  'TRANSACTIONS': 'कारोबार',
+  'P&L_REPORT': 'नाफा र नोक्सान',
+  'CASH_FLOW': 'नगद प्रवाह',
+  'BALANCE_SHEET': 'वासलात',
+  'QUERIES': 'सोधपुछ',
+  'TEAM_INTEL': 'टोली व्यवस्थापन',
+  'DATA_INPUT': 'डाटा प्रविष्टि',
+  'SETTINGS': 'सेटिङहरू',
+  'LOGOUT': 'लगआउट',
+  'Control_Unit': 'नियन्त्रण एकाइ',
+
+  // Buttons & Labels
+  'EXPORT_PDF': 'पीडीएफ निर्यात गर्नुहोस्',
+  'EXPORT_VAT_PDF': 'भ्याट पीडीएफ निर्यात',
+  'IMPORT_FROM_GATEWAY': 'गेटवेबाट आयात',
+  'COMMIT_TO_KERNEL': 'प्रणालीमा थप्नुहोस्',
+  'Language (Language Preference)': 'भाषा (Language)',
+  'RESOLVE_PROTOCOL': 'समाधान गर्नुहोस्',
+  
+  // App specific
+  'System Input': 'प्रणाली इनपुट',
+  'TRANSACTION LOG ENTRY': 'कारोबार लग प्रविष्टि',
+  
+  // Settings Tab
+  'BUSINESS PROFILE': 'व्यापार प्रोफाइल',
+  'FINANCIAL PROTOCOLS': 'वित्तीय प्रोटोकलहरू',
+  'KNOWLEDGE BASE': 'ज्ञान आधार',
+  'SYSTEM SETTINGS': 'प्रणाली सेटिङहरू',
+  
+  // Dashboard Header
+  'Total Assets': 'कुल सम्पत्ति',
+  'Gross Value': 'कुल मूल्य',
+  'Dead Capital': 'मृत पूँजी',
+};
+
+export const LanguageContext = React.createContext<{ t: (text: string) => string, language: string, setLanguage: (lang: string) => void }>({
+  t: (text) => text,
+  language: 'EN',
+  setLanguage: () => {}
+});
+
 // --- MOCK DATA ---
 const OVERVIEW_BAR_DATA = [
   { name: 'JAN', inflow: 4000, outflow: 2400 },
@@ -1607,7 +1652,7 @@ function FinancialSummaryView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function OverviewView({ transactions, setTransactions, onViewReport }: { transactions: Transaction[], setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>, onViewReport: () => void }) {
+function OverviewView({ transactions, setTransactions, onViewReport, dateFormat }: { transactions: Transaction[], setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>, onViewReport: () => void, dateFormat: 'AD' | 'BS' }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isBannerDismissed, setIsBannerDismissed] = useState(() => localStorage.getItem('overview_banner_dismissed') === 'true');
 
@@ -1615,8 +1660,19 @@ function OverviewView({ transactions, setTransactions, onViewReport }: { transac
   const today = new Date();
   const adDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   
-  // Approximate BS Date for 2026-05-16 is Jestha 02, 2083
-  const bsDate = "Jestha 02, 2083 BS";
+  // Dynamic BS Date calculation matching conversion utility format: e.g. "Magh 15, 2081 BS"
+  const getDynamicFormattedBSDate = (adDateStr: string): string => {
+    const bsStr = convertGregorianToBS(adDateStr);
+    const parts = bsStr.split(' ')[0].split('-');
+    if (parts.length < 3) return bsStr;
+    const year = parts[0];
+    const monthIndex = parseInt(parts[1], 10) - 1;
+    const day = parts[2];
+    const BS_MONTH_NAMES = ["Baishakh", "Jestha", "Asar", "Shrawan", "Bhadra", "Ashwin", "Kartik", "Mangsir", "Poush", "Magh", "Fagun", "Chaitra"];
+    return `${BS_MONTH_NAMES[monthIndex]} ${day}, ${year} BS`;
+  };
+  
+  const bsDate = getDynamicFormattedBSDate(today.toISOString().split('T')[0]);
 
   const dismissBanner = () => {
     setIsBannerDismissed(true);
@@ -2089,7 +2145,17 @@ function PandLView() {
     }
   };
 
-  const plData = getPLData(getMultiplier());
+  const multiplier = getMultiplier();
+  const plData = getPLData(multiplier);
+
+  // VAT Calculations dynamically adjusted by range multipliers
+  const taxableSales = PL_DATA_STRUCTURE[0].items.reduce((acc, i) => acc + i.val, 0) * multiplier;
+  const vatCollected = taxableSales * 0.13;
+  const rawCogs = PL_DATA_STRUCTURE[1].items.reduce((acc, i) => acc + i.val, 0);
+  const rawExp = PL_DATA_STRUCTURE[2].items.reduce((acc, i) => acc + i.val, 0);
+  const taxablePurchases = (Math.abs(rawCogs) + Math.abs(rawExp)) * 0.6 * multiplier;
+  const vatPaid = taxablePurchases * 0.13;
+  const netVATPayable = vatCollected - vatPaid;
 
   const exportPDF = () => {
     const doc = new jsPDF();
@@ -2123,6 +2189,40 @@ function PandLView() {
     });
 
     doc.save(`PL_Statement_${businessName.replace(/\s/g, '_')}.pdf`);
+  };
+
+  const exportVATPDF = () => {
+    const doc = new jsPDF();
+    const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+
+    doc.setFontSize(20);
+    doc.text('VAT Compliance Report', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Entity: ${businessName}`, 14, 30);
+    doc.text(`Period: ${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`, 14, 36);
+    doc.text(`Protocol: As per IRD Nepal guidelines`, 14, 42);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 48);
+
+    const vatBody = [
+      ["Taxable Sales", "Based on Revenue Streams", formatCurrency(taxableSales)],
+      ["VAT Collected (13%)", "13% of Taxable Sales", formatCurrency(vatCollected)],
+      ["Taxable Purchases", "Based on COGS & Operational Inputs", formatCurrency(taxablePurchases)],
+      ["VAT Paid", "13% of Taxable Purchases", formatCurrency(vatPaid)],
+      ["Net VAT Payable", "VAT Collected - VAT Paid", formatCurrency(netVATPayable)]
+    ];
+
+    autoTable(doc, {
+      startY: 55,
+      head: [['Tax Parameter', 'Rate/Basis', 'Value (USD)']],
+      body: vatBody,
+      theme: 'grid',
+      headStyles: { fillColor: [0, 242, 255], textColor: [0, 0, 0] },
+      styles: { font: 'helvetica', fontSize: 10 },
+      columnStyles: { 2: { halign: 'right' } }
+    });
+
+    doc.save(`VAT_Report_${businessName.replace(/\s/g, '_')}.pdf`);
   };
 
   return (
@@ -2218,6 +2318,66 @@ function PandLView() {
           <p className="text-xs text-gray-500 font-mono leading-relaxed uppercase">
             All figures adjusted for quantum variance. Revenue recognition follows G-SEC protocols. COGS includes accelerated depreciation on hardware clusters. Net profit remains within target corridors despite increased R&D allocation.
           </p>
+        </div>
+      </div>
+
+      {/* VAT Compliance Report Section */}
+      <div className="pt-12 border-t border-white/5 space-y-6">
+        <div className="flex justify-between items-end">
+          <div>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Tax Compliance Protocol</h4>
+            <h2 className="text-3xl font-black italic uppercase">VAT_REPORT_SUMMARY</h2>
+          </div>
+          <button
+            onClick={exportVATPDF}
+            className="bg-intelligence/20 border border-intelligence/40 text-intelligence px-6 py-3 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 hover:bg-intelligence hover:text-black transition-all animate-pulse shadow-[0_0_15px_rgba(0,242,255,0.1)]"
+          >
+            <Download size={14} className="text-intelligence" />
+            EXPORT_VAT_PDF
+          </button>
+        </div>
+
+        <div className="glass border-white/5 overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/[0.02]">
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Tax Parameter</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Rate/Basis</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Value (USD)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 text-xs font-bold text-white uppercase">Taxable Sales</td>
+                <td className="p-6 text-xs font-mono text-gray-500">Based on Revenue Streams</td>
+                <td className="p-6 text-right font-mono font-bold text-xs text-white">{formatCurrency(taxableSales)}</td>
+              </tr>
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 text-xs font-bold text-white uppercase">VAT Collected (13%)</td>
+                <td className="p-6 text-xs font-mono text-intelligence">13% of Taxable Sales</td>
+                <td className="p-6 text-right font-mono font-bold text-xs text-intelligence">+{formatCurrency(vatCollected)}</td>
+              </tr>
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 text-xs font-bold text-white uppercase">Taxable Purchases</td>
+                <td className="p-6 text-xs font-mono text-gray-500">Based on COGS & Operational Inputs</td>
+                <td className="p-6 text-right font-mono font-bold text-xs text-white">{formatCurrency(taxablePurchases)}</td>
+              </tr>
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 text-xs font-bold text-white uppercase">VAT Paid</td>
+                <td className="p-6 text-xs font-mono text-brand">13% of Taxable Purchases</td>
+                <td className="p-6 text-right font-mono font-bold text-xs text-brand">-{formatCurrency(vatPaid)}</td>
+              </tr>
+              <tr className="bg-intelligence/5 border-l-4 border-l-intelligence hover:bg-intelligence/10 transition-colors">
+                <td className="p-6 text-xs font-black text-white uppercase italic">Net VAT Payable</td>
+                <td className="p-6 text-xs font-mono text-gray-400">VAT Collected - VAT Paid</td>
+                <td className="p-6 text-right font-mono font-black text-sm text-intelligence">{formatCurrency(netVATPayable)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div className="p-6 border-t border-white/5 bg-black/20 flex items-center gap-2">
+            <Shield size={12} className="text-gray-600 animate-pulse" />
+            <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">As per IRD Nepal guidelines</span>
+          </div>
         </div>
       </div>
     </div>
@@ -2480,7 +2640,14 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function InventoryView() {
+function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    if (dateFormat === 'BS') {
+      return convertGregorianToBS(dateStr);
+    }
+    return dateStr;
+  };
   const [inventory, setInventory] = useState<InventoryItem[]>(() => {
     const saved = localStorage.getItem('quantum_inventory');
     return saved ? JSON.parse(saved) : INITIAL_INVENTORY;
@@ -2794,7 +2961,7 @@ function InventoryView() {
                             "text-[9px] font-mono uppercase font-bold",
                             alert.alertType === 'QUANTITY_CRITICAL' ? "text-orange-500" : "text-brand"
                           )}>
-                            {alert.status} — {alert.alertType === 'QUANTITY_CRITICAL' ? `QTY: ${alert.qty}` : `EXPIRY: ${alert.expiry}`}
+                            {alert.status} — {alert.alertType === 'QUANTITY_CRITICAL' ? `QTY: ${alert.qty}` : `EXPIRY: ${formatDate(alert.expiry)}`}
                           </p>
                         </div>
                       </div>
@@ -2876,7 +3043,7 @@ function InventoryView() {
                   <td className="p-6 text-right font-mono text-sm text-gray-400">
                     {formatCurrency(item.price)}
                   </td>
-                  <td className="p-6 font-mono text-xs text-gray-600">{item.expiry}</td>
+                  <td className="p-6 font-mono text-xs text-gray-600">{formatDate(item.expiry)}</td>
                   <td className="p-6">
                     <StatusBadge status={item.status} />
                   </td>
@@ -3338,12 +3505,25 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
   const currentTypeCategories = categories.filter(c => c.type === formData.type);
 
   const recentTransactions = transactions.slice(0, 10);
+  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importTab, setImportTab] = useState<'eSewa' | 'Khalti' | 'ConnectIPS'>('eSewa');
+  const [importStatus, setImportStatus] = useState<'IDLE' | 'MAPPING' | 'IMPORTING' | 'SUCCESS'>('IDLE');
 
   return (
     <div className="space-y-12">
-      <div className="max-w-4xl">
-        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">System Input</h4>
-        <h2 className="text-5xl font-black italic uppercase">TRANSACTION LOG ENTRY</h2>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
+        <div className="max-w-4xl">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">System Input</h4>
+          <h2 className="text-5xl font-black italic uppercase">TRANSACTION LOG ENTRY</h2>
+        </div>
+        <button
+          onClick={() => { setIsImportModalOpen(true); setImportStatus('IDLE'); }}
+          className="bg-brand/20 border border-brand/40 text-brand px-6 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:bg-brand hover:text-black transition-all"
+        >
+          <Upload size={16} />
+          IMPORT_FROM_GATEWAY
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -3503,13 +3683,147 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
           </div>
         </div>
       </div>
+
+      {/* Import Gateway Modal */}
+      <AnimatePresence>
+        {isImportModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#0a0a0a] border border-white/10 w-full max-w-3xl flex flex-col overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
+                <div className="flex items-center gap-3">
+                  <Database className="text-intelligence" size={20} />
+                  <h3 className="text-lg font-black italic uppercase tracking-wider text-white">GATEWAY DATA IMPORT</h3>
+                </div>
+                <button onClick={() => setIsImportModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex border-b border-white/10 bg-black/40">
+                {['eSewa', 'Khalti', 'ConnectIPS'].map((gateway) => (
+                  <button
+                    key={gateway}
+                    onClick={() => { setImportTab(gateway as any); setImportStatus('IDLE'); }}
+                    className={cn(
+                      "flex-1 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2",
+                      importTab === gateway ? "text-intelligence border-intelligence bg-intelligence/5" : "text-gray-500 border-transparent hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    {gateway}
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-8">
+                {importStatus === 'IDLE' && (
+                  <div className="border-2 border-dashed border-white/10 p-12 flex flex-col items-center justify-center text-center cursor-pointer hover:border-intelligence/50 hover:bg-intelligence/5 transition-all group rounded-sm" onClick={() => setImportStatus('MAPPING')}>
+                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6 group-hover:bg-intelligence/20 group-hover:text-intelligence transition-colors">
+                      <Upload size={24} className="text-gray-500 group-hover:text-intelligence transition-colors" />
+                    </div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest mb-2">Upload {importTab} CSV Export</h4>
+                    <p className="text-[10px] font-mono text-gray-500 uppercase">Drag & drop your gateway settlement file here to simulate mapping</p>
+                  </div>
+                )}
+
+                {importStatus === 'MAPPING' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10">
+                      <span className="text-xs font-mono text-gray-400">File Detected:</span>
+                      <span className="text-xs font-black text-white">{importTab}_settlement_export.csv</span>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-intelligence uppercase tracking-widest">Automatic Column Mapping</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { local: 'Transaction Date', gateway: importTab === 'eSewa' ? 'Date' : importTab === 'Khalti' ? 'Transaction Date' : 'Value Date' },
+                          { local: 'Description', gateway: importTab === 'eSewa' ? 'Remarks' : importTab === 'Khalti' ? 'Particulars' : 'Txn Details' },
+                          { local: 'Amount', gateway: importTab === 'eSewa' ? 'Credit Amount' : importTab === 'Khalti' ? 'Amount (Rs)' : 'Credit' },
+                          { local: 'Type', gateway: 'Auto-detect (Inflow)' }
+                        ].map((map, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-black/40 border border-white/5">
+                            <span className="text-[9px] font-mono text-gray-500 uppercase">{map.local}</span>
+                            <ArrowRight size={12} className="text-gray-700" />
+                            <span className="text-[9px] font-bold text-white uppercase">{map.gateway}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setImportStatus('IMPORTING');
+                        setTimeout(() => {
+                          onAdd({
+                            date: new Date().toISOString().split('T')[0],
+                            description: `${importTab} Settlement Payout`,
+                            amount: Math.floor(Math.random() * 50000) + 10000,
+                            category: 'Sales',
+                            type: 'Inflow'
+                          });
+                          onAdd({
+                            date: new Date().toISOString().split('T')[0],
+                            description: `${importTab} Gateway Fee`,
+                            amount: Math.floor(Math.random() * 500) + 100,
+                            category: 'Infrastructure',
+                            type: 'Outflow'
+                          });
+                          setImportStatus('SUCCESS');
+                        }, 1500);
+                      }}
+                      className="w-full bg-intelligence text-black font-black py-4 text-[10px] uppercase tracking-[0.2em] hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
+                    >
+                      CONFIRM_MAPPING_AND_IMPORT
+                    </button>
+                  </div>
+                )}
+
+                {importStatus === 'IMPORTING' && (
+                  <div className="py-12 flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 border-4 border-white/10 border-t-intelligence rounded-full animate-spin mb-6"></div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest animate-pulse">Processing {importTab} Ledger...</h4>
+                  </div>
+                )}
+
+                {importStatus === 'SUCCESS' && (
+                  <div className="py-12 flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-intelligence/20 text-intelligence rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(0,242,255,0.3)]">
+                      <CheckCircle2 size={32} />
+                    </div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest mb-2">Import Successful</h4>
+                    <p className="text-[10px] font-mono text-gray-500 uppercase mb-8">Transactions have been synchronized with the kernel</p>
+                    <button
+                      onClick={() => setIsImportModalOpen(false)}
+                      className="bg-white/10 text-white font-black py-3 px-8 text-[10px] uppercase tracking-widest hover:bg-white hover:text-black transition-all"
+                    >
+                      CLOSE_MODAL
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 // --- TRANSACTIONS VIEW ---
 
-function TransactionsView({ transactions, onUpdate }: { transactions: Transaction[], onUpdate: React.Dispatch<React.SetStateAction<Transaction[]>> }) {
+function TransactionsView({ transactions, onUpdate, dateFormat }: { transactions: Transaction[], onUpdate: React.Dispatch<React.SetStateAction<Transaction[]>>, dateFormat: 'AD' | 'BS' }) {
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    if (dateFormat === 'BS') {
+      return convertGregorianToBS(dateStr);
+    }
+    return dateStr;
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -3628,7 +3942,7 @@ function TransactionsView({ transactions, onUpdate }: { transactions: Transactio
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
                       <div className={cn("w-1 h-4", t.type === 'Inflow' ? "bg-intelligence" : "bg-brand")}></div>
-                      <span className="text-[10px] font-mono text-gray-400">{t.date}</span>
+                      <span className="text-[10px] font-mono text-gray-400">{formatDate(t.date)}</span>
                     </div>
                   </td>
                   <td className="px-6 py-5">
@@ -3795,6 +4109,7 @@ function TransactionsView({ transactions, onUpdate }: { transactions: Transactio
   );
 }
 
+// --- CUSTOMER QUERIES ---
 
 const CUSTOMER_QUERIES_DATA = [
   { id: '1', name: 'James Wilson', platform: 'WhatsApp', message: 'I am seeing an anomaly in the HSI index feed. Is there a maintenance ongoing?', status: 'Pending', time: '12m ago' },
@@ -4766,12 +5081,14 @@ function TeamManagementView() {
 
 // --- SETTINGS VIEW ---
 
-function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, knowledgeBase, onUpdateKnowledgeBase }: {
+function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, knowledgeBase, onUpdateKnowledgeBase, dateFormat, onChangeDateFormat }: {
   onUpdateBusinessName: (name: string) => void,
   categories: { name: string, type: 'Inflow' | 'Outflow' }[],
   onUpdateCategories: React.Dispatch<React.SetStateAction<{ name: string, type: 'Inflow' | 'Outflow' }[]>>,
   knowledgeBase: any,
-  onUpdateKnowledgeBase: (kb: any) => void
+  onUpdateKnowledgeBase: (kb: any) => void,
+  dateFormat: 'AD' | 'BS',
+  onChangeDateFormat: (val: 'AD' | 'BS') => void
 }) {
   const [profile, setProfile] = useState({
     businessName: localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL',
@@ -4977,6 +5294,46 @@ function SettingsView({ onUpdateBusinessName, categories, onUpdateCategories, kn
                   onChange={(e) => setProfile({ ...profile, panNumber: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all font-mono"
                 />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Temporal standard (Date format)</label>
+              <div className="relative group">
+                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                <select
+                  value={dateFormat}
+                  onChange={(e) => {
+                    const val = e.target.value as 'AD' | 'BS';
+                    onChangeDateFormat(val);
+                    localStorage.setItem('date_format', val);
+                  }}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                >
+                  <option value="AD">AD (Gregorian Standard)</option>
+                  <option value="BS">BS (Bikram Sambat Protocol)</option>
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">{t('Language (Language Preference)')}</label>
+              <div className="relative group">
+                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                <select
+                  value={language}
+                  onChange={(e) => {
+                    const val = e.target.value as 'EN' | 'NP';
+                    setLanguage(val);
+                    localStorage.setItem('app_language', val);
+                  }}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                >
+                  <option value="EN">English (EN)</option>
+                  <option value="NP">Nepali (नेपाली)</option>
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
               </div>
             </div>
           </div>
@@ -5744,6 +6101,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [dateFormat, setDateFormat] = useState<'AD' | 'BS'>(() => {
+    return (localStorage.getItem('date_format') as 'AD' | 'BS') || 'AD';
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -5756,13 +6116,20 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const [language, setLanguage] = useState<'EN' | 'NP'>(() => {
+    return (localStorage.getItem('app_language') as 'EN' | 'NP') || 'EN';
+  });
+
+  const t = (text: string) => language === 'NP' ? (NEPALI_TRANSLATIONS[text] || text) : text;
+
   return (
+    <LanguageContext.Provider value={{ t, language, setLanguage }}>
     <div className="h-screen bg-dark-bg text-white overflow-hidden flex font-sans noise scanlines">
       {/* Main Sidebar */}
       <aside className="w-48 border-r border-white/5 flex flex-col py-8 bg-black/40 backdrop-blur-3xl z-50 overflow-hidden">
         <div className="flex flex-col items-center mb-10 px-4">
           <Activity className="text-intelligence w-10 h-10 mb-2 shadow-[0_0_15px_#00f2ff]" />
-          <span className="text-[10px] font-black text-intelligence tracking-[0.3em] uppercase">Control_Unit</span>
+          <span className="text-[10px] font-black text-intelligence tracking-[0.3em] uppercase">{t('Control_Unit')}</span>
         </div>
 
         <div className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar px-2">
@@ -5805,7 +6172,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 )}
               </div>
               <span className="text-[9px] font-black tracking-widest uppercase truncate">
-                {item.label}
+                {t(item.label)}
               </span>
             </button>
           ))}
@@ -5820,7 +6187,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             )}
           >
             <Settings size={18} />
-            <span className="text-[9px] font-black tracking-widest uppercase">SETTINGS</span>
+            <span className="text-[9px] font-black tracking-widest uppercase">{t('SETTINGS')}</span>
           </button>
 
           <button
@@ -5828,7 +6195,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             className="w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all text-brand/60 hover:text-brand hover:bg-brand/5"
           >
             <Lock size={18} />
-            <span className="text-[9px] font-black tracking-widest uppercase">LOGOUT</span>
+            <span className="text-[9px] font-black tracking-widest uppercase">{t('LOGOUT')}</span>
           </button>
         </div>
       </aside>
@@ -6024,17 +6391,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              {activeTab === 'Overview' && <OverviewView transactions={transactions} setTransactions={setTransactions} onViewReport={() => setActiveTab('Financial Summary')} />}
+              {activeTab === 'Overview' && <OverviewView transactions={transactions} setTransactions={setTransactions} onViewReport={() => setActiveTab('Financial Summary')} dateFormat={dateFormat} />}
               {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
               {activeTab === 'P&L Statement' && <PandLView />}
               {activeTab === 'Cash Flow' && <CashFlowView />}
               {activeTab === 'Balance Sheet' && <BalanceSheetView />}
-              {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={setTransactions} />}
-              {activeTab === 'Inventory' && <InventoryView />}
+              {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={setTransactions} dateFormat={dateFormat} />}
+              {activeTab === 'Inventory' && <InventoryView dateFormat={dateFormat} />}
               {activeTab === 'Customer Queries' && <CustomerQueriesView queries={queries} setQueries={setQueries} knowledgeBase={knowledgeBase} />}
               {activeTab === 'Team Management' && <TeamManagementView />}
               {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} />}
-              {activeTab === 'Settings' && <SettingsView onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} />}
+              {activeTab === 'Settings' && <SettingsView onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} dateFormat={dateFormat} onChangeDateFormat={setDateFormat} />}
               {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings'].includes(activeTab) && <PlaceholderView name={activeTab} />}
             </motion.div>
           </AnimatePresence>
@@ -6161,6 +6528,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
          )}
       </AnimatePresence>
     </div>
+    </LanguageContext.Provider>
   );
 }
 
@@ -6250,4 +6618,67 @@ export default function App() {
 // Utility Helper
 function cn(...classes: any[]) {
   return classes.filter(Boolean).join(' ');
+}
+
+// Bikram Sambat (BS) dynamic converter utility
+function convertGregorianToBS(gregorianDateString: string): string {
+  if (!gregorianDateString) return '';
+  const date = new Date(gregorianDateString);
+  if (isNaN(date.getTime())) return gregorianDateString;
+  
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1; // 1-12
+  const day = date.getDate();
+  
+  const transitions = [
+    { m: 1, d: 15, bsM: 10, offset: 56 }, // Jan 15 starts Magh (10)
+    { m: 2, d: 13, bsM: 11, offset: 56 }, // Feb 13 starts Fagun (11)
+    { m: 3, d: 14, bsM: 12, offset: 56 }, // Mar 14 starts Chaitra (12)
+    { m: 4, d: 14, bsM: 1,  offset: 57 }, // Apr 14 starts Baishakh (1)
+    { m: 5, d: 15, bsM: 2,  offset: 57 }, // May 15 starts Jestha (2)
+    { m: 6, d: 15, bsM: 3,  offset: 57 }, // Jun 15 starts Asar (3)
+    { m: 7, d: 16, bsM: 4,  offset: 57 }, // Jul 16 starts Shrawan (4)
+    { m: 8, d: 17, bsM: 5,  offset: 57 }, // Aug 17 starts Bhadra (5)
+    { m: 9, d: 17, bsM: 6,  offset: 57 }, // Sep 17 starts Ashwin (6)
+    { m: 10, d: 18, bsM: 7,  offset: 57 }, // Oct 18 starts Kartik (7)
+    { m: 11, d: 17, bsM: 8,  offset: 57 }, // Nov 17 starts Mangsir (8)
+    { m: 12, d: 16, bsM: 9,  offset: 57 }  // Dec 16 starts Poush (9)
+  ];
+  
+  let transition = transitions[transitions.length - 1];
+  
+  for (let i = 0; i < transitions.length; i++) {
+    const current = transitions[i];
+    if (month === current.m) {
+      if (day >= current.d) {
+        transition = current;
+      } else {
+        transition = transitions[(i - 1 + transitions.length) % transitions.length];
+      }
+      break;
+    }
+  }
+  
+  const bsYr = year + transition.offset;
+  const bsMn = transition.bsM;
+  
+  let bsDy = 1;
+  const transitionDate = new Date(year, transition.m - 1, transition.d);
+  const diffTime = date.getTime() - transitionDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays >= 0) {
+    bsDy = diffDays + 1;
+  } else {
+    const prevTransitionDate = new Date(year - 1, 11, 16);
+    const diffTimePrev = date.getTime() - prevTransitionDate.getTime();
+    bsDy = Math.floor(diffTimePrev / (1000 * 60 * 60 * 24)) + 1;
+  }
+  
+  if (bsDy > 32) bsDy = 32;
+  if (bsDy < 1) bsDy = 1;
+  
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  
+  return `${bsYr}-${pad(bsMn)}-${pad(bsDy)} BS`;
 }
