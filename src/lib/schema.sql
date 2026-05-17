@@ -1,0 +1,277 @@
+-- =======================================================
+-- NEURALIS INTELLIGENCE ECOSYSTEM - DATABASE SCHEMA
+-- =======================================================
+-- Designed for Supabase / PostgreSQL.
+-- Enables complete business isolation via Row Level Security (RLS).
+
+-- 0. Enable Extension for UUID Generation
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. Businesses Table (Corporate Entities)
+CREATE TABLE public.businesses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    logo_url TEXT,
+    industry VARCHAR(100),
+    phone VARCHAR(50),
+    address TEXT,
+    tax_id VARCHAR(50), -- e.g. PAN in Nepal
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2. Users / Profiles Table (Mmapped to auth.users)
+CREATE TABLE public.users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    business_id UUID REFERENCES public.businesses(id) ON DELETE SET NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'Owner'::character varying CHECK (role IN ('Owner', 'Accountant', 'Marketer', 'Manager')),
+    status VARCHAR(50) DEFAULT 'Active'::character varying CHECK (status IN ('Active', 'Suspended', 'Pending')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 3. Categories Table
+CREATE TABLE public.categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('Inflow', 'Outflow')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE (business_id, name, type)
+);
+
+-- 4. Transactions Table
+CREATE TABLE public.transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    description TEXT NOT NULL,
+    amount NUMERIC(15, 2) NOT NULL CHECK (amount >= 0),
+    category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('Inflow', 'Outflow')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. Inventory Table
+CREATE TABLE public.inventory (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    sku VARCHAR(100) UNIQUE NOT NULL,
+    stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
+    min_stock INTEGER NOT NULL DEFAULT 0 CHECK (min_stock >= 0),
+    price NUMERIC(15, 2) NOT NULL CHECK (price >= 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 6. Customer Queries / Support Tickets Table
+CREATE TABLE public.customer_queries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    client VARCHAR(255) NOT NULL,
+    priority VARCHAR(20) DEFAULT 'Medium'::character varying CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
+    status VARCHAR(20) DEFAULT 'Pending'::character varying CHECK (status IN ('Pending', 'In Progress', 'Resolved')),
+    response TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 7. Team Members / Workspace Access Table
+CREATE TABLE public.team_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL CHECK (role IN ('Owner', 'Accountant', 'Marketer', 'Manager')),
+    status VARCHAR(50) DEFAULT 'Active'::character varying CHECK (status IN ('Active', 'Suspended', 'Pending')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE (business_id, email)
+);
+
+-- 8. Activity Logs / System Audit Trails
+CREATE TABLE public.activity_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
+    action TEXT NOT NULL,
+    module VARCHAR(100) NOT NULL,
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    details JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- =======================================================
+-- DATABASE TRIGGERS FOR TIMESTAMPS
+-- =======================================================
+
+CREATE OR REPLACE FUNCTION update_modified_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_businesses_modtime BEFORE UPDATE ON public.businesses FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+CREATE TRIGGER update_users_modtime BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+CREATE TRIGGER update_transactions_modtime BEFORE UPDATE ON public.transactions FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+CREATE TRIGGER update_inventory_modtime BEFORE UPDATE ON public.inventory FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+CREATE TRIGGER update_customer_queries_modtime BEFORE UPDATE ON public.customer_queries FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+CREATE TRIGGER update_team_members_modtime BEFORE UPDATE ON public.team_members FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+
+-- =======================================================
+-- MULTI-TENANCY HELPERS & SECURITY POLICIES (RLS)
+-- =======================================================
+
+-- Helper function to fetch the current user's business ID
+CREATE OR REPLACE FUNCTION public.get_user_business_id()
+RETURNS UUID AS $$
+    SELECT business_id FROM public.users WHERE auth_id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER;
+
+-- Enable Row Level Security (RLS) on all tables
+ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customer_queries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+
+-- 1. Businesses Policies
+CREATE POLICY "Allow select for associated business members" ON public.businesses
+    FOR SELECT USING (id = public.get_user_business_id());
+
+CREATE POLICY "Allow update for owners" ON public.businesses
+    FOR UPDATE USING (id = public.get_user_business_id())
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role = 'Owner'
+        )
+    );
+
+CREATE POLICY "Allow insert for new registrants" ON public.businesses
+    FOR INSERT WITH CHECK (true);
+
+-- 2. Users / Profiles Policies
+CREATE POLICY "Allow users to read their own record" ON public.users
+    FOR SELECT USING (auth_id = auth.uid());
+
+CREATE POLICY "Allow users to read colleagues" ON public.users
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow users to update own profile" ON public.users
+    FOR UPDATE USING (auth_id = auth.uid());
+
+CREATE POLICY "Allow users to insert their own profile" ON public.users
+    FOR INSERT WITH CHECK (auth_id = auth.uid());
+
+-- 3. Categories Policies
+CREATE POLICY "Allow workspace members to read categories" ON public.categories
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow owners and accountants to modify categories" ON public.categories
+    FOR ALL USING (business_id = public.get_user_business_id())
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role IN ('Owner', 'Accountant')
+        )
+    );
+
+-- 4. Transactions Policies
+CREATE POLICY "Allow workspace members to read transactions" ON public.transactions
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow owners and accountants to insert transactions" ON public.transactions
+    FOR INSERT WITH CHECK (
+        business_id = public.get_user_business_id() AND
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role IN ('Owner', 'Accountant')
+        )
+    );
+
+CREATE POLICY "Allow owners and accountants to update transactions" ON public.transactions
+    FOR UPDATE USING (business_id = public.get_user_business_id())
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role IN ('Owner', 'Accountant')
+        )
+    );
+
+CREATE POLICY "Allow owners to delete transactions" ON public.transactions
+    FOR DELETE USING (
+        business_id = public.get_user_business_id() AND
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role = 'Owner'
+        )
+    );
+
+-- 5. Inventory Policies
+CREATE POLICY "Allow workspace members to read inventory" ON public.inventory
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow workspace members to modify inventory" ON public.inventory
+    FOR ALL USING (business_id = public.get_user_business_id())
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role IN ('Owner', 'Manager')
+        )
+    );
+
+-- 6. Customer Queries Policies
+CREATE POLICY "Allow workspace members to read queries" ON public.customer_queries
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow managers, marketers, and owners to modify queries" ON public.customer_queries
+    FOR ALL USING (business_id = public.get_user_business_id())
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role IN ('Owner', 'Manager', 'Marketer')
+        )
+    );
+
+-- 7. Team Members Policies
+CREATE POLICY "Allow select for colleagues" ON public.team_members
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow owners and managers to manage team" ON public.team_members
+    FOR ALL USING (business_id = public.get_user_business_id())
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role IN ('Owner', 'Manager')
+        )
+    );
+
+-- 8. Activity Logs Policies
+CREATE POLICY "Allow select logs for colleagues" ON public.activity_logs
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow system insert logs" ON public.activity_logs
+    FOR INSERT WITH CHECK (business_id = public.get_user_business_id());
+
+-- =======================================================
+-- CONVENIENCE INDEXES FOR HIGH-PERFORMANCE
+-- =======================================================
+
+CREATE INDEX idx_users_auth_id ON public.users(auth_id);
+CREATE INDEX idx_users_business_id ON public.users(business_id);
+CREATE INDEX idx_transactions_business_id ON public.transactions(business_id);
+CREATE INDEX idx_transactions_date ON public.transactions(date);
+CREATE INDEX idx_inventory_business_id ON public.inventory(business_id);
+CREATE INDEX idx_customer_queries_business ON public.customer_queries(business_id);
+CREATE INDEX idx_activity_logs_business ON public.activity_logs(business_id);

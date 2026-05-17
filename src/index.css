@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 @import "tailwindcss";
 
-@theme {
+:root {
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --color-brand: #dc143c;
@@ -9,16 +9,25 @@
   --color-dark-bg: #05070a;
 }
 
-@layer base {
-  body {
-    @apply bg-dark-bg text-white antialiased selection:bg-brand selection:text-white;
-  }
+body {
+  background-color: var(--color-dark-bg);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@layer utilities {
-  .glass {
-    @apply bg-white/[0.03] backdrop-blur-xl border border-white/10;
-  }
+body::selection {
+  background-color: var(--color-brand);
+  color: #ffffff;
+}
+
+.glass {
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
   
   .scanlines {
     position: relative;
@@ -88,7 +97,6 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
-}
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
@@ -105,4 +113,145 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #dc143c;
+}
+
+/* ==========================================
+   GLOBAL UI CONSISTENCY PASS (JARVIS STYLE)
+   ========================================== */
+
+/* 1. BUTTONS (Consistent Radius and Hover Timing) */
+button, 
+.btn,
+[role="button"] {
+  border-radius: 4px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 2. FORM INPUTS (Consistent Focus, Borders, & Padding) */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+input[type="search"],
+select,
+textarea {
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 13px !important;
+  color: #ffffff !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="date"]:focus,
+input[type="search"]:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: #00f2ff !important; /* Consistent cyan focus indicator */
+  box-shadow: 0 0 15px rgba(0, 242, 255, 0.2) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* 3. MODALS (Consistent Backdrop, Content Container, & Headers) */
+.fixed.inset-0.z-\[100\], 
+.fixed.inset-0.z-\[1000\],
+.fixed.inset-0.z-\[2000\],
+.fixed.inset-0.z-\[3000\] {
+  background-color: rgba(5, 7, 10, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.fixed.inset-0 .glass {
+  border-radius: 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background-color: #05070a !important;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 242, 255, 0.05) !important;
+  padding: 2.5rem !important;
+}
+
+.fixed.inset-0 .glass h3 {
+  font-family: var(--font-sans) !important;
+  text-transform: uppercase !important;
+  font-style: italic !important;
+  font-weight: 900 !important;
+  font-size: 1.875rem !important;
+  line-height: 2.25rem !important;
+}
+
+.fixed.inset-0 .glass h4 {
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.3em !important;
+  text-transform: uppercase !important;
+  color: #00f2ff !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* Consistent absolute close button position */
+.fixed.inset-0 .glass button.absolute.top-6.right-6,
+.fixed.inset-0 .glass button.absolute.top-8.right-8 {
+  top: 1.5rem !important;
+  right: 1.5rem !important;
+  color: #6b7280 !important;
+  transition: color 0.15s ease-in-out !important;
+}
+
+.fixed.inset-0 .glass button.absolute.top-6.right-6:hover,
+.fixed.inset-0 .glass button.absolute.top-8.right-8:hover {
+  color: #ffffff !important;
+}
+
+/* 4. TABLES (Consistent Heights, Hover States, Cell Padding) */
+table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+table th {
+  padding: 1.25rem 1.5rem !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.2em !important;
+  color: #6b7280 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+table td {
+  padding: 1.25rem 1.5rem !important;
+  font-size: 13px !important;
+  font-family: var(--font-mono) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+  vertical-align: middle !important;
+}
+
+table tr {
+  height: 56px !important;
+  transition: background-color 0.15s ease-in-out !important;
+}
+
+table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* 5. BADGES & STATUS CHIPS (Consistent Sizes & Fonts) */
+.badge,
+[class*="badge-"],
+[class*="status-"] {
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
