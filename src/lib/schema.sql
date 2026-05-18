@@ -280,3 +280,30 @@ CREATE INDEX idx_transactions_date ON public.transactions(date);
 CREATE INDEX idx_inventory_business_id ON public.inventory(business_id);
 CREATE INDEX idx_customer_queries_business ON public.customer_queries(business_id);
 CREATE INDEX idx_audit_logs_business ON public.audit_logs(business_id);
+
+-- =======================================================
+-- 9. Security Events Table (Login/Session Tracking)
+-- =======================================================
+
+CREATE TABLE public.security_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'SESSION_REVOKED', '2FA_ENABLED', '2FA_DISABLED', 'PASSWORD_CHANGED')),
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.security_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow select security events for business" ON public.security_events
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow insert security events" ON public.security_events
+    FOR INSERT WITH CHECK (business_id = public.get_user_business_id());
+
+CREATE INDEX idx_security_events_business ON public.security_events(business_id);
+CREATE INDEX idx_security_events_type ON public.security_events(event_type);
+CREATE INDEX idx_security_events_created ON public.security_events(created_at);
