@@ -73,7 +73,10 @@ import {
   HelpCircle,
   BarChart as BarChartIcon,
   RefreshCw,
-  Move
+  Move,
+  Mic,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Canvas, useFrame } from '@react-three/fiber';
@@ -96,7 +99,7 @@ import {
   Cell
 } from 'recharts';
 import Papa from 'papaparse';
-import { getPredictiveAnalytics, AnalyticsInsight, generateCustomerReply } from './services/geminiService';
+import { getPredictiveAnalytics, AnalyticsInsight, generateCustomerReply, askMetis } from './services/geminiService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -173,6 +176,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'SETTINGS': 'सेटिङहरू',
   'LOGOUT': 'लगआउट',
   'Control_Unit': 'नियन्त्रण एकाइ',
+  'VOICE_CONTROL': 'आवाज नियन्त्रण',
 
   // Buttons & Labels
   'EXPORT_PDF': 'पीडीएफ निर्यात गर्नुहोस्',
@@ -225,7 +229,7 @@ const PIE_COLORS = ['#00f2ff', '#dc143c', '#ffffff', '#333333'];
 
 // --- TYPES ---
 
-type PlatformTab = 'Overview' | 'P&L Statement' | 'Cash Flow' | 'Balance Sheet' | 'Transactions' | 'Inventory' | 'Data Entry' | 'Customer Queries' | 'Team Management' | 'Settings' | 'Financial Summary';
+type PlatformTab = 'Overview' | 'P&L Statement' | 'Cash Flow' | 'Balance Sheet' | 'Transactions' | 'Inventory' | 'Data Entry' | 'Customer Queries' | 'Query Analytics' | 'Team Management' | 'Settings' | 'Financial Summary' | 'Voice';
 
 interface Transaction {
   id?: string;
@@ -743,8 +747,10 @@ function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => v
     email: '',
     password: '',
     businessName: '',
-    businessType: 'Retail'
+    businessType: 'Retail',
+    inviteCode: ''
   });
+  const [isJoinMode, setIsJoinMode] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -755,6 +761,15 @@ function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => v
     setErrorMsg('');
 
     try {
+      let targetBusinessId = '';
+
+      if (isJoinMode) {
+        if (!formData.inviteCode) throw new Error('Invite Code is required to join a network.');
+        const { data: bData, error: bErr } = await supabase.from('businesses').select('id').eq('invite_code', formData.inviteCode).single();
+        if (bErr || !bData) throw new Error('Invalid or expired Invite Code.');
+        targetBusinessId = bData.id;
+      }
+
       // 1. Sign up user in Supabase Auth
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
@@ -765,17 +780,20 @@ function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => v
       const user = signUpData.user;
       if (!user) throw new Error('User node returned blank state.');
 
-      // 2. Insert associated business entity
-      const { data: businessData, error: businessError } = await supabase
-        .from('businesses')
-        .insert({
-          name: formData.businessName,
-          industry: formData.businessType
-        })
-        .select('id')
-        .single();
+      if (!isJoinMode) {
+        // 2. Insert associated business entity
+        const { data: businessData, error: businessError } = await supabase
+          .from('businesses')
+          .insert({
+            name: formData.businessName,
+            industry: formData.businessType
+          })
+          .select('id')
+          .single();
 
-      if (businessError) throw businessError;
+        if (businessError) throw businessError;
+        targetBusinessId = businessData.id;
+      }
 
       // 3. Register user profile linked to both Auth system and Business node
       const { error: profileError } = await supabase
@@ -784,8 +802,8 @@ function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => v
           auth_id: user.id,
           email: formData.email,
           full_name: formData.fullName,
-          business_id: businessData.id,
-          role: 'Owner',
+          business_id: targetBusinessId,
+          role: isJoinMode ? 'Member' : 'Owner',
           status: 'Active'
         });
 
@@ -854,6 +872,13 @@ function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => v
                 </div>
               )}
 
+              <div className="flex items-center justify-center gap-2 mb-6 cursor-pointer" onClick={() => setIsJoinMode(!isJoinMode)}>
+                <div className={cn("w-4 h-4 border flex items-center justify-center transition-colors", isJoinMode ? "border-intelligence bg-intelligence/20" : "border-gray-600")}>
+                  {isJoinMode && <CheckCircle2 size={12} className="text-intelligence" />}
+                </div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400 hover:text-intelligence transition-colors">Join Existing Network (Invite Code)</span>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-1.5">
@@ -901,39 +926,58 @@ function RegisterPage({ onRegistered, onBack, onLogin }: { onRegistered: () => v
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Name</label>
-                    <div className="relative group">
-                      <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
-                      <input
-                        type="text"
-                        required
-                        value={formData.businessName}
-                        onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
-                        placeholder="ENTITY_DESIGNATION"
-                      />
-                    </div>
-                  </div>
+                  {!isJoinMode ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Name</label>
+                        <div className="relative group">
+                          <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                          <input
+                            type="text"
+                            required={!isJoinMode}
+                            value={formData.businessName}
+                            onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all placeholder:text-gray-800"
+                            placeholder="ENTITY_DESIGNATION"
+                          />
+                        </div>
+                      </div>
 
-                  <div className="space-y-1.5 md:col-span-2">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Sector Protocol</label>
-                    <div className="relative group">
-                      <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence transition-colors" size={18} />
-                      <select
-                        value={formData.businessType}
-                        onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
-                      >
-                        <option value="Hotel">Hotel</option>
-                        <option value="Restaurant">Restaurant</option>
-                        <option value="Retail">Retail</option>
-                        <option value="Manufacturing">Manufacturing</option>
-                        <option value="Service">Service</option>
-                      </select>
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Business Sector Protocol</label>
+                        <div className="relative group">
+                          <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-intelligence transition-colors" size={18} />
+                          <select
+                            value={formData.businessType}
+                            onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                          >
+                            <option value="Hotel">Hotel</option>
+                            <option value="Restaurant">Restaurant</option>
+                            <option value="Retail">Retail</option>
+                            <option value="Manufacturing">Manufacturing</option>
+                            <option value="Service">Service</option>
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[10px] font-black text-intelligence uppercase tracking-widest pl-1">Network Invite Code</label>
+                      <div className="relative group">
+                        <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-intelligence transition-colors" size={18} />
+                        <input
+                          type="text"
+                          required={isJoinMode}
+                          value={formData.inviteCode}
+                          onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
+                          className="w-full bg-intelligence/5 border border-intelligence/30 px-12 py-4 text-intelligence font-mono text-sm focus:outline-none focus:border-intelligence focus:bg-intelligence/10 transition-all placeholder:text-intelligence/30"
+                          placeholder="ENTER INVITATION CODE"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="pt-4">
@@ -2701,34 +2745,6 @@ function PlaceholderView({ name }: { name: string }) {
 
 // --- P&L STATEMENT VIEW ---
 
-const PL_DATA_STRUCTURE = [
-  {
-    category: "Revenue",
-    items: [
-      { name: "Product Sales", val: 4100000 },
-      { name: "Service Revenue", val: 840000 },
-      { name: "Licensing", val: 300000 },
-    ]
-  },
-  {
-    category: "COGS",
-    items: [
-      { name: "Raw Materials", val: -900000 },
-      { name: "Direct Labor", val: -640000 },
-      { name: "Production Overhead", val: -300000 },
-    ]
-  },
-  {
-    category: "Operating Expenses",
-    items: [
-      { name: "Marketing", val: -400000 },
-      { name: "R&D", val: -500000 },
-      { name: "Insurance", val: -100000 },
-      { name: "Rent & Utilities", val: -200000 },
-    ]
-  }
-];
-
 const formatCurrency = (val: number) => {
   const absVal = Math.abs(val);
   const formatted = new Intl.NumberFormat('en-US', {
@@ -2739,46 +2755,104 @@ const formatCurrency = (val: number) => {
   return val < 0 ? `(${formatted})` : formatted;
 };
 
-const getPLData = (multiplier: number = 1) => {
-  const revTotal = PL_DATA_STRUCTURE[0].items.reduce((acc, i) => acc + (i.val * multiplier), 0);
-  const cogsTotal = PL_DATA_STRUCTURE[1].items.reduce((acc, i) => acc + (i.val * multiplier), 0);
+export const getPLStatement = async (businessId: string, startDate?: string, endDate?: string) => {
+  let query = supabase.from('transactions').select(`
+    amount,
+    type,
+    categories (name)
+  `).eq('business_id', businessId);
+
+  if (startDate) {
+    query = query.gte('date', startDate);
+  }
+  if (endDate) {
+    query = query.lte('date', endDate);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Failed to fetch P&L data:', error);
+    return null;
+  }
+
+  const plData = {
+    revenue: [] as { name: string, val: number }[],
+    cogs: [] as { name: string, val: number }[],
+    operatingExpenses: [] as { name: string, val: number }[]
+  };
+
+  const categoryTotals: Record<string, number> = {};
+  const cogsKeywords = ['raw material', 'labor', 'production', 'cogs', 'inventory', 'supplier', 'manufacturing', 'freight', 'direct'];
+
+  data?.forEach((tx: any) => {
+    const catName = tx.categories?.name || 'Uncategorized';
+    const amount = Number(tx.amount);
+    const key = `${tx.type}_${catName}`;
+    categoryTotals[key] = (categoryTotals[key] || 0) + amount;
+  });
+
+  Object.entries(categoryTotals).forEach(([key, val]) => {
+    const [type, ...nameParts] = key.split('_');
+    const name = nameParts.join('_');
+    
+    if (type === 'Inflow') {
+      plData.revenue.push({ name, val });
+    } else {
+      const isCogs = cogsKeywords.some(kw => name.toLowerCase().includes(kw));
+      if (isCogs) {
+         plData.cogs.push({ name, val: -val });
+      } else {
+         plData.operatingExpenses.push({ name, val: -val });
+      }
+    }
+  });
+
+  const revTotal = plData.revenue.reduce((acc, i) => acc + i.val, 0);
+  const cogsTotal = plData.cogs.reduce((acc, i) => acc + i.val, 0);
   const grossProfit = revTotal + cogsTotal;
-  const expTotal = PL_DATA_STRUCTURE[2].items.reduce((acc, i) => acc + (i.val * multiplier), 0);
+  const expTotal = plData.operatingExpenses.reduce((acc, i) => acc + i.val, 0);
   const netProfit = grossProfit + expTotal;
 
-  return [
-    {
-      category: "Revenue",
-      total: formatCurrency(revTotal),
-      items: PL_DATA_STRUCTURE[0].items.map(i => ({ name: i.name, val: formatCurrency(i.val * multiplier) }))
-    },
-    {
-      category: "COGS",
-      total: formatCurrency(cogsTotal),
-      items: PL_DATA_STRUCTURE[1].items.map(i => ({ name: i.name, val: formatCurrency(i.val * multiplier) }))
-    },
-    {
-      category: "Gross Profit",
-      total: formatCurrency(grossProfit),
-      isResult: true,
-      items: []
-    },
-    {
-      category: "Operating Expenses",
-      total: formatCurrency(expTotal),
-      items: PL_DATA_STRUCTURE[2].items.map(i => ({ name: i.name, val: formatCurrency(i.val * multiplier) }))
-    },
-    {
-      category: "Net Profit",
-      total: formatCurrency(netProfit),
-      isResult: true,
-      highlight: true,
-      items: []
+  return {
+    plList: [
+      {
+        category: "Revenue",
+        total: formatCurrency(revTotal),
+        items: plData.revenue.map(i => ({ ...i, val: formatCurrency(i.val) }))
+      },
+      {
+        category: "COGS",
+        total: formatCurrency(cogsTotal),
+        items: plData.cogs.map(i => ({ ...i, val: formatCurrency(i.val) }))
+      },
+      {
+        category: "Gross Profit",
+        total: formatCurrency(grossProfit),
+        isResult: true,
+        items: []
+      },
+      {
+        category: "Operating Expenses",
+        total: formatCurrency(expTotal),
+        items: plData.operatingExpenses.map(i => ({ ...i, val: formatCurrency(i.val) }))
+      },
+      {
+        category: "Net Profit",
+        total: formatCurrency(netProfit),
+        isResult: true,
+        highlight: true,
+        items: []
+      }
+    ],
+    rawTotals: {
+      revTotal,
+      cogsTotal,
+      expTotal
     }
-  ];
+  };
 };
 
-function PLSection({ section }: { section: ReturnType<typeof getPLData>[0] }) {
+function PLSection({ section }: { section: any }) {
   const [isOpen, setIsOpen] = useState(true);
   const hasItems = section.items && section.items.length > 0;
 
@@ -2843,36 +2917,62 @@ function PLSection({ section }: { section: ReturnType<typeof getPLData>[0] }) {
 function PandLView() {
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
+  
+  const [plData, setPlData] = useState<any[]>([]);
+  const [taxData, setTaxData] = useState({ taxableSales: 0, vatCollected: 0, rawCogs: 0, rawExp: 0, taxablePurchases: 0, vatPaid: 0, netVATPayable: 0 });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const getMultiplier = () => {
-    switch (range) {
-      case 'This Month': return 1;
-      case 'Last Month': return 0.95;
-      case 'This Quarter': return 3.2;
-      case 'Custom':
-        if (customDates.start && customDates.end) {
-          const s = new Date(customDates.start);
-          const e = new Date(customDates.end);
-          const diffInMs = e.getTime() - s.getTime();
-          const diffInMonths = diffInMs / (1000 * 3600 * 24 * 30);
-          return Math.max(0.1, diffInMonths);
+  useEffect(() => {
+    const fetchPL = async () => {
+      setIsLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+        if (!profile?.business_id) return;
+
+        let startDate, endDate;
+        const now = new Date();
+        if (range === 'This Month') {
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else if (range === 'Last Month') {
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (range === 'This Quarter') {
+          const quarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), quarter * 3, 1);
+          endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+        } else if (range === 'Custom' && customDates.start && customDates.end) {
+          startDate = new Date(customDates.start);
+          endDate = new Date(customDates.end);
         }
-        return 1;
-      default: return 1;
-    }
-  };
 
-  const multiplier = getMultiplier();
-  const plData = getPLData(multiplier);
+        const startStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
+        const endStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
 
-  // VAT Calculations dynamically adjusted by range multipliers
-  const taxableSales = PL_DATA_STRUCTURE[0].items.reduce((acc, i) => acc + i.val, 0) * multiplier;
-  const vatCollected = taxableSales * 0.13;
-  const rawCogs = PL_DATA_STRUCTURE[1].items.reduce((acc, i) => acc + i.val, 0);
-  const rawExp = PL_DATA_STRUCTURE[2].items.reduce((acc, i) => acc + i.val, 0);
-  const taxablePurchases = (Math.abs(rawCogs) + Math.abs(rawExp)) * 0.6 * multiplier;
-  const vatPaid = taxablePurchases * 0.13;
-  const netVATPayable = vatCollected - vatPaid;
+        const result = await getPLStatement(profile.business_id, startStr, endStr);
+        if (result) {
+          setPlData(result.plList);
+          const taxableSales = result.rawTotals.revTotal;
+          const vatCollected = taxableSales * 0.13;
+          const rawCogs = result.rawTotals.cogsTotal;
+          const rawExp = result.rawTotals.expTotal;
+          const taxablePurchases = (Math.abs(rawCogs) + Math.abs(rawExp)) * 0.6;
+          const vatPaid = taxablePurchases * 0.13;
+          const netVATPayable = vatCollected - vatPaid;
+          setTaxData({ taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable });
+        }
+      } catch (err) {
+        console.error('Error fetching P&L', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPL();
+  }, [range, customDates]);
+
+  const { taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable } = taxData;
 
   const exportPDF = () => {
     const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
@@ -3092,46 +3192,78 @@ function PandLView() {
 
 // --- CASH FLOW VIEW ---
 
-const getCFData = (multiplier: number = 1) => {
-  const operating = [
-    { name: "Customer Receipts", val: 4600000 * multiplier },
-    { name: "Interest Income", val: 150000 * multiplier },
-    { name: "Tax Rebates", val: 100000 * multiplier },
-    { name: "Vendor Payments", val: -2100000 * multiplier },
-    { name: "Employee Benefits", val: -800000 * multiplier },
-    { name: "Income Taxes Paid", val: -300000 * multiplier },
-  ];
-  const investing = [
-    { name: "Asset Liquidation", val: 500000 * multiplier },
-    { name: "Infrastructure Upgrade", val: -1200000 * multiplier },
-    { name: "Security Cluster Expansion", val: -400000 * multiplier },
-  ];
-  const financing = [
-    { name: "Venture Injection", val: 2000000 * multiplier },
-    { name: "Loan Amortization", val: -450000 * multiplier },
-    { name: "Stakeholder Dividends", val: -250000 * multiplier },
-  ];
+export const getCashFlow = async (businessId: string, startDate?: string, endDate?: string) => {
+  let query = supabase.from('transactions').select(`
+    amount,
+    type,
+    categories (name)
+  `).eq('business_id', businessId);
 
-  const opTotal = operating.reduce((acc, i) => acc + i.val, 0);
-  const invTotal = investing.reduce((acc, i) => acc + i.val, 0);
-  const finTotal = financing.reduce((acc, i) => acc + i.val, 0);
+  if (startDate) {
+    query = query.gte('date', startDate);
+  }
+  if (endDate) {
+    query = query.lte('date', endDate);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Failed to fetch Cash Flow data:', error);
+    return null;
+  }
+
+  const cfData = {
+    operating: [] as { name: string, val: number }[],
+    investing: [] as { name: string, val: number }[],
+    financing: [] as { name: string, val: number }[]
+  };
+
+  const categoryTotals: Record<string, number> = {};
+
+  const investingKeywords = ['asset', 'equipment', 'infrastructure', 'investment', 'property', 'liquidation'];
+  const financingKeywords = ['loan', 'dividend', 'equity', 'venture', 'stakeholder', 'shareholder'];
+
+  data?.forEach((tx: any) => {
+    const catName = tx.categories?.name || 'Uncategorized';
+    const amount = Number(tx.amount);
+    const val = tx.type === 'Inflow' ? amount : -amount;
+    const key = catName;
+    categoryTotals[key] = (categoryTotals[key] || 0) + val;
+  });
+
+  Object.entries(categoryTotals).forEach(([name, val]) => {
+    const isInvesting = investingKeywords.some(kw => name.toLowerCase().includes(kw));
+    const isFinancing = financingKeywords.some(kw => name.toLowerCase().includes(kw));
+    
+    if (isInvesting) {
+      cfData.investing.push({ name, val });
+    } else if (isFinancing) {
+      cfData.financing.push({ name, val });
+    } else {
+      cfData.operating.push({ name, val });
+    }
+  });
+
+  const opTotal = cfData.operating.reduce((acc, i) => acc + i.val, 0);
+  const invTotal = cfData.investing.reduce((acc, i) => acc + i.val, 0);
+  const finTotal = cfData.financing.reduce((acc, i) => acc + i.val, 0);
   const netTotal = opTotal + invTotal + finTotal;
 
   return [
     {
       category: "Operating Activities",
       total: formatCurrency(opTotal),
-      items: operating.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+      items: cfData.operating.map(i => ({ ...i, val: formatCurrency(i.val) }))
     },
     {
       category: "Investing Activities",
       total: formatCurrency(invTotal),
-      items: investing.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+      items: cfData.investing.map(i => ({ ...i, val: formatCurrency(i.val) }))
     },
     {
       category: "Financing Activities",
       total: formatCurrency(finTotal),
-      items: financing.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+      items: cfData.financing.map(i => ({ ...i, val: formatCurrency(i.val) }))
     },
     {
       category: "Net Cash Flow",
@@ -3147,25 +3279,50 @@ function CashFlowView() {
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
-  const getMultiplier = () => {
-    switch (range) {
-      case 'This Month': return 1;
-      case 'Last Month': return 0.92;
-      case 'This Quarter': return 2.8;
-      case 'Custom':
-        if (customDates.start && customDates.end) {
-          const s = new Date(customDates.start);
-          const e = new Date(customDates.end);
-          const diffInMs = e.getTime() - s.getTime();
-          const diffInMonths = diffInMs / (1000 * 3600 * 24 * 30);
-          return Math.max(0.1, diffInMonths);
-        }
-        return 1;
-      default: return 1;
-    }
-  };
+  const [cfData, setCfData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const cfData = getCFData(getMultiplier());
+  useEffect(() => {
+    const fetchCF = async () => {
+      setIsLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+        if (!profile?.business_id) return;
+
+        let startDate, endDate;
+        const now = new Date();
+        if (range === 'This Month') {
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else if (range === 'Last Month') {
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (range === 'This Quarter') {
+          const quarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), quarter * 3, 1);
+          endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+        } else if (range === 'Custom' && customDates.start && customDates.end) {
+          startDate = new Date(customDates.start);
+          endDate = new Date(customDates.end);
+        }
+
+        const startStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
+        const endStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
+
+        const result = await getCashFlow(profile.business_id, startStr, endStr);
+        if (result) {
+          setCfData(result);
+        }
+      } catch (err) {
+        console.error('Error fetching Cash Flow', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCF();
+  }, [range, customDates]);
 
   const exportPDF = () => {
     const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
@@ -3259,10 +3416,10 @@ function CashFlowView() {
       <div className="h-[300px] w-full glass p-8 border-white/5">
         <p className="text-[10px] font-black uppercase tracking-widest text-brand mb-6">Cash Position Forecast</p>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={[
-            { n: 'WK1', v: 4000 * getMultiplier() }, { n: 'WK2', v: 4500 * getMultiplier() }, { n: 'WK3', v: 4200 * getMultiplier() }, { n: 'WK4', v: 4800 * getMultiplier() },
-            { n: 'WK5', v: 5100 * getMultiplier() }, { n: 'WK6', v: 5500 * getMultiplier() }, { n: 'WK7', v: 5300 * getMultiplier() }, { n: 'WK8', v: 5800 * getMultiplier() },
-          ]}>
+            <AreaChart data={[
+              { n: 'WK1', v: 4000 }, { n: 'WK2', v: 4500 }, { n: 'WK3', v: 4200 }, { n: 'WK4', v: 4800 },
+              { n: 'WK5', v: 5100 }, { n: 'WK6', v: 5500 }, { n: 'WK7', v: 5300 }, { n: 'WK8', v: 5800 },
+            ]}>
             <defs>
               <linearGradient id="cfGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#dc143c" stopOpacity={0.3} />
@@ -3281,26 +3438,107 @@ function CashFlowView() {
 
 // --- INVENTORY VIEW ---
 
-interface InventoryItem {
+export const getStatusFromData = (qty: number, min_stock: number, expiry?: string) => {
+  if (expiry) {
+    const today = new Date();
+    const expiryDate = new Date(expiry);
+    const diffTime = expiryDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'EXPIRED';
+    if (diffDays < 7) return 'EXPIRING SOON';
+  }
+  if (qty <= min_stock) return 'LOW STOCK';
+  return 'GOOD';
+};
+
+export const getInventory = async (businessId: string) => {
+  const { data, error } = await supabase
+    .from('inventory')
+    .select('*')
+    .eq('business_id', businessId)
+    .order('name', { ascending: true });
+    
+  if (error) {
+    console.error('Error fetching inventory:', error);
+    return [];
+  }
+  
+  return data.map(item => ({
+    id: item.id,
+    name: item.name,
+    category: item.category || 'Uncategorized',
+    sku: item.sku,
+    qty: item.stock,
+    min_stock: item.min_stock,
+    price: Number(item.price),
+    expiry: item.expiry_date || new Date().toISOString().split('T')[0],
+    status: getStatusFromData(item.stock, item.min_stock, item.expiry_date)
+  }));
+};
+
+export const addInventoryProduct = async (businessId: string, product: Omit<InventoryItem, 'id' | 'status'>) => {
+  const { data, error } = await supabase
+    .from('inventory')
+    .insert({
+      business_id: businessId,
+      name: product.name,
+      category: product.category,
+      sku: product.sku,
+      stock: product.qty,
+      min_stock: product.min_stock || 10,
+      price: product.price,
+      expiry_date: product.expiry
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateInventoryProduct = async (id: string, product: Partial<InventoryItem>) => {
+  const updates: any = {};
+  if (product.name !== undefined) updates.name = product.name;
+  if (product.category !== undefined) updates.category = product.category;
+  if (product.sku !== undefined) updates.sku = product.sku;
+  if (product.qty !== undefined) updates.stock = product.qty;
+  if (product.min_stock !== undefined) updates.min_stock = product.min_stock;
+  if (product.price !== undefined) updates.price = product.price;
+  if (product.expiry !== undefined) updates.expiry_date = product.expiry;
+
+  const { data, error } = await supabase
+    .from('inventory')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteInventoryProduct = async (id: string) => {
+  const { error } = await supabase
+    .from('inventory')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
+};
+
+export interface InventoryItem {
   id: string;
   name: string;
   category: string;
+  sku: string;
   qty: number;
+  min_stock: number;
   price: number;
   expiry: string;
   status: string;
 }
-
-const INITIAL_INVENTORY: InventoryItem[] = [
-  { id: '1', name: 'Neural Processor G1', category: 'Hardware', qty: 420, price: 1200, expiry: '2027-12-01', status: 'GOOD' },
-  { id: '2', name: 'Quantum Cell v4', category: 'Hardware', qty: 12, price: 45000, expiry: '2026-06-15', status: 'LOW STOCK' },
-  { id: '3', name: 'Legacy Core Alpha', category: 'Components', qty: 85, price: 850, expiry: '2026-10-20', status: 'EXPIRING SOON' },
-  { id: '4', name: 'Coolant Module X', category: 'Support', qty: 0, price: 2400, expiry: '2023-11-10', status: 'EXPIRED' },
-  { id: '5', name: 'Interface Bridge', category: 'Components', qty: 1500, price: 45, expiry: '2028-09-30', status: 'GOOD' },
-  { id: '6', name: 'Thermal Shield Pro', category: 'Support', qty: 3, price: 3200, expiry: '2026-02-14', status: 'LOW STOCK' },
-  { id: '7', name: 'Datastream Hub', category: 'Networking', qty: 65, price: 9800, expiry: '2026-01-01', status: 'EXPIRING SOON' },
-  { id: '8', name: 'Cryogenic Unit', category: 'Hardware', qty: 1, price: 120000, expiry: '2029-05-15', status: 'GOOD' },
-];
 
 const SAMPLE_BARCODES: Record<string, { name: string; category: string; price: number }> = {
   '849001': { name: 'TITANIUM_SHELL_G2', category: 'Hardware', price: 450 },
@@ -3343,10 +3581,29 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
     }
     return dateStr;
   };
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
-    const saved = localStorage.getItem('quantum_inventory');
-    return saved ? JSON.parse(saved) : INITIAL_INVENTORY;
-  });
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchInventory = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+      if (!profile?.business_id) return;
+
+      const data = await getInventory(profile.business_id);
+      setInventory(data);
+    } catch (err) {
+      console.error('Error loading inventory:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -3368,9 +3625,7 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [scanInput, setScanInput] = useState('');
 
-  useEffect(() => {
-    localStorage.setItem('quantum_inventory', JSON.stringify(inventory));
-  }, [inventory]);
+  // Remove localStorage sync
 
   const categories = useMemo(() => {
     return ['ALL', ...Array.from(new Set(inventory.map(item => item.category)))];
@@ -3439,20 +3694,22 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
     }));
   }, [inventory]);
 
-  const resolveAlert = (id: string, type: string) => {
-    setInventory(prev => prev.map(item => {
-      if (item.id === id) {
-        if (type === 'QUANTITY_CRITICAL') {
-          return { ...item, qty: 100, status: getStatus(100, item.expiry) };
-        } else {
-          const nextYear = new Date();
-          nextYear.setFullYear(nextYear.getFullYear() + 1);
-          const newExpiry = nextYear.toISOString().split('T')[0];
-          return { ...item, expiry: newExpiry, status: getStatus(item.qty, newExpiry) };
-        }
+  const resolveAlert = async (id: string, type: string) => {
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
+
+    try {
+      if (type === 'QUANTITY_CRITICAL') {
+        await updateInventoryProduct(id, { qty: 100 });
+      } else {
+        const nextYear = new Date();
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        await updateInventoryProduct(id, { expiry: nextYear.toISOString().split('T')[0] });
       }
-      return item;
-    }));
+      await fetchInventory();
+    } catch (err) {
+      console.error('Error resolving alert:', err);
+    }
   };
 
   const valuationMetrics = useMemo(() => {
@@ -3499,58 +3756,76 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
     }
   };
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const id = (inventory.length + 1).toString();
-    const qtyNum = Number(newItem.qty);
-    const priceNum = Number(newItem.price);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+      if (!profile?.business_id) return;
 
-    const product: InventoryItem = {
-      id,
-      name: newItem.name,
-      category: newItem.category,
-      qty: qtyNum,
-      price: priceNum,
-      expiry: newItem.expiry,
-      status: getStatus(qtyNum, newItem.expiry)
-    };
+      const qtyNum = Number(newItem.qty);
+      const priceNum = Number(newItem.price);
 
-    setInventory(prev => [product, ...prev]);
-    setIsModalOpen(false);
-    setNewItem({
-      name: '',
-      category: 'Hardware',
-      qty: '',
-      price: '',
-      expiry: new Date().toISOString().split('T')[0]
-    });
+      const product = {
+        name: newItem.name,
+        category: newItem.category,
+        sku: `PRD-${Date.now()}`,
+        qty: qtyNum,
+        min_stock: 10,
+        price: priceNum,
+        expiry: newItem.expiry
+      };
+
+      await addInventoryProduct(profile.business_id, product);
+      await fetchInventory();
+      setIsModalOpen(false);
+      setNewItem({
+        name: '',
+        category: 'Hardware',
+        qty: '',
+        price: '',
+        expiry: new Date().toISOString().split('T')[0]
+      });
+    } catch (err) {
+      console.error('Error adding product:', err);
+    }
   };
 
-  const handleUpdateProduct = (e: React.FormEvent) => {
+  const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
 
-    const qtyNum = Number(editingItem.qty);
-    const priceNum = Number(editingItem.price);
+    try {
+      const qtyNum = Number(editingItem.qty);
+      const priceNum = Number(editingItem.price);
 
-    const updatedItem: InventoryItem = {
-      ...editingItem,
-      qty: qtyNum,
-      price: priceNum,
-      status: getStatus(qtyNum, editingItem.expiry)
-    };
-
-    setInventory(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-    setIsEditModalOpen(false);
-    setEditingItem(null);
+      await updateInventoryProduct(editingItem.id, {
+        name: editingItem.name,
+        category: editingItem.category,
+        qty: qtyNum,
+        price: priceNum,
+        expiry: editingItem.expiry
+      });
+      await fetchInventory();
+      setIsEditModalOpen(false);
+      setEditingItem(null);
+    } catch (err) {
+      console.error('Error updating product:', err);
+    }
   };
 
-  const handleDeleteProduct = () => {
+  const handleDeleteProduct = async () => {
     if (!editingItem) return;
-    setInventory(prev => prev.filter(item => item.id !== editingItem.id));
-    setIsEditModalOpen(false);
-    setEditingItem(null);
-    setShowDeleteConfirm(false);
+    try {
+      await deleteInventoryProduct(editingItem.id);
+      await fetchInventory();
+      setIsEditModalOpen(false);
+      setEditingItem(null);
+      setShowDeleteConfirm(false);
+    } catch (err) {
+      console.error('Error deleting product:', err);
+    }
   };
 
   const openEditModal = (item: InventoryItem) => {
@@ -4828,14 +5103,276 @@ const SAMPLE_CHAT_HISTORY: Record<string, { sender: 'System' | 'Customer', messa
   ]
 };
 
-function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
-  queries: typeof CUSTOMER_QUERIES_DATA,
-  setQueries: React.Dispatch<React.SetStateAction<typeof CUSTOMER_QUERIES_DATA>>,
-  knowledgeBase: any
-}) {
+export const formatTimeAgo = (isoString: string) => {
+  try {
+    const date = new Date(isoString);
+    const diffMs = Date.now() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  } catch (e) {
+    return 'Recently';
+  }
+};
+
+export const isSimpleQuery = (message: string): boolean => {
+  const msg = message.toLowerCase();
+  const hoursKeywords = ['hours', 'open', 'close', 'closing', 'time', 'timing', 'schedule', 'when'];
+  const locationKeywords = ['location', 'where', 'address', 'find you', 'direction', 'map', 'located', 'situated', 'place'];
+  const pricingKeywords = ['price', 'pricing', 'cost', 'how much', 'rate', 'rates', 'tariff', 'fee', 'charge', 'expensive', 'cheap'];
+
+  const hasHours = hoursKeywords.some(kw => msg.includes(kw));
+  const hasLocation = locationKeywords.some(kw => msg.includes(kw));
+  const hasPricing = pricingKeywords.some(kw => msg.includes(kw));
+
+  return hasHours || hasLocation || hasPricing;
+};
+
+interface QueryAnalyticsViewProps {
+  queries: any[];
+}
+
+function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
+  // 1. Queries per platform
+  const platformData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    queries.forEach(q => {
+      counts[q.platform] = (counts[q.platform] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [queries]);
+
+  const PIE_COLORS = ['#00f2ff', '#dc143c', '#ffffff', '#333333', '#888888', '#555555'];
+
+  // 2. Average response time
+  const avgResponseTime = useMemo(() => {
+    const repliedQueries = queries.filter(q => q.status === 'Replied' || q.status === 'Auto-Sent');
+    if (repliedQueries.length === 0) return 0;
+    
+    let totalMs = 0;
+    let validCount = 0;
+    repliedQueries.forEach(q => {
+      if (q.created_at && q.replied_at) {
+        const created = new Date(q.created_at).getTime();
+        const replied = new Date(q.replied_at).getTime();
+        totalMs += (replied - created);
+        validCount++;
+      }
+    });
+    if (validCount === 0) return 0;
+    return totalMs / validCount;
+  }, [queries]);
+
+  const formatTime = (ms: number) => {
+    if (ms === 0) return 'N/A';
+    const minutes = Math.floor(ms / 60000);
+    const hours = Math.floor(minutes / 60);
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    return `${minutes}m`;
+  };
+
+  // 3. Most common keywords (word frequency analysis)
+  const commonKeywords = useMemo(() => {
+    const wordCounts: Record<string, number> = {};
+    const stopWords = ['the', 'is', 'at', 'which', 'on', 'in', 'to', 'and', 'a', 'an', 'of', 'for', 'with', 'my', 'i', 'you', 'it', 'that', 'this', 'are', 'we', 'our', 'what', 'how', 'when', 'where', 'why', 'can', 'do', 'does', 'did', 'have', 'has', 'had', 'be', 'am', 'was', 'were', 'been', 'will', 'would', 'shall', 'should', 'may', 'might', 'must', 'but', 'or', 'so', 'if', 'then', 'than', 'as', 'about', 'from', 'by', 'up', 'down', 'out', 'into', 'over', 'under', 'all', 'any', 'some', 'many', 'much', 'more', 'most', 'other', 'another', 'such', 'only', 'own', 'same', 'too', 'very', 'just', 'now', 'there', 'here', 'not', 'no', 'yes', 'please', 'hi', 'hello', 'hey', 'thanks', 'thank'];
+    
+    queries.forEach(q => {
+      if (!q.message) return;
+      const words = q.message.toLowerCase().replace(/[^\\w\\s]/g, '').split(/\\s+/);
+      words.forEach((word: string) => {
+        if (word.length > 2 && !stopWords.includes(word)) {
+          wordCounts[word] = (wordCounts[word] || 0) + 1;
+        }
+      });
+    });
+    
+    return Object.entries(wordCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([word, count]) => ({ word, count }));
+  }, [queries]);
+
+  // 4. Reply rate percentage
+  const replyRate = useMemo(() => {
+    if (queries.length === 0) return 0;
+    const replied = queries.filter(q => q.status === 'Replied' || q.status === 'Auto-Sent').length;
+    return Math.round((replied / queries.length) * 100);
+  }, [queries]);
+
+  // 5. Weekly query volume trend (line chart)
+  const weeklyTrend = useMemo(() => {
+    const trend: Record<string, number> = {};
+    const now = new Date();
+    // Initialize last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      trend[dateStr] = 0;
+    }
+    
+    queries.forEach(q => {
+      if (q.created_at) {
+        const dateStr = q.created_at.split('T')[0];
+        if (trend[dateStr] !== undefined) {
+          trend[dateStr]++;
+        }
+      }
+    });
+    
+    return Object.entries(trend).map(([date, volume]) => ({
+      date: date.substring(5), // MM-DD
+      volume
+    }));
+  }, [queries]);
+
+  return (
+    <div className="h-full flex flex-col relative z-10 animate-fade-in pb-10">
+      <div className="flex items-center gap-4 mb-8">
+        <div className="w-12 h-12 bg-intelligence/10 border border-intelligence/30 flex items-center justify-center">
+          <BarChartIcon className="text-intelligence" size={24} />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black italic tracking-tighter uppercase glow-text">QUERY ANALYTICS</h2>
+          <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Customer Interaction Telemetry</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="glass p-6 border-white/5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-intelligence/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Queries</h3>
+          <p className="text-3xl font-mono text-white">{queries.length}</p>
+        </div>
+        
+        <div className="glass p-6 border-white/5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Reply Rate</h3>
+          <p className="text-3xl font-mono text-white">{replyRate}%</p>
+          <div className="w-full bg-white/10 h-1 mt-4">
+            <div className="bg-brand h-1" style={{ width: `${replyRate}%` }}></div>
+          </div>
+        </div>
+
+        <div className="glass p-6 border-white/5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Avg Response Time</h3>
+          <p className="text-3xl font-mono text-white">{formatTime(avgResponseTime)}</p>
+        </div>
+
+        <div className="glass p-6 border-white/5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-intelligence/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Pending Action</h3>
+          <p className="text-3xl font-mono text-white">{queries.filter(q => q.status === 'Pending').length}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2 glass p-6 border-white/5">
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">Weekly Query Volume Trend</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={weeklyTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                <XAxis dataKey="date" stroke="#666" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis stroke="#666" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  itemStyle={{ color: '#00f2ff' }}
+                />
+                <Line type="monotone" dataKey="volume" stroke="#00f2ff" strokeWidth={2} dot={{ r: 4, fill: '#000', stroke: '#00f2ff', strokeWidth: 2 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="glass p-6 border-white/5 flex flex-col">
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">Queries by Platform</h3>
+          <div className="flex-1 min-h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={platformData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {platformData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {platformData.map((entry, idx) => (
+              <div key={entry.name} className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}></div>
+                <span className="text-[10px] font-mono text-gray-400">{entry.name} ({entry.value})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="glass p-6 border-white/5 flex-1 min-h-[300px]">
+        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">Most Common Keywords</h3>
+        <div className="h-full min-h-[250px] max-h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={commonKeywords} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
+              <XAxis type="number" stroke="#666" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis dataKey="word" type="category" stroke="#666" tick={{ fill: '#aaa', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
+                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+              />
+              <Bar dataKey="count" fill="#dc143c" radius={[0, 4, 4, 0]}>
+                {commonKeywords.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={index < 3 ? '#dc143c' : '#555'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface CustomerQueriesViewProps {
+  queries: any[];
+  onMarkAsReplied: (id: string, replyText: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onBulkMarkAsReplied: (ids: string[]) => Promise<void>;
+  onBulkDelete: (ids: string[]) => Promise<void>;
+  knowledgeBase: any;
+  businessName: string;
+}
+
+function CustomerQueriesView({
+  queries,
+  onMarkAsReplied,
+  onDelete,
+  onBulkMarkAsReplied,
+  onBulkDelete,
+  knowledgeBase,
+  businessName
+}: CustomerQueriesViewProps) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replies, setReplies] = useState<Record<string, string>>({});
-  const [selectedQuery, setSelectedQuery] = useState<(typeof CUSTOMER_QUERIES_DATA)[0] | null>(null);
+  const [selectedQuery, setSelectedQuery] = useState<any | null>(null);
   const [activeReply, setActiveReply] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -4850,23 +5387,13 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
     }
   };
 
-  const handleBulkMarkAsReplied = () => {
-    setQueries(prev => prev.map(q => selectedQueries.includes(q.id) ? { ...q, status: 'Replied' } : q));
-    setReplies(prev => {
-      const newReplies = { ...prev };
-      selectedQueries.forEach(id => delete newReplies[id]);
-      return newReplies;
-    });
+  const handleBulkMarkAsReplied = async () => {
+    await onBulkMarkAsReplied(selectedQueries);
     setSelectedQueries([]);
   };
 
-  const handleBulkDelete = () => {
-    setQueries(prev => prev.filter(q => !selectedQueries.includes(q.id)));
-    setReplies(prev => {
-      const newReplies = { ...prev };
-      selectedQueries.forEach(id => delete newReplies[id]);
-      return newReplies;
-    });
+  const handleBulkDelete = async () => {
+    await onBulkDelete(selectedQueries);
     setSelectedQueries([]);
   };
 
@@ -4888,10 +5415,11 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
 
       const matchesFilter = activeFilter === 'ALL' ||
         (activeFilter === 'WhatsApp' && q.platform === 'WhatsApp') ||
-        (activeFilter === 'Email' && q.platform === 'Email') ||
+        (activeFilter === 'Website' && q.platform === 'Website') ||
         (activeFilter === 'Facebook' && q.platform === 'Facebook') ||
+        (activeFilter === 'Instagram' && q.platform === 'Instagram') ||
         (activeFilter === 'Pending' && q.status === 'Pending') ||
-        (activeFilter === 'Replied' && q.status === 'Replied');
+        (activeFilter === 'Replied' && (q.status === 'Replied' || q.status === 'Auto-Sent'));
 
       return matchesSearch && matchesFilter;
     });
@@ -4905,16 +5433,18 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
       Pricing: ${knowledgeBase.pricing}
       FAQs: ${knowledgeBase.faqs.map((f: any) => `Q: ${f.q} A: ${f.a}`).join(' | ')}
     `;
-    const reply = await generateCustomerReply(name, message, kbContext);
+    const reply = await generateCustomerReply(name, message, kbContext, businessName);
     setReplies(prev => ({ ...prev, [id]: reply }));
     setReplyingTo(null);
     return reply;
   };
 
-  const openQueryModal = async (query: (typeof CUSTOMER_QUERIES_DATA)[0]) => {
+  const openQueryModal = async (query: any) => {
     setSelectedQuery(query);
     if (replies[query.id]) {
       setActiveReply(replies[query.id]);
+    } else if (query.reply_text) {
+      setActiveReply(query.reply_text);
     } else {
       setReplyingTo(query.id);
       const reply = await handleGenerateReply(query.id, query.name, query.message);
@@ -4922,18 +5452,32 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
     }
   };
 
-  const handleApproveAndSend = (id: string) => {
-    markAsReplied(id);
+  const handleApproveAndSend = async (id: string) => {
+    await markAsReplied(id);
     setSelectedQuery(null);
   };
 
-  const markAsReplied = (id: string) => {
-    setQueries(prev => prev.map(q => q.id === id ? { ...q, status: 'Replied' } : q));
+  const markAsReplied = async (id: string) => {
+    const text = activeReply || replies[id] || 'Response has been dispatched via neural mesh.';
+    await onMarkAsReplied(id, text);
     setReplies(prev => {
       const newReplies = { ...prev };
       delete newReplies[id];
       return newReplies;
     });
+  };
+
+  const getChatHistory = (query: any) => {
+    const history = [];
+    history.push({ sender: 'Customer', message: query.message, time: query.time });
+    if ((query.status === 'Replied' || query.status === 'Auto-Sent') && query.reply_text) {
+      history.push({
+        sender: 'System',
+        message: query.reply_text,
+        time: query.replied_at ? formatTimeAgo(query.replied_at) : 'Replied'
+      });
+    }
+    return history;
   };
 
   return (
@@ -4967,7 +5511,7 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {['ALL', 'WhatsApp', 'Email', 'Facebook', 'Pending', 'Replied'].map((filter) => (
+            {['ALL', 'WhatsApp', 'Website', 'Facebook', 'Instagram', 'Pending', 'Replied'].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
@@ -5041,8 +5585,9 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
                     <div className={cn(
                       "px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest border",
                       query.platform === 'WhatsApp' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
-                        query.platform === 'Email' ? "bg-intelligence/10 text-intelligence border-intelligence/20" :
-                          "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                        query.platform === 'Website' ? "bg-intelligence/10 text-intelligence border-intelligence/20" :
+                          query.platform === 'Instagram' ? "bg-pink-500/10 text-pink-500 border-pink-500/20" :
+                            "bg-blue-500/10 text-blue-500 border-blue-500/20"
                     )}>
                       {query.platform}
                     </div>
@@ -5050,11 +5595,17 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
                   </div>
                   <h3 className="text-lg font-black text-white italic uppercase mb-1">{query.name}</h3>
                   <div className={cn(
-                    "inline-flex items-center gap-2 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em]",
-                    query.status === 'Pending' ? "text-brand animate-pulse" : "text-emerald-500"
+                    "inline-flex items-center gap-2 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em] border",
+                    query.status === 'Pending' ? "text-brand border-brand/20 bg-brand/5 animate-pulse" :
+                    query.status === 'Auto-Sent' ? "text-intelligence border-intelligence/20 bg-intelligence/5" :
+                    "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
                   )}>
-                    <div className={cn("w-1 h-1 rounded-full", query.status === 'Pending' ? "bg-brand" : "bg-emerald-500")}></div>
-                    {query.status}
+                    <div className={cn("w-1 h-1 rounded-full",
+                      query.status === 'Pending' ? "bg-brand animate-ping" :
+                      query.status === 'Auto-Sent' ? "bg-intelligence" :
+                      "bg-emerald-500"
+                    )}></div>
+                    {query.status === 'Auto-Sent' ? 'AUTO-SENT' : query.status}
                   </div>
                 </div>
 
@@ -5071,6 +5622,14 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
                     >
                       <ExternalLink size={14} />
                       VIEW_AND_REPLY
+                    </button>
+
+                    <button
+                      onClick={() => onDelete(query.id)}
+                      className="flex items-center gap-3 px-6 py-3 border border-brand/20 text-brand/60 hover:text-brand hover:bg-brand/5 transition-all font-black text-[10px] uppercase tracking-widest"
+                    >
+                      <Trash2 size={14} />
+                      DELETE_SIGNAL
                     </button>
 
                     {query.status === 'Pending' && !replies[query.id] && (
@@ -5165,7 +5724,7 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
                   <Pie
                     data={[
                       { name: 'WhatsApp', value: 40 },
-                      { name: 'Email', value: 35 },
+                      { name: 'Website', value: 35 },
                       { name: 'Facebook', value: 25 },
                     ]}
                     cx="50%"
@@ -5192,7 +5751,7 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-brand"></div>
-                  <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Email (35%)</span>
+                  <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Website (35%)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-white/10"></div>
@@ -5310,7 +5869,7 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
               <div className="flex justify-between items-center p-8 border-b border-white/5 bg-white/[0.02]">
                 <div>
                   <p className="text-[10px] font-black text-intelligence uppercase tracking-[0.3em] mb-1">Reply Console</p>
-                  <h3 className="text-2xl font-black italic uppercase italic">SYSTEM_REPLY_PROTOCOL</h3>
+                  <h3 className="text-2xl font-black italic uppercase">SYSTEM_REPLY_PROTOCOL</h3>
                 </div>
                 <button onClick={() => setSelectedQuery(null)} className="text-gray-500 hover:text-white p-2">
                   <X size={24} />
@@ -5325,7 +5884,7 @@ function CustomerQueriesView({ queries, setQueries, knowledgeBase }: {
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Conversation History</span>
                   </div>
                   <div className="space-y-4">
-                    {(SAMPLE_CHAT_HISTORY[selectedQuery.id] || [{ sender: 'Customer', message: selectedQuery.message, time: selectedQuery.time }]).map((msg, idx) => (
+                    {getChatHistory(selectedQuery).map((msg, idx) => (
                       <div key={idx} className={cn(
                         "p-4 border max-w-[85%] relative group",
                         msg.sender === 'System'
@@ -5473,9 +6032,25 @@ function TeamManagementView() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Manager');
   const [message, setMessage] = useState('');
+  const [inviteCode, setInviteCode] = useState('LOADING...');
+
+  useEffect(() => {
+    const fetchInviteCode = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+      if (!profile?.business_id) return;
+
+      const { data: bData } = await supabase.from('businesses').select('invite_code').eq('id', profile.business_id).single();
+      if (bData?.invite_code) {
+        setInviteCode(bData.invite_code);
+      }
+    };
+    fetchInviteCode();
+  }, []);
 
   const copyInvite = () => {
-    navigator.clipboard.writeText('HOTEL1');
+    navigator.clipboard.writeText(inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -5540,7 +6115,7 @@ function TeamManagementView() {
         </div>
         <div className="flex items-center gap-4">
           <div className="bg-black/40 border border-brand/40 px-12 py-4 text-3xl font-mono font-black text-brand italic tracking-[0.2em]">
-            HOTEL1
+            {inviteCode}
           </div>
           <button
             onClick={copyInvite}
@@ -5772,7 +6347,19 @@ function TeamManagementView() {
 
 // --- SETTINGS VIEW ---
 
-function SettingsView({ transactions, setTransactions, onUpdateBusinessName, categories, onUpdateCategories, knowledgeBase, onUpdateKnowledgeBase, dateFormat, onChangeDateFormat }: {
+function SettingsView({
+  transactions,
+  setTransactions,
+  onUpdateBusinessName,
+  categories,
+  onUpdateCategories,
+  knowledgeBase,
+  onUpdateKnowledgeBase,
+  dateFormat,
+  onChangeDateFormat,
+  autoSendReplies,
+  setAutoSendReplies
+}: {
   transactions: Transaction[],
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>,
   onUpdateBusinessName: (name: string) => void,
@@ -5781,7 +6368,9 @@ function SettingsView({ transactions, setTransactions, onUpdateBusinessName, cat
   knowledgeBase: any,
   onUpdateKnowledgeBase: (kb: any) => void,
   dateFormat: 'AD' | 'BS',
-  onChangeDateFormat: (val: 'AD' | 'BS') => void
+  onChangeDateFormat: (val: 'AD' | 'BS') => void,
+  autoSendReplies: boolean,
+  setAutoSendReplies: React.Dispatch<React.SetStateAction<boolean>>
 }) {
   const { t, language, setLanguage } = React.useContext(LanguageContext);
   const [profile, setProfile] = useState({
@@ -6111,6 +6700,30 @@ function SettingsView({ transactions, setTransactions, onUpdateBusinessName, cat
                   <option value="NP">Nepali (नेपाली)</option>
                 </select>
                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+              </div>
+            </div>
+            
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-sm">
+                <div>
+                  <label className="text-[10px] font-black text-white uppercase tracking-widest block">Auto-Send Simple Replies</label>
+                  <p className="text-[9px] font-mono text-gray-500 uppercase mt-1">Automatically generates & dispatches responses for simple inquiries (Hours, Location, Pricing)</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAutoSendReplies(!autoSendReplies)}
+                  className={cn(
+                    "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                    autoSendReplies ? "bg-intelligence" : "bg-white/10"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                      autoSendReplies ? "translate-x-5" : "translate-x-0"
+                    )}
+                  />
+                </button>
               </div>
             </div>
           </div>
@@ -6500,69 +7113,99 @@ function SettingsView({ transactions, setTransactions, onUpdateBusinessName, cat
 
 // --- BALANCE SHEET VIEW ---
 
-const getBSData = (multiplier: number = 1) => {
-  const assetsCurrent = [
-    { name: "Cash & Equivalents", val: 2450000 * multiplier },
-    { name: "Accounts Receivable", val: 850000 * multiplier },
-    { name: "Inventory", val: 1200000 * multiplier },
-    { name: "Prepaid Expenses", val: 150000 * multiplier },
-  ];
-  const assetsFixed = [
-    { name: "Hotel Property", val: 45000000 },
-    { name: "Furniture & Fixtures", val: 5600000 },
-    { name: "IT Infrastructure", val: 2400000 },
-    { name: "Accumulated Depreciation", val: -8500000 },
-  ];
-  const liabilitiesCurrent = [
-    { name: "Accounts Payable", val: 1450000 * multiplier },
-    { name: "Accrued Wages", val: 650000 * multiplier },
-    { name: "Current Portion of Debt", val: 1200000 },
-  ];
-  const liabilitiesLong = [
-    { name: "Commercial Mortgage", val: 22000000 },
-    { name: "Term Loans", val: 4500000 },
-  ];
-  const equity = [
-    { name: "Retained Earnings", val: 15450000 * multiplier },
-    { name: "Owner Capital", val: 8000000 },
-  ];
+export const getBalanceSheet = async (businessId: string, startDate?: string, endDate?: string) => {
+  let query = supabase.from('transactions').select(`
+    amount,
+    type,
+    categories (name)
+  `).eq('business_id', businessId);
 
-  const totalCurrentAssets = assetsCurrent.reduce((acc, i) => acc + i.val, 0);
-  const totalFixedAssets = assetsFixed.reduce((acc, i) => acc + i.val, 0);
-  const totalAssets = totalCurrentAssets + totalFixedAssets;
+  if (endDate) {
+    query = query.lte('date', endDate);
+  }
 
-  const totalCurrentLiabilities = liabilitiesCurrent.reduce((acc, i) => acc + i.val, 0);
-  const totalLongLiabilities = liabilitiesLong.reduce((acc, i) => acc + i.val, 0);
-  const totalLiabilities = totalCurrentLiabilities + totalLongLiabilities;
+  const { data, error } = await query;
+  if (error) {
+    console.error('Failed to fetch Balance Sheet data:', error);
+    return null;
+  }
 
-  const totalEquity = equity.reduce((acc, i) => acc + i.val, 0);
+  const investingKeywords = ['asset', 'equipment', 'infrastructure', 'investment', 'property', 'liquidation'];
+  const liabilityKeywords = ['loan', 'debt', 'payable'];
+  const equityKeywords = ['equity', 'venture', 'stakeholder', 'shareholder', 'capital', 'dividend'];
 
+  let totalCash = 0;
+  let totalFixedAssets = 0;
+  let totalLiabilities = 0;
+  let totalPaidInCapital = 0;
+  let retainedEarnings = 0;
+
+  const bsDetails = {
+    assets: { fixed: 0 },
+    liabilities: { loans: 0 },
+    equity: { capital: 0 }
+  };
+
+  data?.forEach((tx: any) => {
+    const catName = tx.categories?.name || 'Uncategorized';
+    const amount = Number(tx.amount);
+    const val = tx.type === 'Inflow' ? amount : -amount;
+    const catLower = catName.toLowerCase();
+
+    totalCash += val;
+    
+    if (investingKeywords.some(kw => catLower.includes(kw))) {
+      totalFixedAssets -= val; 
+      bsDetails.assets.fixed -= val;
+    } else if (liabilityKeywords.some(kw => catLower.includes(kw))) {
+      totalLiabilities += val;
+      bsDetails.liabilities.loans += val;
+    } else if (equityKeywords.some(kw => catLower.includes(kw))) {
+      totalPaidInCapital += val;
+      bsDetails.equity.capital += val;
+    } else {
+      retainedEarnings += val;
+    }
+  });
+
+  const totalAssets = totalCash + totalFixedAssets;
+  const totalEquity = totalPaidInCapital + retainedEarnings;
+  
   return {
     sections: [
       {
         category: "Current Assets",
-        total: formatCurrency(totalCurrentAssets),
-        items: assetsCurrent.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+        total: formatCurrency(totalCash),
+        items: [
+          { name: "Cash & Equivalents", val: formatCurrency(totalCash) }
+        ]
       },
       {
         category: "Fixed Assets",
         total: formatCurrency(totalFixedAssets),
-        items: assetsFixed.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+        items: [
+          { name: "Property, Plant & Equipment", val: formatCurrency(totalFixedAssets) }
+        ]
       },
       {
         category: "Current Liabilities",
-        total: formatCurrency(totalCurrentLiabilities),
-        items: liabilitiesCurrent.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+        total: formatCurrency(0),
+        items: []
       },
       {
         category: "Long-term Liabilities",
-        total: formatCurrency(totalLongLiabilities),
-        items: liabilitiesLong.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+        total: formatCurrency(totalLiabilities),
+        items: [
+          { name: "Long-Term Debt", val: formatCurrency(totalLiabilities) }
+        ]
       },
       {
         category: "Equity",
         total: formatCurrency(totalEquity),
-        items: equity.map(i => ({ name: i.name, val: formatCurrency(i.val) }))
+        items: [
+          { name: "Paid-In Capital", val: formatCurrency(totalPaidInCapital) },
+          { name: "Retained Earnings", val: formatCurrency(retainedEarnings) }
+        ]
       }
     ],
     summary: {
@@ -6572,30 +7215,58 @@ const getBSData = (multiplier: number = 1) => {
     }
   };
 };
-
 function BalanceSheetView() {
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
-  const getMultiplier = () => {
-    switch (range) {
-      case 'This Month': return 1;
-      case 'Last Month': return 0.98;
-      case 'This Quarter': return 3.0;
-      case 'Custom':
-        if (customDates.start && customDates.end) {
-          const s = new Date(customDates.start);
-          const e = new Date(customDates.end);
-          const diffInMs = e.getTime() - s.getTime();
-          const diffInMonths = diffInMs / (1000 * 3600 * 24 * 30);
-          return Math.max(0.1, diffInMonths);
-        }
-        return 1;
-      default: return 1;
-    }
-  };
+  const [bsData, setBsData] = useState<any>({
+    sections: [
+      { category: "Current Assets", total: "$0", items: [] },
+      { category: "Fixed Assets", total: "$0", items: [] },
+      { category: "Current Liabilities", total: "$0", items: [] },
+      { category: "Long-term Liabilities", total: "$0", items: [] },
+      { category: "Equity", total: "$0", items: [] }
+    ],
+    summary: { totalAssets: "$0", totalLiabilitiesEquity: "$0", isValid: true }
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const bsData = getBSData(getMultiplier());
+  useEffect(() => {
+    const fetchBS = async () => {
+      setIsLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+        if (!profile?.business_id) return;
+
+        let endDate;
+        const now = new Date();
+        if (range === 'This Month') {
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else if (range === 'Last Month') {
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (range === 'This Quarter') {
+          const quarter = Math.floor(now.getMonth() / 3);
+          endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+        } else if (range === 'Custom' && customDates.end) {
+          endDate = new Date(customDates.end);
+        }
+
+        const endStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
+
+        const result = await getBalanceSheet(profile.business_id, undefined, endStr);
+        if (result) {
+          setBsData(result);
+        }
+      } catch (err) {
+        console.error('Error fetching Balance Sheet', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchBS();
+  }, [range, customDates]);
 
   const exportPDF = () => {
     const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
@@ -6858,6 +7529,352 @@ function CommandPalette({
   );
 }
 
+function VoiceCommandView({ transactions }: { transactions: Transaction[] }) {
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [status, setStatus] = useState('Waiting for wake word "Hey Project N"...');
+  const [confidence, setConfidence] = useState<number | null>(null);
+  const [messages, setMessages] = useState<{ sender: 'user' | 'metis', text: string }[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('metis_is_muted') === 'true');
+  const [lastMetisResponse, setLastMetisResponse] = useState('');
+  
+  const recognitionRef = useRef<any>(null);
+  const wakeWordDetected = useRef(false);
+  const silenceTimeoutRef = useRef<any>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isProcessing]);
+
+  const speakText = (text: string) => {
+    if (isMuted) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error('SpeechSynthesis error:', e);
+    }
+  };
+
+  const toggleMute = () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    localStorage.setItem('metis_is_muted', String(newMutedState));
+    if (newMutedState) {
+      window.speechSynthesis.cancel();
+    }
+  };
+  
+  const handleSendToMetis = async (queryText: string) => {
+    if (!queryText.trim()) return;
+    
+    // Add user message to log
+    setMessages(prev => [...prev, { sender: 'user', text: queryText }]);
+    setIsProcessing(true);
+    setStatus('Processing vocal query...');
+    
+    // Generate context data (P&L and Transaction summary)
+    const inflows = transactions.filter(t => t.type === 'Inflow');
+    const outflows = transactions.filter(t => t.type === 'Outflow');
+    const totalInflow = inflows.reduce((sum, t) => sum + t.amount, 0);
+    const totalOutflow = outflows.reduce((sum, t) => sum + t.amount, 0);
+    const netProfit = totalInflow - totalOutflow;
+    
+    const financeData = `
+      --- TRANSACTION SUMMARY ---
+      Total Transactions: ${transactions.length}
+      Total Inflow: NPR ${totalInflow.toLocaleString()}
+      Total Outflow: NPR ${totalOutflow.toLocaleString()}
+      Net Profit/Loss: NPR ${netProfit.toLocaleString()}
+      
+      --- RECENT TRANSACTIONS ---
+      ${transactions.slice(0, 10).map(t => `- ${t.date}: ${t.description} (${t.type} of NPR ${t.amount.toLocaleString()})`).join('\n')}
+    `;
+    
+    try {
+      const response = await askMetis(queryText, financeData);
+      setMessages(prev => [...prev, { sender: 'metis', text: response }]);
+      setLastMetisResponse(response);
+      speakText(response);
+      setStatus('Waiting for wake word "Hey Project N"...');
+      wakeWordDetected.current = false;
+      setIsListening(false);
+      setTranscript('');
+      setConfidence(null);
+    } catch (e) {
+      console.error(e);
+      setMessages(prev => [...prev, { sender: 'metis', text: 'Error executing cognitive handshake.' }]);
+      setStatus('Waiting for wake word "Hey Project N"...');
+      wakeWordDetected.current = false;
+      setIsListening(false);
+      setTranscript('');
+      setConfidence(null);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setStatus('Speech Recognition API not supported in this browser.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      let currentTranscript = '';
+      let latestConfidence: number | null = null;
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        currentTranscript += event.results[i][0].transcript;
+        latestConfidence = event.results[i][0].confidence;
+      }
+      
+      if (latestConfidence !== null && latestConfidence > 0) {
+        setConfidence(latestConfidence);
+      }
+      
+      if (!wakeWordDetected.current) {
+         if (currentTranscript.toLowerCase().includes('hey project n')) {
+           wakeWordDetected.current = true;
+           setIsListening(true);
+           setStatus('Listening...');
+           setTranscript('');
+           setConfidence(null);
+         }
+      } else {
+        setTranscript(currentTranscript);
+
+        // Reset the silence timeout timer when user is speaking
+        if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = setTimeout(() => {
+          handleSendToMetis(currentTranscript);
+        }, 2000); // 2 seconds of silence = stopped speaking
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error', event.error);
+      if (event.error === 'not-allowed') {
+        setStatus('Microphone access denied.');
+      }
+    };
+
+    recognition.onend = () => {
+      if (status !== 'Speech Recognition API not supported in this browser.' && status !== 'Microphone access denied.') {
+        // Automatically restart if it drops (e.g. timeout) to keep listening for wake word
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch(e) {}
+        }, 1000);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+
+    return () => {
+      recognition.stop();
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+      window.speechSynthesis.cancel();
+    };
+  }, [status, transactions, isMuted]);
+
+  const toggleMic = () => {
+    if (isListening) {
+      setIsListening(false);
+      wakeWordDetected.current = false;
+      setStatus('Waiting for wake word "Hey Project N"...');
+      setTranscript('');
+      setConfidence(null);
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+    } else {
+      setIsListening(true);
+      wakeWordDetected.current = true;
+      setStatus('Listening...');
+      setTranscript('');
+      setConfidence(null);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative overflow-hidden">
+      {/* Voice Control Side */}
+      <div className="flex flex-col items-center justify-center space-y-6 glass p-6 border-white/5 relative min-h-[420px]">
+        <div className="text-center z-10">
+          <h4 className="text-[9px] font-black uppercase tracking-[0.4em] text-intelligence mb-1">Neural Voice Interface</h4>
+          <h2 className="text-2xl font-black italic uppercase glow-text">VOCAL_COMMAND_NODE</h2>
+        </div>
+
+        <div className="relative flex flex-col items-center justify-center z-10 h-36">
+          {/* Waveform animation rings */}
+          <AnimatePresence>
+            {isListening && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.4, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                  className="absolute w-24 h-24 rounded-full border border-intelligence/50 bg-intelligence/5"
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: [0.1, 0.3, 0.1], scale: [1, 1.8, 1] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut", delay: 0.2 }}
+                  className="absolute w-32 h-32 rounded-full border border-intelligence/30 bg-intelligence/5"
+                />
+              </>
+            )}
+          </AnimatePresence>
+
+          <button 
+            onClick={toggleMic}
+            className={cn(
+              "w-16 h-16 rounded-full flex items-center justify-center relative z-20 transition-all duration-300 shadow-[0_0_25px_rgba(0,242,255,0.2)] hover:shadow-[0_0_40px_rgba(0,242,255,0.4)] border-2",
+              isListening ? "bg-intelligence text-black border-intelligence scale-105" : "bg-dark-bg text-intelligence border-intelligence/50 hover:border-intelligence"
+            )}
+          >
+            <Mic size={24} className={isListening ? "animate-pulse" : ""} />
+          </button>
+        </div>
+
+        <div className="text-center z-10 max-w-sm w-full">
+          <p className={cn(
+            "text-[9px] font-mono uppercase tracking-[0.2em] mb-3 transition-colors",
+            isListening ? "text-intelligence animate-pulse" : "text-gray-500"
+          )}>
+            {status}
+          </p>
+          
+          <div className="h-16 bg-black/40 border border-white/5 p-3 flex flex-col items-center justify-center w-full rounded-sm relative overflow-hidden">
+            <div className="absolute inset-0 scanlines opacity-50"></div>
+            <p className="text-[11px] font-mono text-white italic relative z-10 break-words w-full px-2 text-center">
+              {transcript || (isListening ? "Awaiting input..." : "")}
+            </p>
+            {isListening && confidence !== null && (
+              <div className="absolute bottom-1 right-3 z-10 flex items-center gap-1">
+                <span className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Conf:</span>
+                <span className="text-[8px] font-mono text-intelligence font-black">
+                  {Math.round(confidence * 100)}%
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* METIS Chat Panel */}
+      <div className="flex flex-col h-[420px] glass border-white/5 relative overflow-hidden">
+        {/* Header */}
+        <div className="border-b border-white/5 px-4 py-3 flex items-center justify-between bg-black/20">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 bg-intelligence rounded-full animate-pulse shadow-[0_0_8px_#00f2ff]"></div>
+            <div>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-white">METIS FINANCIAL ENGINE</h3>
+              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Global Heuristics Active</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Replay Button */}
+            {lastMetisResponse && (
+              <button 
+                onClick={() => speakText(lastMetisResponse)}
+                title="Replay last METIS response"
+                className="p-1 hover:bg-white/5 text-gray-400 hover:text-intelligence transition-all border border-transparent hover:border-intelligence/20 rounded"
+              >
+                <Volume2 size={13} className="animate-pulse" />
+              </button>
+            )}
+            
+            {/* Mute Toggle */}
+            <button 
+              onClick={toggleMute}
+              title={isMuted ? "Unmute METIS voice" : "Mute METIS voice"}
+              className={cn(
+                "p-1 hover:bg-white/5 transition-all border border-transparent rounded",
+                isMuted ? "text-brand hover:border-brand/20" : "text-gray-400 hover:text-white hover:border-white/10"
+              )}
+            >
+              {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+            </button>
+            
+            <Sparkles size={14} className="text-intelligence animate-pulse" />
+          </div>
+        </div>
+
+        {/* Scrollable messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-black/10 flex flex-col">
+          {messages.length === 0 && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40 py-8">
+              <Brain size={36} className="text-gray-500 mb-3 animate-pulse" />
+              <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest leading-loose">
+                Initiate verbal handshake...<br/>
+                Or speak wake word to query Metis.
+              </p>
+            </div>
+          )}
+
+          {messages.map((msg, idx) => (
+            <div 
+              key={idx} 
+              className={cn(
+                "flex flex-col max-w-[85%] rounded-sm p-3 relative overflow-hidden border",
+                msg.sender === 'user' 
+                  ? "bg-white/[0.02] border-white/10 ml-auto items-end" 
+                  : "bg-intelligence/5 border-intelligence/20 mr-auto items-start"
+              )}
+            >
+              <div className="absolute inset-0 scanlines opacity-10"></div>
+              <div className="w-full flex items-center justify-between gap-4 mb-1">
+                <span className={cn(
+                  "text-[7px] font-mono uppercase tracking-widest",
+                  msg.sender === 'user' ? "text-gray-500" : "text-intelligence"
+                )}>
+                  {msg.sender === 'user' ? "TRANSCRIPTION_NODE" : "METIS_CORE"}
+                </span>
+                {msg.sender === 'metis' && (
+                  <button 
+                    onClick={() => speakText(msg.text)}
+                    title="Speak this response"
+                    className="p-0.5 hover:bg-white/5 text-gray-500 hover:text-intelligence transition-all rounded"
+                  >
+                    <Volume2 size={10} />
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] font-mono leading-relaxed text-white whitespace-pre-wrap w-full">
+                {msg.text}
+              </p>
+            </div>
+          ))}
+
+          {isProcessing && (
+            <div className="bg-intelligence/5 border border-intelligence/20 mr-auto p-3 max-w-[80%] rounded-sm flex items-center gap-2">
+              <div className="w-1 h-1 bg-intelligence rounded-full animate-bounce"></div>
+              <div className="w-1 h-1 bg-intelligence rounded-full animate-bounce [animation-delay:0.2s]"></div>
+              <div className="w-1 h-1 bg-intelligence rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              <span className="text-[8px] font-mono text-intelligence uppercase tracking-widest">TRANSLATING_NEURAL_SIGNALS...</span>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<PlatformTab>('Overview');
   const [businessName, setBusinessName] = useState(localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL');
@@ -6872,8 +7889,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   useEffect(() => {
-     const isRestricted = (
-       (userRole === 'Accountant' && ['Team Management', 'Customer Queries'].includes(activeTab)) ||
+      const isRestricted = (
+        (userRole === 'Accountant' && ['Team Management', 'Customer Queries', 'Query Analytics'].includes(activeTab)) ||
        (userRole === 'Marketer' && ['P&L Statement', 'Cash Flow', 'Balance Sheet'].includes(activeTab)) ||
        (userRole === 'Manager' && activeTab === 'Team Management')
      );
@@ -6951,6 +7968,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     loadTransactions();
+    loadQueries();
   }, []);
 
   const addTransaction = async (t: Transaction) => {
@@ -7226,7 +8244,336 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     localStorage.setItem('app_categories', JSON.stringify(categories));
   }, [categories]);
 
-  const [queries, setQueries] = useState(CUSTOMER_QUERIES_DATA);
+  const [autoSendReplies, setAutoSendReplies] = useState(() => {
+    return localStorage.getItem('auto_send_simple_replies') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('auto_send_simple_replies', String(autoSendReplies));
+  }, [autoSendReplies]);
+
+
+
+  const [dbQueries, setDbQueries] = useState<any[]>([]);
+  const [isLoadingQueries, setIsLoadingQueries] = useState(false);
+
+  const triggerAutoReplies = async (queriesList: any[]) => {
+    if (localStorage.getItem('auto_send_simple_replies') !== 'true') return;
+    const pendingSimple = queriesList.filter(q => q.status === 'Pending' && isSimpleQuery(q.message));
+    if (pendingSimple.length === 0) return;
+
+    for (const q of pendingSimple) {
+      try {
+        const kbContext = `
+          Business Hours: ${knowledgeBase.hours}
+          Services: ${knowledgeBase.description}
+          Pricing: ${knowledgeBase.pricing}
+          FAQs: ${knowledgeBase.faqs.map((f: any) => `Q: ${f.q} A: ${f.a}`).join(' | ')}
+        `;
+        
+        // Generate the reply via Gemini API
+        const reply = await generateCustomerReply(q.customer_name || q.name, q.message, kbContext, businessName);
+        
+        // Auto-send: Update the database or local storage to 'Auto-Sent'
+        const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+        const repliedAt = new Date().toISOString();
+        
+        if (isDemo) {
+          const savedDemo = localStorage.getItem('demo_queries');
+          if (savedDemo) {
+            const prev = JSON.parse(savedDemo);
+            const next = prev.map((item: any) => item.id === q.id ? {
+              ...item,
+              status: 'Auto-Sent',
+              reply_text: reply,
+              replied_at: repliedAt
+            } : item);
+            localStorage.setItem('demo_queries', JSON.stringify(next));
+            setDbQueries(next);
+          }
+        } else {
+          const { error } = await supabase
+            .from('customer_queries')
+            .update({
+              status: 'Auto-Sent',
+              reply_text: reply,
+              replied_at: repliedAt
+            })
+            .eq('id', q.id);
+            
+          if (error) throw error;
+        }
+      } catch (e) {
+        console.error('Failed to auto-send reply for query id:', q.id, e);
+      }
+    }
+    
+    // Refresh queries list if online
+    const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+    if (!isDemo) {
+      await loadQueriesSilent();
+    }
+  };
+
+  const loadQueriesSilent = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('business_id')
+          .eq('auth_id', session.user.id)
+          .single();
+
+        if (profile?.business_id) {
+          const { data, error } = await supabase
+            .from('customer_queries')
+            .select('*')
+            .eq('business_id', profile.business_id)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          if (data) setDbQueries(data);
+        }
+      }
+    } catch (e) {
+      console.error('Silent query load failure:', e);
+    }
+  };
+
+  const loadQueries = async () => {
+    const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+    if (isDemo) {
+      const savedDemo = localStorage.getItem('demo_queries');
+      let loadedData: any[] = [];
+      if (savedDemo) {
+        loadedData = JSON.parse(savedDemo);
+      } else {
+        loadedData = CUSTOMER_QUERIES_DATA.map((q, idx) => ({
+          id: q.id,
+          business_id: 'demo-business-id',
+          platform: q.platform === 'Email' ? 'Website' : q.platform,
+          customer_name: q.name,
+          message: q.message,
+          status: q.status,
+          created_at: new Date(Date.now() - idx * 3600000).toISOString(),
+          replied_at: q.status === 'Replied' ? new Date(Date.now() - idx * 3600000 + 1800000).toISOString() : null,
+          reply_text: q.status === 'Replied' ? 'Response has been dispatched via neural mesh.' : null
+        }));
+        localStorage.setItem('demo_queries', JSON.stringify(loadedData));
+      }
+      setDbQueries(loadedData);
+
+      if (localStorage.getItem('auto_send_simple_replies') === 'true') {
+        setTimeout(() => triggerAutoReplies(loadedData), 500);
+      }
+      return;
+    }
+
+    setIsLoadingQueries(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('business_id')
+          .eq('auth_id', session.user.id)
+          .single();
+
+        if (profile?.business_id) {
+          const { data, error } = await supabase
+            .from('customer_queries')
+            .select('*')
+            .eq('business_id', profile.business_id)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+
+          let finalData = data || [];
+          if (data && data.length > 0) {
+            setDbQueries(data);
+          } else {
+            const defaultQueries = CUSTOMER_QUERIES_DATA.map((q, idx) => ({
+              business_id: profile.business_id,
+              platform: q.platform === 'Email' ? 'Website' : q.platform,
+              customer_name: q.name,
+              message: q.message,
+              status: q.status,
+              created_at: new Date(Date.now() - idx * 3600000).toISOString(),
+              replied_at: q.status === 'Replied' ? new Date(Date.now() - idx * 3600000 + 1800000).toISOString() : null,
+              reply_text: q.status === 'Replied' ? 'Response has been dispatched via neural mesh.' : null
+            }));
+
+            const { data: inserted, error: insertError } = await supabase
+              .from('customer_queries')
+              .insert(defaultQueries)
+              .select();
+
+            if (insertError) throw insertError;
+            if (inserted) {
+              setDbQueries(inserted);
+              finalData = inserted;
+            }
+          }
+
+          if (localStorage.getItem('auto_send_simple_replies') === 'true') {
+            setTimeout(() => triggerAutoReplies(finalData), 500);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load customer queries from database:', e);
+    } finally {
+      setIsLoadingQueries(false);
+    }
+  };
+
+  useEffect(() => {
+    if (autoSendReplies && dbQueries.length > 0) {
+      triggerAutoReplies(dbQueries);
+    }
+  }, [autoSendReplies]);
+
+  const handleMarkAsReplied = async (id: string, replyText: string) => {
+    const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+    const repliedAt = new Date().toISOString();
+
+    if (isDemo) {
+      const savedDemo = localStorage.getItem('demo_queries');
+      if (savedDemo) {
+        const prev = JSON.parse(savedDemo);
+        const next = prev.map((q: any) => q.id === id ? {
+          ...q,
+          status: 'Replied',
+          reply_text: replyText,
+          replied_at: repliedAt
+        } : q);
+        localStorage.setItem('demo_queries', JSON.stringify(next));
+        setDbQueries(next);
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('customer_queries')
+        .update({
+          status: 'Replied',
+          reply_text: replyText,
+          replied_at: repliedAt
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadQueries();
+    } catch (e) {
+      console.error('Failed to update query status:', e);
+    }
+  };
+
+  const handleDeleteQuery = async (id: string) => {
+    const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+
+    if (isDemo) {
+      const savedDemo = localStorage.getItem('demo_queries');
+      if (savedDemo) {
+        const prev = JSON.parse(savedDemo);
+        const next = prev.filter((q: any) => q.id !== id);
+        localStorage.setItem('demo_queries', JSON.stringify(next));
+        setDbQueries(next);
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('customer_queries')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadQueries();
+    } catch (e) {
+      console.error('Failed to delete query from database:', e);
+    }
+  };
+
+  const handleBulkMarkAsReplied = async (ids: string[]) => {
+    const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+    const repliedAt = new Date().toISOString();
+
+    if (isDemo) {
+      const savedDemo = localStorage.getItem('demo_queries');
+      if (savedDemo) {
+        const prev = JSON.parse(savedDemo);
+        const next = prev.map((q: any) => ids.includes(q.id) ? {
+          ...q,
+          status: 'Replied',
+          reply_text: 'Response has been dispatched via bulk transmittal.',
+          replied_at: repliedAt
+        } : q);
+        localStorage.setItem('demo_queries', JSON.stringify(next));
+        setDbQueries(next);
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('customer_queries')
+        .update({
+          status: 'Replied',
+          reply_text: 'Response has been dispatched via bulk transmittal.',
+          replied_at: repliedAt
+        })
+        .in('id', ids);
+
+      if (error) throw error;
+      await loadQueries();
+    } catch (e) {
+      console.error('Failed to bulk update queries:', e);
+    }
+  };
+
+  const handleBulkDeleteQueries = async (ids: string[]) => {
+    const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+
+    if (isDemo) {
+      const savedDemo = localStorage.getItem('demo_queries');
+      if (savedDemo) {
+        const prev = JSON.parse(savedDemo);
+        const next = prev.filter((q: any) => !ids.includes(q.id));
+        localStorage.setItem('demo_queries', JSON.stringify(next));
+        setDbQueries(next);
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('customer_queries')
+        .delete()
+        .in('id', ids);
+
+      if (error) throw error;
+      await loadQueries();
+    } catch (e) {
+      console.error('Failed to bulk delete queries from database:', e);
+    }
+  };
+
+  const queries = dbQueries.map(q => ({
+    id: q.id,
+    name: q.customer_name,
+    platform: q.platform,
+    message: q.message,
+    status: q.status,
+    time: q.created_at ? formatTimeAgo(q.created_at) : 'Recently',
+    reply_text: q.reply_text,
+    replied_at: q.replied_at,
+    created_at: q.created_at
+  }));
+
   const pendingQueriesCount = queries.filter(q => q.status === 'Pending').length;
 
   const [knowledgeBase, setKnowledgeBase] = useState(() => {
@@ -7307,11 +8654,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             { id: 'Cash Flow', icon: TrendingUp, label: 'CASH_FLOW' },
             { id: 'Balance Sheet', icon: Scale, label: 'BALANCE_SHEET' },
             { id: 'Customer Queries', icon: MessageSquare, label: 'QUERIES' },
+            { id: 'Query Analytics', icon: BarChartIcon, label: 'QUERY ANALYTICS' },
             { id: 'Team Management', icon: Users, label: 'TEAM_INTEL' },
             { id: 'Data Entry', icon: Plus, label: 'DATA_INPUT' },
+            { id: 'Voice', icon: Mic, label: 'VOICE_CONTROL' },
           ].filter(item => {
             if (userRole === 'Accountant') {
-              return !['Team Management', 'Customer Queries'].includes(item.id);
+              return !['Team Management', 'Customer Queries', 'Query Analytics'].includes(item.id);
             }
             if (userRole === 'Marketer') {
               return !['P&L Statement', 'Cash Flow', 'Balance Sheet'].includes(item.id);
@@ -7570,11 +8919,23 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               {activeTab === 'Balance Sheet' && <BalanceSheetView />}
               {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={updateTransaction} dateFormat={dateFormat} />}
               {activeTab === 'Inventory' && <InventoryView dateFormat={dateFormat} />}
-              {activeTab === 'Customer Queries' && <CustomerQueriesView queries={queries} setQueries={setQueries} knowledgeBase={knowledgeBase} />}
+              {activeTab === 'Customer Queries' && (
+                <CustomerQueriesView
+                  queries={queries}
+                  onMarkAsReplied={handleMarkAsReplied}
+                  onDelete={handleDeleteQuery}
+                  onBulkMarkAsReplied={handleBulkMarkAsReplied}
+                  onBulkDelete={handleBulkDeleteQueries}
+                  knowledgeBase={knowledgeBase}
+                  businessName={businessName}
+                />
+              )}
               {activeTab === 'Team Management' && <TeamManagementView />}
               {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} />}
-              {activeTab === 'Settings' && <SettingsView transactions={transactions} setTransactions={setTransactions} onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} dateFormat={dateFormat} onChangeDateFormat={setDateFormat} />}
-              {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings'].includes(activeTab) && <PlaceholderView name={activeTab} />}
+              {activeTab === 'Settings' && <SettingsView transactions={transactions} setTransactions={setTransactions} onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} dateFormat={dateFormat} onChangeDateFormat={setDateFormat} autoSendReplies={autoSendReplies} setAutoSendReplies={setAutoSendReplies} />}
+              {activeTab === 'Voice' && <VoiceCommandView transactions={transactions} />}
+              {activeTab === 'Query Analytics' && <QueryAnalyticsView queries={dbQueries} />}
+              {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings', 'Voice', 'Query Analytics'].includes(activeTab) && <PlaceholderView name={activeTab} />}
             </motion.div>
           </AnimatePresence>
 

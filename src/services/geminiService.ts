@@ -69,25 +69,46 @@ export async function getPredictiveAnalytics(dataContext: string): Promise<Analy
   }
 }
 
-export async function generateCustomerReply(customerName: string, message: string, knowledgeBaseContext?: string): Promise<string> {
+export async function generateCustomerReply(
+  customerName: string,
+  message: string,
+  knowledgeBaseContext?: string,
+  businessName?: string
+): Promise<string> {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `You are a professional customer support AI for "PROJECT-N", a high-end corporate and financial intelligence platform.
+      contents: `You are a professional customer service agent for ${businessName || "PROJECT-N"}. Generate a polite, helpful reply.
       
-      ${knowledgeBaseContext ? `Use the following business information as context for your reply:
-      ${knowledgeBaseContext}` : ''}
+      Business Knowledge Base:
+      ${knowledgeBaseContext || "No context provided."}
       
-      Generate a professional, helpful, and concise response to the following customer query.
       Customer Name: ${customerName}
-      Message: "${message}"
-      
-      The tone should be sophisticated, technical, yet empathetic. Acknowledge their issue and provide a standard professional resolution or assurance.`,
+      Customer Message: "${message}"`,
     });
 
     return response.text || "I am currently processing your request. An agent will be with you shortly.";
   } catch (error) {
     console.error("Gemini Reply Error:", error);
     return "Thank you for reaching out. We have received your query and are investigating the matter. We will get back to you with a detailed resolution shortly.";
+  }
+}
+
+export async function askMetis(query: string, financeData: string): Promise<string> {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `You are METIS, the financial assistant for PROJECT N. Answer questions about the business finances using this data:
+      ${financeData}
+      
+      Be concise and use NPR amounts.
+      
+      User Question: "${query}"`,
+    });
+
+    return response.text || "No response received.";
+  } catch (error) {
+    console.error("METIS API Error:", error);
+    return "Error communicating with Metis system core. Please check connectivity.";
   }
 }

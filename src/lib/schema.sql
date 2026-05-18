@@ -62,9 +62,11 @@ CREATE TABLE public.inventory (
     business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
     name VARCHAR(255) NOT NULL,
     sku VARCHAR(100) UNIQUE NOT NULL,
+    category VARCHAR(100) DEFAULT 'Uncategorized',
     stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
     min_stock INTEGER NOT NULL DEFAULT 0 CHECK (min_stock >= 0),
     price NUMERIC(15, 2) NOT NULL CHECK (price >= 0),
+    expiry_date DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -73,12 +75,13 @@ CREATE TABLE public.inventory (
 CREATE TABLE public.customer_queries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
-    subject VARCHAR(255) NOT NULL,
-    client VARCHAR(255) NOT NULL,
-    priority VARCHAR(20) DEFAULT 'Medium'::character varying CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
-    status VARCHAR(20) DEFAULT 'Pending'::character varying CHECK (status IN ('Pending', 'In Progress', 'Resolved')),
-    response TEXT,
+    platform VARCHAR(50) NOT NULL CHECK (platform IN ('Facebook', 'Instagram', 'WhatsApp', 'Messenger', 'Viber', 'Website')),
+    customer_name VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'Pending'::character varying CHECK (status IN ('Pending', 'Replied')),
+    reply_text TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    replied_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
