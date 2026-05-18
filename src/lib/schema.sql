@@ -98,15 +98,17 @@ CREATE TABLE public.team_members (
     UNIQUE (business_id, email)
 );
 
--- 8. Activity Logs / System Audit Trails
-CREATE TABLE public.activity_logs (
+-- 8. Audit Logs / System Audit Trails
+CREATE TABLE public.audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
-    action TEXT NOT NULL,
-    module VARCHAR(100) NOT NULL,
     user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    details JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    action_type VARCHAR(50) NOT NULL CHECK (action_type IN ('CREATE', 'UPDATE', 'DELETE')),
+    table_name VARCHAR(100) NOT NULL,
+    record_id VARCHAR(255) NOT NULL,
+    old_value JSONB,
+    new_value JSONB,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- =======================================================
@@ -146,7 +148,7 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customer_queries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- 1. Businesses Policies
 CREATE POLICY "Allow select for associated business members" ON public.businesses
@@ -260,11 +262,11 @@ CREATE POLICY "Allow owners and managers to manage team" ON public.team_members
         )
     );
 
--- 8. Activity Logs Policies
-CREATE POLICY "Allow select logs for colleagues" ON public.activity_logs
+-- 8. Audit Logs Policies
+CREATE POLICY "Allow select logs for colleagues" ON public.audit_logs
     FOR SELECT USING (business_id = public.get_user_business_id());
 
-CREATE POLICY "Allow system insert logs" ON public.activity_logs
+CREATE POLICY "Allow system insert logs" ON public.audit_logs
     FOR INSERT WITH CHECK (business_id = public.get_user_business_id());
 
 -- =======================================================
@@ -277,4 +279,4 @@ CREATE INDEX idx_transactions_business_id ON public.transactions(business_id);
 CREATE INDEX idx_transactions_date ON public.transactions(date);
 CREATE INDEX idx_inventory_business_id ON public.inventory(business_id);
 CREATE INDEX idx_customer_queries_business ON public.customer_queries(business_id);
-CREATE INDEX idx_activity_logs_business ON public.activity_logs(business_id);
+CREATE INDEX idx_audit_logs_business ON public.audit_logs(business_id);

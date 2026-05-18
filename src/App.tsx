@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { supabase } from './lib/supabase';
+import { supabase, logAudit } from './lib/supabase';
 import {
   BarChart3,
   TrendingUp,
@@ -82,6 +82,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, OrbitControls, Float, Stars, Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   BarChart,
   Bar,
@@ -102,8 +103,26 @@ import Papa from 'papaparse';
 import { getPredictiveAnalytics, AnalyticsInsight, generateCustomerReply, askMetis } from './services/geminiService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { PDFDocument } from 'pdf-lib';
 
-const generateProfessionalPDF = (title: string, rangeInfo: string, tableHead: string[][], tableBody: any[][], fileName: string, headerColor: [number, number, number]) => {
+export const saveEncryptedPdf = async (doc: jsPDF, fileName: string, password?: string) => {
+  if (password) {
+    const pdfBytes = doc.output('arraybuffer');
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const encryptedPdfBytes = await pdfDoc.save({ userPassword: password });
+    const blob = new Blob([encryptedPdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  } else {
+    doc.save(fileName);
+  }
+};
+
+const generateProfessionalPDF = async (title: string, rangeInfo: string, tableHead: string[][], tableBody: any[][], fileName: string, headerColor: [number, number, number], password?: string) => {
   const doc = new jsPDF();
   const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
   const timestamp = new Date().toLocaleString();
@@ -159,7 +178,7 @@ const generateProfessionalPDF = (title: string, rangeInfo: string, tableHead: st
     doc.text(footerText, 14, doc.internal.pageSize.height - 15);
   }
 
-  doc.save(fileName);
+  await saveEncryptedPdf(doc, fileName, password);
 };
 
 const NEPALI_TRANSLATIONS: Record<string, string> = {
@@ -449,9 +468,11 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [viewMode, setViewMode] = useState<'login' | 'forgotPassword'>('login');
+  const [viewMode, setViewMode] = useState<'login' | 'forgotPassword' | 'mfa'>('login');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaFactorId, setMfaFactorId] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -466,9 +487,46 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
       });
 
       if (error) throw error;
-      onLogin();
+      
+      const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) throw aalError;
+
+      if (aal.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
+        setViewMode('mfa');
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError) throw factorsError;
+        const totpFactor = factors.totp.find((f: any) => f.status === 'verified');
+        if (!totpFactor) throw new Error('2FA required but no verified factor found.');
+        setMfaFactorId(totpFactor.id);
+      } else {
+        onLogin();
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Quantum signature validation failed.');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthenticating(true);
+    setErrorMsg('');
+
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challengeData.id,
+        code: mfaCode
+      });
+
+      if (verifyError) throw verifyError;
+      onLogin();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'MFA validation failed.');
     } finally {
       setIsAuthenticating(false);
     }
@@ -576,10 +634,10 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
             <div className="absolute inset-0 bg-intelligence/20 animate-pulse"></div>
           </div>
           <h2 className="text-4xl font-black italic tracking-tighter uppercase mb-2 glow-text">
-            {viewMode === 'login' ? 'SYSTEM ACCESS' : 'RECOVERY PROTOCOL'}
+            {viewMode === 'login' ? 'SYSTEM ACCESS' : viewMode === 'mfa' ? '2FA VERIFICATION' : 'RECOVERY PROTOCOL'}
           </h2>
           <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.4em]">
-            {viewMode === 'login' ? 'Biometric & Quantum Handshake Required' : 'Decrypt Authorization Keys'}
+            {viewMode === 'login' ? 'Biometric & Quantum Handshake Required' : viewMode === 'mfa' ? 'Enter 6-Digit Authenticator Code' : 'Decrypt Authorization Keys'}
           </p>
         </div>
 
@@ -654,6 +712,45 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
                   )}
                 </span>
                 <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              </button>
+            </div>
+          </form>
+        ) : viewMode === 'mfa' ? (
+          <form onSubmit={handleMfaSubmit} className="space-y-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">2FA Code</label>
+              <div className="relative group">
+                <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                <input
+                  type="text"
+                  required
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all text-center tracking-[1em]"
+                  placeholder="000000"
+                  maxLength={6}
+                />
+              </div>
+            </div>
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={isAuthenticating}
+                className="w-full bg-intelligence text-black font-black uppercase text-[12px] tracking-[0.4em] py-5 rounded-none hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group border-none outline-none cursor-pointer"
+              >
+                <span className="relative z-10">
+                  {isAuthenticating ? 'VERIFYING...' : 'VERIFY & ENTER'}
+                </span>
+                <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              </button>
+            </div>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => { setViewMode('login'); setErrorMsg(''); }}
+                className="text-[9px] font-mono text-gray-500 uppercase tracking-widest hover:text-white transition-colors cursor-pointer bg-transparent border-none outline-none"
+              >
+                ← Back to Login
               </button>
             </div>
           </form>
@@ -2975,60 +3072,71 @@ function PandLView() {
   const { taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable } = taxData;
 
   const exportPDF = () => {
-    const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-    const period = `${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`;
-    
-    const body: any[] = [];
-    plData.forEach(section => {
-      body.push([section.category.toUpperCase(), '', section.total]);
-      section.items.forEach(item => {
-        body.push([`   ${item.name}`, '', item.val]);
-      });
-      body.push(['', '', '']); // spacer
-    });
+    if ((window as any).requestPdfPassword) {
+      (window as any).requestPdfPassword((pwd: string | null) => {
+        if (pwd === null) return;
+        const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+        const period = `${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`;
+        
+        const body: any[] = [];
+        plData.forEach(section => {
+          body.push([section.category.toUpperCase(), '', section.total]);
+          section.items.forEach(item => {
+            body.push([`   ${item.name}`, '', item.val]);
+          });
+          body.push(['', '', '']); // spacer
+        });
 
-    generateProfessionalPDF(
-      'Profit & Loss Statement',
-      period,
-      [['Category', 'Details', 'Value']],
-      body,
-      `PL_Statement_${businessName.replace(/\s/g, '_')}.pdf`,
-      [0, 242, 255]
-    );
+        generateProfessionalPDF(
+          'Profit & Loss Statement',
+          period,
+          [['Category', 'Details', 'Value']],
+          body,
+          `PL_Statement_${businessName.replace(/\s/g, '_')}.pdf`,
+          [0, 242, 255],
+          pwd
+        );
+      });
+    }
   };
 
   const exportVATPDF = () => {
-    const doc = new jsPDF();
-    const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+    if ((window as any).requestPdfPassword) {
+      (window as any).requestPdfPassword(async (pwd: string | null) => {
+        if (pwd === null) return;
+        const doc = new jsPDF();
+        const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
 
-    doc.setFontSize(20);
-    doc.text('VAT Compliance Report', 14, 22);
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Entity: ${businessName}`, 14, 30);
-    doc.text(`Period: ${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`, 14, 36);
-    doc.text(`Protocol: As per IRD Nepal guidelines`, 14, 42);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 48);
+        doc.setFontSize(20);
+        doc.text('VAT Compliance Report', 14, 22);
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+        doc.text(`Entity: ${businessName}`, 14, 30);
+        doc.text(`Period: ${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`, 14, 36);
+        doc.text(`Protocol: As per IRD Nepal guidelines`, 14, 42);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 48);
 
-    const vatBody = [
-      ["Taxable Sales", "Based on Revenue Streams", formatCurrency(taxableSales)],
-      ["VAT Collected (13%)", "13% of Taxable Sales", formatCurrency(vatCollected)],
-      ["Taxable Purchases", "Based on COGS & Operational Inputs", formatCurrency(taxablePurchases)],
-      ["VAT Paid", "13% of Taxable Purchases", formatCurrency(vatPaid)],
-      ["Net VAT Payable", "VAT Collected - VAT Paid", formatCurrency(netVATPayable)]
-    ];
+        const vatBody = [
+          ["Taxable Sales", "Based on Revenue Streams", formatCurrency(taxableSales)],
+          ["VAT Collected (13%)", "13% of Taxable Sales", formatCurrency(vatCollected)],
+          ["Taxable Purchases", "Based on COGS & Operational Inputs", formatCurrency(taxablePurchases)],
+          ["VAT Paid", "13% of Taxable Purchases", formatCurrency(vatPaid)],
+          ["Net VAT Payable", "VAT Collected - VAT Paid", formatCurrency(netVATPayable)]
+        ];
 
-    autoTable(doc, {
-      startY: 55,
-      head: [['Tax Parameter', 'Rate/Basis', 'Value (USD)']],
-      body: vatBody,
-      theme: 'grid',
-      headStyles: { fillColor: [0, 242, 255], textColor: [0, 0, 0] },
-      styles: { font: 'helvetica', fontSize: 10 },
-      columnStyles: { 2: { halign: 'right' } }
-    });
+        autoTable(doc, {
+          startY: 55,
+          head: [['Tax Parameter', 'Rate/Basis', 'Value (USD)']],
+          body: vatBody,
+          theme: 'grid',
+          headStyles: { fillColor: [0, 242, 255], textColor: [0, 0, 0] },
+          styles: { font: 'helvetica', fontSize: 10 },
+          columnStyles: { 2: { halign: 'right' } }
+        });
 
-    doc.save(`VAT_Report_${businessName.replace(/\s/g, '_')}.pdf`);
+        await saveEncryptedPdf(doc, `VAT_Report_${businessName.replace(/\s/g, '_')}.pdf`, pwd);
+      });
+    }
   };
 
   return (
@@ -3325,26 +3433,32 @@ function CashFlowView() {
   }, [range, customDates]);
 
   const exportPDF = () => {
-    const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-    const period = `${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`;
-    
-    const body: any[] = [];
-    cfData.forEach(section => {
-      body.push([section.category.toUpperCase(), '', section.total]);
-      section.items.forEach(item => {
-        body.push([`   ${item.name}`, '', item.val]);
-      });
-      body.push(['', '', '']); // spacer
-    });
+    if ((window as any).requestPdfPassword) {
+      (window as any).requestPdfPassword((pwd: string | null) => {
+        if (pwd === null) return;
+        const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+        const period = `${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`;
+        
+        const body: any[] = [];
+        cfData.forEach(section => {
+          body.push([section.category.toUpperCase(), '', section.total]);
+          section.items.forEach(item => {
+            body.push([`   ${item.name}`, '', item.val]);
+          });
+          body.push(['', '', '']); // spacer
+        });
 
-    generateProfessionalPDF(
-      'Cash Flow Statement',
-      period,
-      [['Activity', 'Details', 'Value']],
-      body,
-      `Cash_Flow_${businessName.replace(/\s/g, '_')}.pdf`,
-      [220, 20, 60]
-    );
+        generateProfessionalPDF(
+          'Cash Flow Statement',
+          period,
+          [['Activity', 'Details', 'Value']],
+          body,
+          `Cash_Flow_${businessName.replace(/\s/g, '_')}.pdf`,
+          [220, 20, 60],
+          pwd
+        );
+      });
+    }
   };
 
   return (
@@ -3494,10 +3608,14 @@ export const addInventoryProduct = async (businessId: string, product: Omit<Inve
     .single();
 
   if (error) throw error;
+  if (data) {
+    await logAudit('CREATE', 'inventory', data.id, null, data);
+  }
   return data;
 };
 
 export const updateInventoryProduct = async (id: string, product: Partial<InventoryItem>) => {
+  const { data: oldData } = await supabase.from('inventory').select('*').eq('id', id).single();
   const updates: any = {};
   if (product.name !== undefined) updates.name = product.name;
   if (product.category !== undefined) updates.category = product.category;
@@ -3515,16 +3633,21 @@ export const updateInventoryProduct = async (id: string, product: Partial<Invent
     .single();
 
   if (error) throw error;
+  if (data) {
+    await logAudit('UPDATE', 'inventory', id, oldData, data);
+  }
   return data;
 };
 
 export const deleteInventoryProduct = async (id: string) => {
+  const { data: oldData } = await supabase.from('inventory').select('*').eq('id', id).single();
   const { error } = await supabase
     .from('inventory')
     .delete()
     .eq('id', id);
 
   if (error) throw error;
+  await logAudit('DELETE', 'inventory', id, oldData, null);
   return true;
 };
 
@@ -6055,8 +6178,12 @@ function TeamManagementView() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const removeMember = (id: string) => {
+  const removeMember = async (id: string) => {
+    const target = members.find(m => m.id === id);
     setMembers(prev => prev.filter(m => m.id !== id));
+    if (target) {
+      await logAudit('DELETE', 'team_members', target.id, target, null);
+    }
   };
 
   const getRoleBadge = (role: string) => {
@@ -6279,9 +6406,11 @@ function TeamManagementView() {
 
                 <div className="pt-4">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (inviteEmail) {
-                        setPendingInvites(prev => [{ email: inviteEmail, sentDate: new Date().toISOString().split('T')[0], role: inviteRole }, ...prev]);
+                        const newInvite = { email: inviteEmail, sentDate: new Date().toISOString().split('T')[0], role: inviteRole };
+                        setPendingInvites(prev => [newInvite, ...prev]);
+                        await logAudit('CREATE', 'team_members', 'invite-' + inviteEmail, null, newInvite);
                         setInviteEmail('');
                         setIsInviteModalOpen(false);
                       }
@@ -6384,6 +6513,118 @@ function SettingsView({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+  // 2FA States
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<{ qr_code: string, secret: string, uri: string } | null>(null);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [factorId, setFactorId] = useState('');
+  const [is2FASettingUp, setIs2FASettingUp] = useState(false);
+
+  // Audit Logs States
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const auditPerPage = 5;
+
+  useEffect(() => {
+    const fetchAuditLogs = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+        if (!profile?.business_id) return;
+        
+        const { data: logs } = await supabase
+          .from('audit_logs')
+          .select(`
+            *,
+            users (
+              full_name
+            )
+          `)
+          .eq('business_id', profile.business_id)
+          .order('timestamp', { ascending: false });
+          
+        if (logs) setAuditLogs(logs);
+      } catch (err) {
+        console.error('Failed to fetch audit logs:', err);
+      }
+    };
+    fetchAuditLogs();
+  }, []);
+
+  useEffect(() => {
+    const checkMfa = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totpFactor = factors?.totp?.find(f => f.status === 'verified');
+      if (totpFactor) setIs2FAEnabled(true);
+    };
+    checkMfa();
+  }, []);
+
+  const setup2FA = async () => {
+    setIs2FASettingUp(true);
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+      if (error) throw error;
+      setFactorId(data.id);
+      setQrCodeData(data.totp);
+    } catch (err: any) {
+      setMessage(`2FA SETUP FAILED: ${err.message}`);
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setIs2FASettingUp(false);
+    }
+  };
+
+  const verify2FASetup = async () => {
+    setIs2FASettingUp(true);
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId: challengeData.id,
+        code: verifyCode
+      });
+
+      if (verifyError) throw verifyError;
+      
+      setIs2FAEnabled(true);
+      setQrCodeData(null);
+      setVerifyCode('');
+      setMessage('2FA ENABLED SUCCESSFULLY');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err: any) {
+      setMessage(`VERIFICATION FAILED: ${err.message}`);
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setIs2FASettingUp(false);
+    }
+  };
+
+  const disable2FA = async () => {
+    setIs2FASettingUp(true);
+    try {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totpFactor = factors?.totp?.find(f => f.status === 'verified');
+      if (totpFactor) {
+        const { error } = await supabase.auth.mfa.unenroll({ factorId: totpFactor.id });
+        if (error) throw error;
+        setIs2FAEnabled(false);
+        setMessage('2FA DISABLED');
+        setTimeout(() => setMessage(''), 3000);
+      }
+    } catch (err: any) {
+      setMessage(`DISABLE FAILED: ${err.message}`);
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setIs2FASettingUp(false);
+    }
+  };
 
   const [permissions, setPermissions] = useState(() => {
     const saved = localStorage.getItem('app_permissions');
@@ -7013,6 +7254,149 @@ function SettingsView({
         </div>
       </div>
 
+      {/* Security Section (2FA) */}
+      <div className="pt-20 space-y-12 border-t border-white/5">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Security</h4>
+          <h2 className="text-5xl font-black italic uppercase">AUTHENTICATION</h2>
+        </div>
+
+        <div className="glass p-8 border-white/10 bg-white/[0.01] space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2">
+                <Shield size={16} className={is2FAEnabled ? "text-intelligence" : "text-gray-500"} />
+                Two-Factor Authentication (2FA)
+              </h3>
+              <p className="text-[10px] font-mono text-gray-400 mt-2">
+                Secure your node with an additional quantum lock. Requires an authenticator app (e.g., Google Authenticator).
+              </p>
+            </div>
+            
+            {!qrCodeData && (
+              <button
+                onClick={is2FAEnabled ? disable2FA : setup2FA}
+                disabled={is2FASettingUp}
+                className={cn(
+                  "py-3 px-6 text-[10px] font-black uppercase tracking-widest transition-all",
+                  is2FAEnabled ? "border border-brand text-brand hover:bg-brand/10" : "bg-intelligence text-black hover:bg-white"
+                )}
+              >
+                {is2FASettingUp ? 'PROCESSING...' : is2FAEnabled ? 'DISABLE 2FA' : 'ENABLE 2FA'}
+              </button>
+            )}
+          </div>
+
+          {qrCodeData && (
+            <div className="mt-8 p-6 bg-black/20 border border-intelligence/30 flex flex-col md:flex-row gap-8 items-center">
+              <div className="bg-white p-4">
+                <QRCodeSVG value={qrCodeData.uri} size={150} />
+              </div>
+              <div className="flex-1 space-y-4">
+                <p className="text-[11px] font-mono text-gray-300">
+                  1. Scan the QR code with your Authenticator app.
+                </p>
+                <div className="space-y-2">
+                  <p className="text-[11px] font-mono text-gray-300">2. Enter the 6-digit verification code:</p>
+                  <div className="flex gap-4">
+                    <input
+                      type="text"
+                      value={verifyCode}
+                      onChange={(e) => setVerifyCode(e.target.value)}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="bg-white/5 border border-white/20 px-4 py-3 text-white font-mono text-lg tracking-[0.5em] focus:outline-none focus:border-intelligence/50 transition-all w-48 text-center"
+                    />
+                    <button
+                      onClick={verify2FASetup}
+                      disabled={verifyCode.length !== 6 || is2FASettingUp}
+                      className="bg-intelligence text-black px-6 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white disabled:opacity-50 transition-all"
+                    >
+                      {is2FASettingUp ? 'VERIFYING...' : 'CONFIRM SETUP'}
+                    </button>
+                    <button
+                      onClick={() => setQrCodeData(null)}
+                      className="border border-white/20 text-gray-400 px-4 py-3 text-[10px] font-black uppercase hover:text-white transition-all"
+                    >
+                      CANCEL
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Audit Trail Section */}
+      <div className="pt-20 space-y-12 border-t border-white/5">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">System Logs</h4>
+          <h2 className="text-5xl font-black italic uppercase">AUDIT TRAIL</h2>
+        </div>
+
+        <div className="glass border-white/5 overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/5 bg-white/[0.02]">
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Time</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Agent</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Action</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Target</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditLogs.slice((auditPage - 1) * auditPerPage, auditPage * auditPerPage).map((log) => (
+                <tr key={log.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-all">
+                  <td className="p-6 font-mono text-xs text-gray-400">{new Date(log.timestamp).toLocaleString()}</td>
+                  <td className="p-6 text-sm font-bold text-white uppercase">{log.users?.full_name || 'System'}</td>
+                  <td className="p-6 font-black text-[10px] uppercase tracking-widest">
+                    <span className={cn(
+                      "px-2 py-1 border",
+                      log.action_type === 'CREATE' ? "text-emerald-500 border-emerald-500/30 bg-emerald-500/10" :
+                      log.action_type === 'UPDATE' ? "text-blue-500 border-blue-500/30 bg-blue-500/10" :
+                      "text-red-500 border-red-500/30 bg-red-500/10"
+                    )}>
+                      {log.action_type}
+                    </span>
+                  </td>
+                  <td className="p-6 font-mono text-[10px] text-gray-300 uppercase">{log.table_name}</td>
+                  <td className="p-6 font-mono text-[9px] text-gray-500">ID: {log.record_id}</td>
+                </tr>
+              ))}
+              {auditLogs.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-12 text-center text-gray-600 font-mono text-[10px] uppercase tracking-widest italic">
+                    No Audit Logs Found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          
+          {auditLogs.length > 0 && (
+            <div className="p-4 border-t border-white/5 bg-white/[0.01] flex justify-between items-center">
+              <button
+                onClick={() => setAuditPage(p => Math.max(1, p - 1))}
+                disabled={auditPage === 1}
+                className="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-white disabled:opacity-30"
+              >
+                PREV_PAGE
+              </button>
+              <span className="text-[10px] font-mono text-gray-600">PAGE {auditPage} OF {Math.ceil(auditLogs.length / auditPerPage)}</span>
+              <button
+                onClick={() => setAuditPage(p => Math.min(Math.ceil(auditLogs.length / auditPerPage), p + 1))}
+                disabled={auditPage >= Math.ceil(auditLogs.length / auditPerPage)}
+                className="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-white disabled:opacity-30"
+              >
+                NEXT_PAGE
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Data Backup & Restore Section */}
       <div className="pt-20 space-y-12 border-t border-white/5">
         <div>
@@ -7269,29 +7653,35 @@ function BalanceSheetView() {
   }, [range, customDates]);
 
   const exportPDF = () => {
-    const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-    const period = `As at ${new Date().toLocaleDateString()}`;
-    
-    const body: any[] = [];
-    bsData.sections.forEach(section => {
-      body.push([section.category.toUpperCase(), '', section.total]);
-      section.items.forEach(item => {
-        body.push([`   ${item.name}`, '', item.val]);
+    if ((window as any).requestPdfPassword) {
+      (window as any).requestPdfPassword((pwd: string | null) => {
+        if (pwd === null) return;
+        const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
+        const period = `As at ${new Date().toLocaleDateString()}`;
+        
+        const body: any[] = [];
+        bsData.sections.forEach(section => {
+          body.push([section.category.toUpperCase(), '', section.total]);
+          section.items.forEach(item => {
+            body.push([`   ${item.name}`, '', item.val]);
+          });
+          body.push(['', '', '']);
+        });
+
+        body.push(['TOTAL ASSETS', '', bsData.summary.totalAssets]);
+        body.push(['TOTAL LIABILITIES & EQUITY', '', bsData.summary.totalLiabilitiesEquity]);
+
+        generateProfessionalPDF(
+          'Balance Sheet',
+          period,
+          [['Classification', 'Details', 'Value']],
+          body,
+          `Balance_Sheet_${businessName.replace(/\s/g, '_')}.pdf`,
+          [147, 51, 234],
+          pwd
+        );
       });
-      body.push(['', '', '']);
-    });
-
-    body.push(['TOTAL ASSETS', '', bsData.summary.totalAssets]);
-    body.push(['TOTAL LIABILITIES & EQUITY', '', bsData.summary.totalLiabilitiesEquity]);
-
-    generateProfessionalPDF(
-      'Balance Sheet',
-      period,
-      [['Classification', 'Details', 'Value']],
-      body,
-      `Balance_Sheet_${businessName.replace(/\s/g, '_')}.pdf`,
-      [147, 51, 234]
-    );
+    }
   };
 
   return (
@@ -8023,7 +8413,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         }
       }
 
-      const { error } = await supabase
+      const { data: newTx, error } = await supabase
         .from('transactions')
         .insert({
           business_id: profile.business_id,
@@ -8032,9 +8422,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           amount: t.amount,
           category_id: categoryId,
           type: t.type
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      if (newTx) {
+        await logAudit('CREATE', 'transactions', newTx.id, null, newTx);
+      }
       await loadTransactions();
     } catch (e) {
       console.error('Failed to append transaction to database:', e);
@@ -8095,7 +8490,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           }
         }
 
-        const { error } = await supabase
+        const { data: oldTx } = await supabase.from('transactions').select('*').eq('id', updatedTx.id).single();
+        const { data: updated, error } = await supabase
           .from('transactions')
           .update({
             date: updatedTx.date,
@@ -8104,9 +8500,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             category_id: categoryId,
             type: updatedTx.type
           })
-          .eq('id', updatedTx.id);
+          .eq('id', updatedTx.id)
+          .select()
+          .single();
 
         if (error) throw error;
+        if (updated) {
+          await logAudit('UPDATE', 'transactions', updatedTx.id, oldTx, updated);
+        }
         await loadTransactions();
       } catch (e) {
         console.error('Failed to update transaction in database:', e);
@@ -8132,12 +8533,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
     if (target.id) {
       try {
+        const { data: oldTx } = await supabase.from('transactions').select('*').eq('id', target.id).single();
         const { error } = await supabase
           .from('transactions')
           .delete()
           .eq('id', target.id);
 
         if (error) throw error;
+        await logAudit('DELETE', 'transactions', target.id, oldTx, null);
         await loadTransactions();
       } catch (e) {
         console.error('Failed to delete transaction from database:', e);
@@ -9067,8 +9470,41 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
 // --- APP ENTRY ---
 
+const PdfPasswordModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, onClose: () => void, onConfirm: (password: string) => void }) => {
+  const [password, setPassword] = useState('');
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+      <div className="bg-dark-bg border border-white/10 w-full max-w-md p-8 glass shadow-[0_0_30px_rgba(0,242,255,0.1)]">
+        <h3 className="text-xl font-black italic uppercase mb-2 text-white">Export Encrypted PDF</h3>
+        <p className="text-[10px] font-mono text-gray-400 mb-6">Password required to open this PDF.</p>
+        <input 
+          type="password" 
+          placeholder="ENTER PASSWORD" 
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 mb-6 uppercase tracking-[0.2em]"
+        />
+        <div className="flex gap-4">
+          <button onClick={() => { onConfirm(password); setPassword(''); onClose(); }} className="flex-1 bg-intelligence text-black font-black uppercase text-[11px] tracking-widest py-3 hover:bg-white transition-all">GENERATE SECURE PDF</button>
+          <button onClick={() => { setPassword(''); onClose(); }} className="flex-1 border border-white/20 text-gray-400 font-black uppercase text-[11px] tracking-widest py-3 hover:text-white transition-all">CANCEL</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [view, setView] = useState<'landing' | 'login' | 'register' | 'onboarding' | 'dashboard'>('landing');
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfModalCallback, setPdfModalCallback] = useState<{ fn: (pwd: string | null) => void } | null>(null);
+
+  useEffect(() => {
+    (window as any).requestPdfPassword = (cb: (pwd: string | null) => void) => {
+      setPdfModalCallback({ fn: cb });
+      setPdfModalOpen(true);
+    };
+  }, []);
 
   useEffect(() => {
     // Check if user has active Supabase session
@@ -9207,7 +9643,8 @@ export default function App() {
   };
 
   return (
-    <AnimatePresence mode="wait">
+    <>
+      <AnimatePresence mode="wait">
       {view === 'dashboard' && (
         <motion.div
           key="dashboard"
@@ -9272,6 +9709,18 @@ export default function App() {
         </motion.div>
       )}
     </AnimatePresence>
+      <PdfPasswordModal 
+        isOpen={pdfModalOpen} 
+        onClose={() => {
+          if (pdfModalCallback) pdfModalCallback.fn(null);
+          setPdfModalOpen(false);
+        }} 
+        onConfirm={(pwd) => {
+          if (pdfModalCallback) pdfModalCallback.fn(pwd);
+          setPdfModalOpen(false);
+        }} 
+      />
+    </>
   );
 }
 
