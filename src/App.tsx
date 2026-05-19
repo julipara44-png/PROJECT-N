@@ -637,7 +637,11 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
         onLogin();
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Quantum signature validation failed.');
+      let msg = err.message || 'Quantum signature validation failed.';
+      if (msg.toLowerCase().includes('email not confirmed')) {
+        msg = '⚠️ Email not confirmed. To enable Investor Demo Mode, please run the SQL setup script located at src/lib/demo_reset_cron.sql in your Supabase SQL Editor to confirm the demo account and schedule daily resets.';
+      }
+      setErrorMsg(msg);
     } finally {
       setIsAuthenticating(false);
     }
@@ -687,69 +691,46 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
     }
   };
 
-  const handleDemoLogin = () => {
+  const handleDemoLogin = async () => {
     setIsAuthenticating(true);
-    setTimeout(() => {
-      // 1. Back up current localStorage keys
-      const keysToBackup = [
-        'business_name',
-        'business_logo',
-        'user_role',
-        'quantum_inventory',
-        'app_categories',
-        'business_knowledge_base',
-        'onboarding_completed'
-      ];
-      
-      const backup: Record<string, string | null> = {};
-      keysToBackup.forEach(key => {
-        backup[key] = localStorage.getItem(key);
+    setErrorMsg('');
+    try {
+      let result = await supabase.auth.signInWithPassword({
+        email: 'demo@projectn.ai',
+        password: 'demo123'
       });
-      
-      localStorage.setItem('temp_investor_backup', JSON.stringify(backup));
-      localStorage.setItem('is_demo_mode', 'true');
-      
-      // 2. Load demo keys
-      localStorage.setItem('business_name', 'NEPAL ROYAL RESORT & SPA');
-      localStorage.setItem('user_role', 'Owner');
-      localStorage.setItem('onboarding_completed', 'true');
-      
-      const demoInventory = [
-        { id: '1', name: 'Premium Egyptian Cotton Bed Sheets', sku: 'INV-HOT-BedSheet-001', stock: 150, minStock: 30, price: 4500, value: 675000 },
-        { id: '2', name: 'Organic Spa Lavender Massage Oil', sku: 'INV-HOT-LavenderOil-002', stock: 80, minStock: 20, price: 1200, value: 96000 },
-        { id: '3', name: 'Single Malt Himalayan Oak Whiskey', sku: 'INV-HOT-Whiskey-003', stock: 45, minStock: 15, price: 9500, value: 427500 },
-        { id: '4', name: 'Smart RFID Suite Door Locks', sku: 'INV-HOT-DoorLock-004', stock: 12, minStock: 5, price: 15000, value: 180000 }
-      ];
-      localStorage.setItem('quantum_inventory', JSON.stringify(demoInventory));
-      
-      const demoCategories = [
-        { name: 'Sales', type: 'Inflow' },
-        { name: 'SaaS', type: 'Inflow' },
-        { name: 'Consulting', type: 'Inflow' },
-        { name: 'Marketing', type: 'Outflow' },
-        { name: 'Infrastructure', type: 'Outflow' },
-        { name: 'Payroll', type: 'Outflow' },
-        { name: 'Inventory', type: 'Outflow' },
-        { name: 'R&D', type: 'Outflow' },
-        { name: 'Logistics', type: 'Outflow' },
-        { name: 'Quantum', type: 'Outflow' }
-      ];
-      localStorage.setItem('app_categories', JSON.stringify(demoCategories));
-      
-      const demoKnowledgeBase = {
-        hours: 'Mon-Sun: 24 Hours Open (Front Desk)',
-        description: 'Nepal Royal Resort & Spa is Pokharas premier 5-star luxury destination, offering panoramic Himalayan views, organic wellness spas, and exquisite Nepalese banquet dining.',
-        pricing: 'Deluxe Suites starting from NPR 15,000/night. Banquet Hall booking starts from NPR 100,000 per event.',
-        faqs: [
-          { q: 'What is the check-in and check-out time?', a: 'Check-in time is 2:00 PM and check-out time is 12:00 PM.' },
-          { q: 'Do you provide airport shuttle services?', a: 'Yes, we provide complimentary luxury shuttle pick-ups from Pokhara International Airport.' }
-        ]
-      };
-      localStorage.setItem('business_knowledge_base', JSON.stringify(demoKnowledgeBase));
 
-      setIsAuthenticating(false);
+      if (result.error) {
+        if (result.error.message.includes('Invalid login credentials') || result.error.message.includes('User not found')) {
+          // Provision the user in Supabase auth first
+          const signUpResult = await supabase.auth.signUp({
+            email: 'demo@projectn.ai',
+            password: 'demo123'
+          });
+          if (signUpResult.error) throw signUpResult.error;
+
+          // Retry login
+          result = await supabase.auth.signInWithPassword({
+            email: 'demo@projectn.ai',
+            password: 'demo123'
+          });
+          if (result.error) throw result.error;
+        } else {
+          throw result.error;
+        }
+      }
+
+      sessionStorage.removeItem('demo_seeded_this_session');
       onLogin();
-    }, 1500);
+    } catch (err: any) {
+      let msg = err.message || 'Demo activation failed.';
+      if (msg.toLowerCase().includes('email not confirmed')) {
+        msg = '⚠️ Email not confirmed. To enable Investor Demo Mode, please run the SQL setup script located at src/lib/demo_reset_cron.sql in your Supabase SQL Editor to confirm the demo account and schedule daily resets.';
+      }
+      setErrorMsg(msg);
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
 
   return (
@@ -1978,9 +1959,18 @@ function QuantumIntelligence() {
 
   if (loading) {
     return (
-      <div className="glass border-white/5 p-8 flex flex-col items-center justify-center min-h-[300px]">
-        <div className="w-12 h-12 border-2 border-intelligence border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest animate-pulse">Initializing METIS Core...</p>
+      <div className="glass border-white/5 p-8 flex flex-col gap-6 min-h-[300px]">
+        <div className="h-8 w-1/3 bg-white/5 animate-pulse rounded-sm"></div>
+        <div className="space-y-4">
+          <div className="h-4 w-full bg-white/5 animate-pulse rounded-sm"></div>
+          <div className="h-4 w-5/6 bg-white/5 animate-pulse rounded-sm"></div>
+          <div className="h-4 w-4/6 bg-white/5 animate-pulse rounded-sm"></div>
+        </div>
+        <div className="mt-8 grid grid-cols-3 gap-4">
+          <div className="h-20 bg-white/5 animate-pulse rounded-sm"></div>
+          <div className="h-20 bg-white/5 animate-pulse rounded-sm"></div>
+          <div className="h-20 bg-white/5 animate-pulse rounded-sm"></div>
+        </div>
       </div>
     );
   }
@@ -4459,7 +4449,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
+const InventoryView = React.memo(function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     if (dateFormat === 'BS') {
@@ -4469,6 +4459,8 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
   };
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const fetchInventory = async () => {
     setIsLoading(true);
@@ -4878,7 +4870,7 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
               </tr>
             </thead>
             <tbody>
-              {filteredAndSortedInventory.map((item) => (
+              {filteredAndSortedInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => (
                 <tr
                   key={item.id}
                   onClick={() => openEditModal(item)}
@@ -4915,6 +4907,27 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
             </tbody>
           </table>
         </div>
+        {Math.ceil(filteredAndSortedInventory.length / itemsPerPage) > 1 && (
+          <div className="flex justify-between items-center p-4 border-t border-white/5 bg-white/[0.01]">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 border border-white/10 text-[9px] font-black uppercase text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
+            >
+              PREVIOUS_PAGE
+            </button>
+            <span className="text-[10px] font-mono text-gray-500 uppercase">
+              Page {currentPage} of {Math.ceil(filteredAndSortedInventory.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredAndSortedInventory.length / itemsPerPage), p + 1))}
+              disabled={currentPage === Math.ceil(filteredAndSortedInventory.length / itemsPerPage)}
+              className="px-4 py-2 border border-white/10 text-[9px] font-black uppercase text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
+            >
+              NEXT_PAGE
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Inventory Valuation Section */}
@@ -5318,8 +5331,7 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
       </AnimatePresence>
     </div>
   );
-}
-
+});
 
 // --- DATA ENTRY VIEW ---
 
@@ -5684,9 +5696,17 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
                 )}
 
                 {importStatus === 'IMPORTING' && (
-                  <div className="py-12 flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 border-4 border-white/10 border-t-intelligence rounded-full animate-spin mb-6"></div>
-                    <h4 className="text-sm font-black text-white uppercase tracking-widest animate-pulse">Processing {importTab} Ledger...</h4>
+                  <div className="py-12 space-y-6 w-full max-w-sm mx-auto">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="h-4 w-1/3 bg-white/5 animate-pulse rounded-sm"></div>
+                      <div className="h-4 w-1/4 bg-white/5 animate-pulse rounded-sm"></div>
+                    </div>
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-12 w-full bg-white/5 animate-pulse rounded-sm flex items-center px-4">
+                        <div className="h-3 w-3/4 bg-white/10 animate-pulse rounded-sm"></div>
+                      </div>
+                    ))}
+                    <h4 className="text-center text-[10px] font-black text-intelligence uppercase tracking-widest animate-pulse mt-4">Processing {importTab} Ledger...</h4>
                   </div>
                 )}
 
@@ -5716,7 +5736,7 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
 
 // --- TRANSACTIONS VIEW ---
 
-function TransactionsView({ transactions, onUpdate, dateFormat }: { transactions: Transaction[], onUpdate: (updatedTx: Transaction, index: number) => void, dateFormat: 'AD' | 'BS' }) {
+const TransactionsView = React.memo(function TransactionsView({ transactions, onUpdate, dateFormat }: { transactions: Transaction[], onUpdate: (updatedTx: Transaction, index: number) => void, dateFormat: 'AD' | 'BS' }) {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     if (dateFormat === 'BS') {
@@ -5729,7 +5749,7 @@ function TransactionsView({ transactions, onUpdate, dateFormat }: { transactions
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [editingTransaction, setEditingTransaction] = useState<{ index: number, t: Transaction } | null>(null);
-  const itemsPerPage = 8;
+  const itemsPerPage = 20;
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
@@ -6003,7 +6023,7 @@ function TransactionsView({ transactions, onUpdate, dateFormat }: { transactions
       </AnimatePresence>
     </div>
   );
-}
+});
 
 // --- CUSTOMER QUERIES ---
 
@@ -12035,6 +12055,17 @@ export default function App() {
 
   const fetchUserProfileAndRedirect = async (authId: string) => {
     try {
+      // --- INVESTOR DEMO INITIALIZATION ---
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const currentEmail = currentSession?.user?.email;
+      const isDemoUser = currentEmail?.toLowerCase() === 'demo@projectn.ai';
+
+      if (isDemoUser && sessionStorage.getItem('demo_seeded_this_session') !== 'true') {
+        const { resetAndSeedDemoData } = await import('./lib/demoSeeder');
+        await resetAndSeedDemoData(authId);
+        sessionStorage.setItem('demo_seeded_this_session', 'true');
+      }
+
       let { data: userProfile, error } = await supabase
         .from('users')
         .select(`
