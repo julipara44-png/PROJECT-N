@@ -43,6 +43,18 @@ CREATE TABLE public.categories (
     UNIQUE (business_id, name, type)
 );
 
+-- 3.5 Employees Table
+CREATE TABLE public.employees (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(100) NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    monthly_target NUMERIC(15, 2) NOT NULL DEFAULT 0 CHECK (monthly_target >= 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 4. Transactions Table
 CREATE TABLE public.transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -51,6 +63,7 @@ CREATE TABLE public.transactions (
     description TEXT NOT NULL,
     amount NUMERIC(15, 2) NOT NULL CHECK (amount >= 0),
     category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+    employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('Inflow', 'Outflow')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -129,6 +142,7 @@ CREATE TRIGGER update_transactions_modtime BEFORE UPDATE ON public.transactions 
 CREATE TRIGGER update_inventory_modtime BEFORE UPDATE ON public.inventory FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
 CREATE TRIGGER update_customer_queries_modtime BEFORE UPDATE ON public.customer_queries FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
 CREATE TRIGGER update_team_members_modtime BEFORE UPDATE ON public.team_members FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+CREATE TRIGGER update_employees_modtime BEFORE UPDATE ON public.employees FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
 
 -- =======================================================
 -- MULTI-TENANCY HELPERS & SECURITY POLICIES (RLS)
@@ -144,6 +158,7 @@ $$ LANGUAGE sql SECURITY DEFINER;
 ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customer_queries ENABLE ROW LEVEL SECURITY;
@@ -189,6 +204,19 @@ CREATE POLICY "Allow owners and accountants to modify categories" ON public.cate
         EXISTS (
             SELECT 1 FROM public.users 
             WHERE auth_id = auth.uid() AND role IN ('Owner', 'Accountant')
+        )
+    );
+
+-- 3.5 Employees Policies
+CREATE POLICY "Allow workspace members to read employees" ON public.employees
+    FOR SELECT USING (business_id = public.get_user_business_id());
+
+CREATE POLICY "Allow owners and managers to modify employees" ON public.employees
+    FOR ALL USING (business_id = public.get_user_business_id())
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE auth_id = auth.uid() AND role IN ('Owner', 'Manager')
         )
     );
 

@@ -131,6 +131,7 @@ export async function extractInvoiceData(base64Image: string, mimeType: string):
       }
     });
 
+    const text = response.text || "{}";
     return JSON.parse(text);
   } catch (error) {
     console.error("Gemini Invoice Scan Error:", error);

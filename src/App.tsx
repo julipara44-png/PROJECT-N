@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Shield,
   Zap,
+  Award,
   Globe,
   Database,
   Search,
@@ -102,6 +103,7 @@ import {
 } from 'recharts';
 import Papa from 'papaparse';
 import { getPredictiveAnalytics, AnalyticsInsight, generateCustomerReply, askMetis, extractInvoiceData, generateMetisDailyBrief } from './services/geminiService';
+import { getSalesForecast, ForecastPoint, ForecastResult } from './services/forecastService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PDFDocument } from 'pdf-lib';
@@ -192,6 +194,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'BALANCE_SHEET': 'वासलात',
   'QUERIES': 'सोधपुछ',
   'TEAM_INTEL': 'टोली व्यवस्थापन',
+  'EMPLOYEE_PERFORMANCE': 'कर्मचारी कार्यसम्पादन',
   'DATA_INPUT': 'डाटा प्रविष्टि',
   'SETTINGS': 'सेटिङहरू',
   'LOGOUT': 'लगआउट',
@@ -249,7 +252,7 @@ const PIE_COLORS = ['#00f2ff', '#dc143c', '#ffffff', '#333333'];
 
 // --- TYPES ---
 
-type PlatformTab = 'Overview' | 'P&L Statement' | 'Cash Flow' | 'Balance Sheet' | 'Transactions' | 'Inventory' | 'Data Entry' | 'Customer Queries' | 'Query Analytics' | 'Team Management' | 'Settings' | 'Financial Summary' | 'Voice';
+type PlatformTab = 'Overview' | 'P&L Statement' | 'Cash Flow' | 'Balance Sheet' | 'Transactions' | 'Inventory' | 'Data Entry' | 'Customer Queries' | 'Query Analytics' | 'Team Management' | 'Settings' | 'Financial Summary' | 'Voice' | 'Employee Performance';
 
 interface Transaction {
   id?: string;
@@ -258,6 +261,7 @@ interface Transaction {
   amount: number;
   category: string;
   type: 'Inflow' | 'Outflow';
+  employee_id?: string;
 }
 
 // --- 3D COMPONENTS ---
@@ -2506,31 +2510,31 @@ function OverviewView({ transactions, setTransactions, onViewReport, dateFormat,
     return Object.entries(categories).map(([name, value]) => ({ name, value }));
   }, [transactions]);
 
-  const forecastChartData = useMemo(() => {
-    const actuals = [
-      { name: 'JAN', actual: 45000 },
-      { name: 'FEB', actual: 52000 },
-      { name: 'MAR', actual: 48000 },
-      { name: 'APR', actual: 61000 },
-      { name: 'MAY', actual: 59000 },
-      { name: 'JUN', actual: 65000 },
-    ];
-    
-    const avgLast3 = (actuals[3].actual + actuals[4].actual + actuals[5].actual) / 3;
-    
-    const data: any[] = actuals.map(a => ({ ...a, projected: null }));
-    data[5].projected = data[5].actual; // Connect the lines
-    
-    let currentProj = avgLast3 * 1.05;
-    const projectedMonths = ['JUL', 'AUG', 'SEP'];
-    
-    projectedMonths.forEach(m => {
-      data.push({ name: m, actual: null, projected: currentProj });
-      currentProj *= 1.05;
-    });
-    
-    return data;
-  }, []);
+  // ── Sales Forecast Engine (real data) ────────────────────────────────────
+  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null);
+  const [isForecastLoading, setIsForecastLoading] = useState(false);
+
+  const loadForecast = async () => {
+    setIsForecastLoading(true);
+    try {
+      const result = await getSalesForecast(
+        transactions.map(t => ({ date: t.date, amount: t.amount, type: t.type }))
+      );
+      setForecastResult(result);
+    } catch (e) {
+      console.error('[ForecastEngine] Failed:', e);
+    } finally {
+      setIsForecastLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      loadForecast();
+    }
+  }, [transactions]);
+
+  const forecastChartData = forecastResult?.data ?? [];
 
   return (
     <div className="space-y-8">
@@ -2869,13 +2873,42 @@ function OverviewView({ transactions, setTransactions, onViewReport, dateFormat,
       </div>
       )}
 
-      {/* Sales Forecast Panel */}
+      {/* Sales Forecast Panel — Real Data + Linear Regression + Confidence Bands */}
       {layout.showForecast && (
-      <div className="glass border-white/5 p-8 mt-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
+      <div className="glass border-white/5 p-8 mt-8 relative overflow-hidden">
+        {/* Ambient glow */}
+        <div className="absolute -top-20 -right-20 w-60 h-60 bg-intelligence/5 blur-[120px] rounded-full pointer-events-none"></div>
+        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-brand/5 blur-[120px] rounded-full pointer-events-none"></div>
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8 relative z-10">
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1">Predictive Model</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1 flex items-center gap-2">
+              <TrendingUp size={12} />
+              Regression Forecast Engine
+            </h4>
             <p className="text-xl font-black italic">SALES FORECAST (90-DAY OUTLOOK)</p>
+            {forecastResult && (
+              <div className="flex gap-6 mt-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn("w-1.5 h-1.5 rounded-full", forecastResult.rSquared > 0.6 ? 'bg-green-400' : forecastResult.rSquared > 0.3 ? 'bg-yellow-400' : 'bg-brand')}></div>
+                  <span className="text-[9px] font-mono text-gray-500 uppercase">R² = {forecastResult.rSquared.toFixed(3)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {forecastResult.monthlyGrowthRate >= 0
+                    ? <ArrowUpRight size={10} className="text-intelligence" />
+                    : <ArrowDownRight size={10} className="text-brand" />}
+                  <span className={cn("text-[9px] font-mono uppercase font-bold", forecastResult.monthlyGrowthRate >= 0 ? 'text-intelligence' : 'text-brand')}>
+                    {forecastResult.monthlyGrowthRate >= 0 ? '+' : ''}{forecastResult.monthlyGrowthRate.toFixed(1)}% / MONTH
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Database size={10} className="text-gray-600" />
+                  <span className="text-[9px] font-mono text-gray-600 uppercase">
+                    Source: {forecastResult.dataSource === 'supabase' ? 'LIVE DB' : 'LOCAL CACHE'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-start md:items-end gap-3">
              <div className="flex gap-4">
@@ -2887,24 +2920,171 @@ function OverviewView({ transactions, setTransactions, onViewReport, dateFormat,
                  <div className="w-2 h-2 border border-brand bg-brand/20"></div>
                  <span className="text-[9px] font-mono text-gray-500 uppercase">Projected Revenue</span>
                </div>
+               <div className="flex items-center gap-2">
+                 <div className="w-3 h-2 bg-brand/10 border border-brand/30"></div>
+                 <span className="text-[9px] font-mono text-gray-500 uppercase">80% Confidence Band</span>
+               </div>
              </div>
-             <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest italic bg-white/5 px-3 py-2">
-               Projection based on historical average
-             </p>
+             <button
+               onClick={loadForecast}
+               disabled={isForecastLoading}
+               className="text-[9px] font-mono text-intelligence uppercase tracking-widest bg-intelligence/5 border border-intelligence/20 px-4 py-2 flex items-center gap-2 hover:bg-intelligence/10 transition-all disabled:opacity-50"
+             >
+               <RefreshCw size={10} className={cn(isForecastLoading && 'animate-spin')} />
+               {isForecastLoading ? 'COMPUTING...' : 'REFRESH MODEL'}
+             </button>
           </div>
         </div>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={forecastChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }} width={80} tickFormatter={(val) => `$${(val/1000)}k`} />
-              <Tooltip contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }} />
-              <Line type="monotone" dataKey="actual" stroke="#00f2ff" strokeWidth={3} dot={{ r: 4, fill: '#00f2ff', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="projected" stroke="#dc143c" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 4, fill: '#dc143c', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+
+        {isForecastLoading && forecastChartData.length === 0 ? (
+          <div className="h-[350px] flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="flex justify-center gap-2">
+                <div className="w-2 h-2 bg-intelligence rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-intelligence rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div className="w-2 h-2 bg-intelligence rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              </div>
+              <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Initializing Regression Engine...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="h-[350px] w-full relative z-10">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={forecastChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="forecastConfBand" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#dc143c" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="#dc143c" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="actualAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#00f2ff" stopOpacity={0.08} />
+                    <stop offset="100%" stopColor="#00f2ff" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a2e" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#555', fontSize: 10, fontWeight: 'bold' }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#555', fontSize: 10, fontWeight: 'bold' }}
+                  width={80}
+                  tickFormatter={(val: number) => {
+                    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+                    if (val >= 1_000) return `${(val / 1_000).toFixed(0)}k`;
+                    return String(val);
+                  }}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0a0c14', border: '1px solid #222', borderRadius: '0', fontSize: '10px', color: '#fff', fontFamily: 'monospace' }}
+                  labelStyle={{ color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                  formatter={(value: any, name: string) => {
+                    const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
+                    const labels: Record<string, string> = {
+                      actual: 'Actual Revenue',
+                      projected: 'Projected',
+                      upperBand: 'Upper Bound',
+                      lowerBand: 'Lower Bound',
+                    };
+                    return [formatted, labels[name] || name];
+                  }}
+                />
+                {/* Confidence interval band (upper) */}
+                <Area
+                  type="monotone"
+                  dataKey="upperBand"
+                  stroke="none"
+                  fill="url(#forecastConfBand)"
+                  fillOpacity={1}
+                  connectNulls={false}
+                  isAnimationActive={true}
+                  animationDuration={1200}
+                />
+                {/* Confidence interval band (lower boundary eraser) */}
+                <Area
+                  type="monotone"
+                  dataKey="lowerBand"
+                  stroke="none"
+                  fill="#05070a"
+                  fillOpacity={0.8}
+                  connectNulls={false}
+                  isAnimationActive={true}
+                  animationDuration={1200}
+                />
+                {/* Actual revenue area + line */}
+                <Area
+                  type="monotone"
+                  dataKey="actual"
+                  stroke="#00f2ff"
+                  strokeWidth={3}
+                  fill="url(#actualAreaGrad)"
+                  fillOpacity={1}
+                  dot={{ r: 4, fill: '#00f2ff', strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: '#00f2ff', stroke: '#00f2ff', strokeWidth: 2 }}
+                  connectNulls={false}
+                  isAnimationActive={true}
+                  animationDuration={800}
+                />
+                {/* Projected revenue line */}
+                <Line
+                  type="monotone"
+                  dataKey="projected"
+                  stroke="#dc143c"
+                  strokeWidth={3}
+                  strokeDasharray="8 4"
+                  dot={{ r: 5, fill: '#0a0c14', stroke: '#dc143c', strokeWidth: 2 }}
+                  activeDot={{ r: 7, fill: '#dc143c', stroke: '#dc143c', strokeWidth: 2 }}
+                  connectNulls={false}
+                  isAnimationActive={true}
+                  animationDuration={1000}
+                  animationBegin={600}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Regression stats footer */}
+        {forecastResult && !isForecastLoading && (
+          <div className="mt-6 pt-4 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              {
+                label: 'Model Confidence',
+                value: `${(forecastResult.rSquared * 100).toFixed(1)}%`,
+                sub: forecastResult.rSquared > 0.7 ? 'STRONG FIT' : forecastResult.rSquared > 0.4 ? 'MODERATE FIT' : 'WEAK FIT',
+                color: forecastResult.rSquared > 0.7 ? 'text-green-400' : forecastResult.rSquared > 0.4 ? 'text-yellow-400' : 'text-brand'
+              },
+              {
+                label: 'Monthly Growth',
+                value: `${forecastResult.monthlyGrowthRate >= 0 ? '+' : ''}${forecastResult.monthlyGrowthRate.toFixed(1)}%`,
+                sub: forecastResult.monthlyGrowthRate > 0 ? 'UPTREND' : forecastResult.monthlyGrowthRate < 0 ? 'DOWNTREND' : 'FLAT',
+                color: forecastResult.monthlyGrowthRate >= 0 ? 'text-intelligence' : 'text-brand'
+              },
+              {
+                label: 'Data Points',
+                value: String(forecastChartData.filter((d: ForecastPoint) => d.actual !== null && d.actual > 0).length),
+                sub: 'MONTHS ANALYZED',
+                color: 'text-gray-400'
+              },
+              {
+                label: 'Projection Window',
+                value: '3 MO',
+                sub: '90-DAY OUTLOOK',
+                color: 'text-brand'
+              }
+            ].map((stat, i) => (
+              <div key={i} className="bg-white/[0.02] border border-white/5 p-4 hover:bg-white/[0.04] transition-colors">
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-2">{stat.label}</p>
+                <p className={cn("text-xl font-black font-mono", stat.color)}>{stat.value}</p>
+                <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest mt-1">{stat.sub}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       )}
 
@@ -6962,7 +7142,9 @@ function SettingsView({
   dateFormat,
   onChangeDateFormat,
   autoSendReplies,
-  setAutoSendReplies
+  setAutoSendReplies,
+  userRole,
+  setUserRole
 }: {
   transactions: Transaction[],
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>,
@@ -6974,7 +7156,9 @@ function SettingsView({
   dateFormat: 'AD' | 'BS',
   onChangeDateFormat: (val: 'AD' | 'BS') => void,
   autoSendReplies: boolean,
-  setAutoSendReplies: React.Dispatch<React.SetStateAction<boolean>>
+  setAutoSendReplies: React.Dispatch<React.SetStateAction<boolean>>,
+  userRole?: string,
+  setUserRole?: (role: string) => void
 }) {
   const { t, language, setLanguage } = React.useContext(LanguageContext);
   const [profile, setProfile] = useState({
@@ -7537,6 +7721,30 @@ function SettingsView({
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
                       </div>
                     </div>
+
+                    {setUserRole && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Clearance Level (User Role)</label>
+                        <div className="relative group">
+                          <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-intelligence transition-colors" size={18} />
+                          <select
+                            value={userRole || 'Owner'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setUserRole(val);
+                              localStorage.setItem('user_role', val);
+                            }}
+                            className="w-full bg-white/5 border border-white/10 px-12 py-4 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 transition-all appearance-none cursor-pointer uppercase tracking-widest"
+                          >
+                            <option value="Owner">Owner</option>
+                            <option value="Manager">Manager</option>
+                            <option value="Accountant">Accountant</option>
+                            <option value="Marketer">Marketer</option>
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">{t('Language (Language Preference)')}</label>
@@ -9270,6 +9478,1062 @@ function VoiceCommandView({ transactions }: { transactions: Transaction[] }) {
   );
 }
 
+function ManagerDashboardView({
+  transactions,
+  loadTransactions,
+  queries,
+  onMarkAsReplied
+}: {
+  transactions: Transaction[];
+  loadTransactions: () => void;
+  queries: any[];
+  onMarkAsReplied: (id: string, replyText: string) => Promise<void>;
+}) {
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [restockItem, setRestockItem] = useState<any>(null);
+  const [restockQty, setRestockQty] = useState(50);
+  const [replyQuery, setReplyQuery] = useState<any>(null);
+  const [manualReplyText, setManualReplyText] = useState('');
+  
+  const [approvedTxIds, setApprovedTxIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('manager_approved_transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+
+  const pendingApprovals = useMemo(() => {
+    return transactions.filter(t => t.amount > 50000 && !approvedTxIds.includes(t.id || ''));
+  }, [transactions, approvedTxIds]);
+
+  const queryBacklog = useMemo(() => {
+    return queries.filter(q => q.status === 'Pending');
+  }, [queries]);
+
+  const loadInventoryAlerts = async () => {
+    if (isDemo) {
+      const mockInventory = [
+        { id: 'inv-1', name: 'OPTIC_SENSOR_V9', category: 'Components', sku: 'SKU-001', qty: 3, min_stock: 10, price: 120, status: 'LOW STOCK' },
+        { id: 'inv-2', name: 'HYPERLINK_CABLE', category: 'Networking', sku: 'SKU-002', qty: 25, min_stock: 50, price: 25, status: 'LOW STOCK' },
+        { id: 'inv-3', name: 'COOLANT_FLUID_Z', category: 'Support', sku: 'SKU-003', qty: 0, min_stock: 5, price: 85, status: 'EXPIRED' }
+      ];
+      setInventoryItems(mockInventory);
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+      if (!profile?.business_id) return;
+
+      const data = await getInventory(profile.business_id);
+      if (data) {
+        const alerts = data.filter(item => item.qty <= item.min_stock || item.status === 'EXPIRED' || item.status === 'EXPIRING SOON');
+        setInventoryItems(alerts);
+      }
+    } catch (e) {
+      console.error('Failed to load inventory alerts:', e);
+    }
+  };
+
+  const loadAuditLogs = async () => {
+    if (isDemo) {
+      const mockLogs = [
+        { id: 'log-1', timestamp: new Date(Date.now() - 600000).toISOString(), action_type: 'CREATE', table_name: 'transactions', record_id: 'tx-100', user_name: 'Pooja Karki', details: 'Added Inflow transaction: Room Booking' },
+        { id: 'log-2', timestamp: new Date(Date.now() - 3600000).toISOString(), action_type: 'UPDATE', table_name: 'inventory', record_id: 'inv-200', user_name: 'Siddharth Lama', details: 'Updated stock: OPTIC_SENSOR_V9 (+15)' },
+        { id: 'log-3', timestamp: new Date(Date.now() - 7200000).toISOString(), action_type: 'CREATE', table_name: 'transactions', record_id: 'tx-101', user_name: 'Aayush Shrestha', details: 'Created Outflow transaction: Electricity' },
+        { id: 'log-4', timestamp: new Date(Date.now() - 86400000).toISOString(), action_type: 'DELETE', table_name: 'transactions', record_id: 'tx-99', user_name: 'Pooja Karki', details: 'Removed duplicate transaction record' }
+      ];
+      setAuditLogs(mockLogs);
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+      if (!profile?.business_id) return;
+
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*, users:user_id(name)')
+        .eq('business_id', profile.business_id)
+        .order('timestamp', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        const { data: fallbackData } = await supabase
+          .from('audit_logs')
+          .select('*')
+          .eq('business_id', profile.business_id)
+          .order('timestamp', { ascending: false })
+          .limit(10);
+        setAuditLogs(fallbackData || []);
+      } else {
+        setAuditLogs(data.map((log: any) => ({
+          ...log,
+          user_name: log.users?.name || 'System Agent',
+          details: `${log.action_type} on ${log.table_name} (ID: ${log.record_id})`
+        })));
+      }
+    } catch (e) {
+      console.error('Failed to load audit logs:', e);
+    }
+  };
+
+  const initData = async () => {
+    setIsLoading(true);
+    await Promise.all([loadInventoryAlerts(), loadAuditLogs()]);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    initData();
+  }, [transactions]);
+
+  const handleApproveTransaction = async (txId: string) => {
+    const nextApproved = [...approvedTxIds, txId];
+    setApprovedTxIds(nextApproved);
+    localStorage.setItem('manager_approved_transactions', JSON.stringify(nextApproved));
+    
+    const tx = transactions.find(t => t.id === txId);
+    if (tx) {
+      await logAudit('UPDATE', 'transactions', txId, tx, { ...tx, approved_by_manager: true });
+    }
+    loadTransactions();
+    loadAuditLogs();
+  };
+
+  const handleRestock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restockItem || restockQty <= 0) return;
+
+    if (isDemo) {
+      setInventoryItems(prev => prev.map(item => item.id === restockItem.id ? { ...item, qty: item.qty + restockQty, status: 'GOOD' } : item).filter(item => item.qty <= item.min_stock));
+      setRestockItem(null);
+      return;
+    }
+
+    try {
+      const newQty = restockItem.qty + restockQty;
+      const { error } = await supabase
+        .from('inventory')
+        .update({ stock: newQty })
+        .eq('id', restockItem.id);
+
+      if (error) throw error;
+      await logAudit('UPDATE', 'inventory', restockItem.id, restockItem, { ...restockItem, stock: newQty });
+      await loadInventoryAlerts();
+      setRestockItem(null);
+    } catch (e) {
+      console.error('Failed to restock:', e);
+    }
+  };
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyQuery || !manualReplyText) return;
+
+    await onMarkAsReplied(replyQuery.id, manualReplyText);
+    setReplyQuery(null);
+    setManualReplyText('');
+    loadAuditLogs();
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1">Ecosystem Control</h4>
+        <p className="text-2xl font-black italic uppercase">Manager Operations Dashboard</p>
+        <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest mt-1">
+          Heuristic Task Telemetry, Sign-offs, Alerts, and Query Backlogs
+        </p>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className={cn("glass p-6 border-white/5 relative overflow-hidden", pendingApprovals.length > 0 ? "border-brand/30 shadow-[0_0_15px_rgba(220,20,60,0.1)]" : "")}>
+          <span className="text-[8px] font-mono text-gray-500 uppercase tracking-widest block mb-2">Compliance sign-off hold</span>
+          <p className={cn("text-3xl font-black font-mono", pendingApprovals.length > 0 ? "text-brand animate-pulse" : "text-white")}>
+            {pendingApprovals.length}
+          </p>
+          <p className="text-[7px] font-mono text-gray-600 uppercase tracking-widest mt-2">Transactions &gt; Rs. 50,000</p>
+        </div>
+
+        <div className={cn("glass p-6 border-white/5 relative overflow-hidden", inventoryItems.length > 0 ? "border-yellow-500/30" : "")}>
+          <span className="text-[8px] font-mono text-gray-500 uppercase tracking-widest block mb-2">Critical stock Alerts</span>
+          <p className="text-3xl font-black font-mono text-yellow-500">
+            {inventoryItems.length}
+          </p>
+          <p className="text-[7px] font-mono text-gray-600 uppercase tracking-widest mt-2">Low Stock or Expired items</p>
+        </div>
+
+        <div className={cn("glass p-6 border-white/5 relative overflow-hidden", queryBacklog.length > 0 ? "border-intelligence/30" : "")}>
+          <span className="text-[8px] font-mono text-gray-500 uppercase tracking-widest block mb-2">Unresolved Queries</span>
+          <p className="text-3xl font-black font-mono text-intelligence">
+            {queryBacklog.length}
+          </p>
+          <p className="text-[7px] font-mono text-gray-600 uppercase tracking-widest mt-2">Awaiting dispatch replies</p>
+        </div>
+
+        <div className="glass p-6 border-white/5 relative overflow-hidden">
+          <span className="text-[8px] font-mono text-gray-500 uppercase tracking-widest block mb-2">Today Team Telemetry</span>
+          <p className="text-3xl font-black font-mono text-white">
+            {auditLogs.length}
+          </p>
+          <p className="text-[7px] font-mono text-gray-600 uppercase tracking-widest mt-2">Events logged in feed</p>
+        </div>
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* Pending Approvals */}
+        <div className="glass border-white/5 p-6 relative overflow-hidden flex flex-col h-[400px]">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-brand">NPR 50,000+ COMPLIANCE QUEUE</h3>
+              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Sign-off required for processing</p>
+            </div>
+            <div className="w-2 h-2 bg-brand rounded-full animate-ping"></div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
+            {pendingApprovals.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <CheckCircle2 size={24} className="text-intelligence mb-2" />
+                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">All transactions cleared and signed-off</p>
+              </div>
+            ) : (
+              pendingApprovals.map(tx => (
+                <div key={tx.id} className="glass border-white/5 bg-white/[0.01] p-4 flex justify-between items-center group hover:border-brand/20 transition-all duration-300">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono text-gray-400">{tx.date}</span>
+                      <span className="text-[8px] font-mono bg-white/5 border border-white/5 px-2 py-0.2 rounded-sm text-gray-500 uppercase tracking-widest">{tx.category}</span>
+                    </div>
+                    <h4 className="text-[11px] font-black uppercase tracking-wider text-white mt-1.5">{tx.description}</h4>
+                  </div>
+                  <div className="text-right flex items-center gap-4">
+                    <div>
+                      <span className="text-[7px] font-mono text-gray-600 block uppercase">Amount</span>
+                      <span className="text-xs font-mono font-black text-brand">Rs. {new Intl.NumberFormat('en-NP').format(tx.amount)}</span>
+                    </div>
+                    <button
+                      onClick={() => handleApproveTransaction(tx.id || '')}
+                      className="text-[9px] font-mono text-black bg-brand px-3 py-1.5 hover:bg-brand-bright hover:shadow-[0_0_10px_#dc143c] transition-all font-bold uppercase tracking-wider"
+                    >
+                      Sign Off
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Team Activity Feed */}
+        <div className="glass border-white/5 p-6 relative overflow-hidden flex flex-col h-[400px]">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-white">TEAM TELEMETRY FEED</h3>
+              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Real-time ecosystem logs</p>
+            </div>
+            <Activity size={14} className="text-intelligence animate-pulse" />
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
+            {auditLogs.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">No activities recorded today</p>
+              </div>
+            ) : (
+              auditLogs.map(log => {
+                const getActionColor = (act: string) => {
+                  if (act === 'CREATE') return 'text-intelligence border-intelligence/20 bg-intelligence/5';
+                  if (act === 'UPDATE') return 'text-yellow-500 border-yellow-500/20 bg-yellow-500/5';
+                  return 'text-brand border-brand/20 bg-brand/5';
+                };
+                return (
+                  <div key={log.id} className="border border-white/5 bg-white/[0.01] p-3 text-[10px] font-mono relative">
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("text-[7px] border px-1.5 py-0.2 rounded-sm font-black tracking-widest uppercase", getActionColor(log.action_type))}>
+                          {log.action_type}
+                        </span>
+                        <span className="text-white font-bold">{log.user_name}</span>
+                      </div>
+                      <span className="text-[8px] text-gray-600">{log.timestamp ? formatTimeAgo(log.timestamp) : 'Recently'}</span>
+                    </div>
+                    <p className="text-gray-400 text-[9px] mt-1.5">{log.details || `${log.action_type} execution on table ${log.table_name}`}</p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Inventory Warning Alerts */}
+        <div className="glass border-white/5 p-6 relative overflow-hidden flex flex-col h-[400px]">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-yellow-500">INVENTORY WARP DEVIATION (LOW STOCK)</h3>
+              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Items at or below critical replenishment threshold</p>
+            </div>
+            <AlertTriangle size={14} className="text-yellow-500 animate-bounce" />
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
+            {inventoryItems.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <CheckCircle2 size={24} className="text-intelligence mb-2" />
+                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Inventory levels within normal range parameters</p>
+              </div>
+            ) : (
+              inventoryItems.map(item => (
+                <div key={item.id} className="glass border-white/5 bg-white/[0.01] p-4 flex justify-between items-center group hover:border-yellow-500/20 transition-all duration-300">
+                  <div>
+                    <span className="text-[8px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.2 rounded-sm text-yellow-500 uppercase tracking-widest">{item.category}</span>
+                    <h4 className="text-[11px] font-black uppercase tracking-wider text-white mt-1.5">{item.name}</h4>
+                    <span className="text-[8px] font-mono text-gray-500 block uppercase mt-0.5">SKU: {item.sku || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <span className="text-[7px] font-mono text-gray-600 block uppercase">Stock Level</span>
+                      <span className="text-xs font-mono font-black text-brand">{item.qty} <span className="text-[8px] text-gray-500 font-normal">/ {item.min_stock} MIN</span></span>
+                    </div>
+                    <button
+                      onClick={() => setRestockItem(item)}
+                      className="text-[9px] font-mono text-black bg-yellow-500 px-3 py-1.5 hover:bg-yellow-400 hover:shadow-[0_0_10px_#eab308] transition-all font-bold uppercase tracking-wider"
+                    >
+                      Restock
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Customer Query Backlog */}
+        <div className="glass border-white/5 p-6 relative overflow-hidden flex flex-col h-[400px]">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-intelligence">METIS DISPATCH BACKLOG</h3>
+              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Customer queries awaiting manual neural intervention</p>
+            </div>
+            <MessageSquare size={14} className="text-intelligence animate-pulse" />
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
+            {queryBacklog.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <CheckCircle2 size={24} className="text-intelligence mb-2" />
+                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">All incoming customer traffic processed</p>
+              </div>
+            ) : (
+              queryBacklog.map(q => (
+                <div key={q.id} className="glass border-white/5 bg-white/[0.01] p-4 flex flex-col justify-between group hover:border-intelligence/20 transition-all duration-300">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span className="text-[8px] font-mono bg-intelligence/10 border border-intelligence/20 px-2 py-0.2 rounded-sm text-intelligence uppercase tracking-widest">{q.platform}</span>
+                      <h4 className="text-[10px] font-black uppercase tracking-wider text-white mt-1">{q.name}</h4>
+                    </div>
+                    <span className="text-[8px] font-mono text-gray-500">{q.time}</span>
+                  </div>
+                  <p className="text-[10px] font-mono text-gray-400 bg-black/40 border border-white/5 p-2 italic my-1.5">"{q.message}"</p>
+                  <div className="flex justify-end mt-2">
+                    <button
+                      onClick={() => {
+                        setReplyQuery(q);
+                        setManualReplyText('');
+                      }}
+                      className="text-[9px] font-mono text-black bg-intelligence px-3 py-1.5 hover:bg-intelligence-bright hover:shadow-[0_0_10px_#00f2ff] transition-all font-bold uppercase tracking-wider"
+                    >
+                      Process Reply
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Restock Dialog */}
+      {restockItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass border-white/10 p-8 max-w-sm w-full relative">
+            <button
+              onClick={() => setRestockItem(null)}
+              className="absolute right-4 top-4 text-gray-500 hover:text-white transition-colors text-[10px] font-mono tracking-widest"
+            >
+              [CLOSE]
+            </button>
+            <h3 className="text-lg font-black uppercase tracking-widest text-yellow-500 mb-1">Restock Replenish</h3>
+            <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest mb-6">
+              Enter quantity units to restock {restockItem.name}.
+            </p>
+
+            <form onSubmit={handleRestock} className="space-y-4">
+              <div>
+                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Item Code</label>
+                <p className="text-xs font-mono font-black text-white">{restockItem.name} ({restockItem.sku})</p>
+              </div>
+              <div>
+                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Restock Quantity</label>
+                <input
+                  type="number"
+                  required
+                  value={restockQty}
+                  onChange={(e) => setRestockQty(Number(e.target.value))}
+                  className="w-full bg-black/40 border border-white/5 px-4 py-2 text-[10px] font-mono focus:border-yellow-500/40 focus:outline-none text-white rounded-none"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full text-[10px] font-mono text-black uppercase tracking-widest bg-yellow-500 px-4 py-3 hover:bg-yellow-400 hover:shadow-[0_0_15px_#eab308] transition-all font-bold mt-4"
+              >
+                Execute Reorder
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Process Reply Dialog */}
+      {replyQuery && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass border-white/10 p-8 max-w-md w-full relative">
+            <button
+              onClick={() => setReplyQuery(null)}
+              className="absolute right-4 top-4 text-gray-500 hover:text-white transition-colors text-[10px] font-mono tracking-widest"
+            >
+              [CLOSE]
+            </button>
+            <h3 className="text-lg font-black uppercase tracking-widest text-intelligence mb-1">METIS Dispatch Interface</h3>
+            <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest mb-6">
+              Neural gateway communication response channel.
+            </p>
+
+            <form onSubmit={handleSendReply} className="space-y-4">
+              <div>
+                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Customer Query Details</label>
+                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">{replyQuery.name} via {replyQuery.platform}</p>
+                <p className="text-xs font-mono text-white italic bg-white/5 p-3 border border-white/5 mt-1">"{replyQuery.message}"</p>
+              </div>
+              <div>
+                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Manual Response Dispatch</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={manualReplyText}
+                  onChange={(e) => setManualReplyText(e.target.value)}
+                  placeholder="Enter manual override dispatch message here..."
+                  className="w-full bg-black/40 border border-white/5 p-3 text-[10px] font-mono focus:border-intelligence/40 focus:outline-none text-white rounded-none resize-none"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full text-[10px] font-mono text-black uppercase tracking-widest bg-intelligence px-4 py-3 hover:bg-intelligence-bright hover:shadow-[0_0_15px_#00f2ff] transition-all font-bold mt-4"
+              >
+                Dispatch Over Neural Mesh
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  monthly_target: number;
+  created_at?: string;
+}
+
+function EmployeePerformanceView({ 
+  transactions, 
+  onAddTransaction 
+}: { 
+  transactions: Transaction[]; 
+  onAddTransaction: () => void; 
+ }) {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  
+  // Form states
+  const [newName, setNewName] = useState('');
+  const [newRole, setNewRole] = useState('');
+  const [newDept, setNewDept] = useState('');
+  const [newTarget, setNewTarget] = useState(0);
+  
+  // Link states
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedTxId, setSelectedTxId] = useState('');
+  
+  // Filter states
+  const [selectedDept, setSelectedDept] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+
+  const defaultDemoEmployees: Employee[] = [
+    { id: 'emp-1', name: 'Siddharth Lama', role: 'Sales Executive', department: 'Sales', monthly_target: 300000 },
+    { id: 'emp-2', name: 'Aayush Shrestha', role: 'Guest Relations Manager', department: 'Front Office', monthly_target: 150000 },
+    { id: 'emp-3', name: 'Pooja Karki', role: 'Spa Coordinator', department: 'Wellness', monthly_target: 100000 }
+  ];
+
+  const loadEmployees = async () => {
+    setIsLoading(true);
+    if (isDemo) {
+      const saved = localStorage.getItem('demo_employees');
+      if (saved) {
+        setEmployees(JSON.parse(saved));
+      } else {
+        localStorage.setItem('demo_employees', JSON.stringify(defaultDemoEmployees));
+        setEmployees(defaultDemoEmployees);
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+        if (profile?.business_id) {
+          const { data, error } = await supabase
+            .from('employees')
+            .select('*')
+            .eq('business_id', profile.business_id)
+            .order('name', { ascending: true });
+          if (error) throw error;
+          if (data) setEmployees(data);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load employees:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName || !newRole || !newDept || newTarget <= 0) return;
+
+    if (isDemo) {
+      const newEmp: Employee = {
+        id: `emp-${Date.now()}`,
+        name: newName,
+        role: newRole,
+        department: newDept,
+        monthly_target: Number(newTarget)
+      };
+      const updated = [...employees, newEmp];
+      localStorage.setItem('demo_employees', JSON.stringify(updated));
+      setEmployees(updated);
+      setIsAddModalOpen(false);
+      resetForm();
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+      if (!profile?.business_id) return;
+
+      const { error } = await supabase.from('employees').insert({
+        business_id: profile.business_id,
+        name: newName,
+        role: newRole,
+        department: newDept,
+        monthly_target: Number(newTarget)
+      });
+      if (error) throw error;
+      await loadEmployees();
+      setIsAddModalOpen(false);
+      resetForm();
+    } catch (err) {
+      console.error('Failed to add employee:', err);
+    }
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this employee?')) return;
+
+    if (isDemo) {
+      const updated = employees.filter(e => e.id !== id);
+      localStorage.setItem('demo_employees', JSON.stringify(updated));
+      setEmployees(updated);
+      // Unlink any transactions associated with this employee
+      const savedTx = localStorage.getItem('demo_transactions');
+      if (savedTx) {
+        const txs: Transaction[] = JSON.parse(savedTx);
+        const updatedTxs = txs.map(t => t.employee_id === id ? { ...t, employee_id: undefined } : t);
+        localStorage.setItem('demo_transactions', JSON.stringify(updatedTxs));
+        onAddTransaction();
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('employees').delete().eq('id', id);
+      if (error) throw error;
+      await loadEmployees();
+      onAddTransaction();
+    } catch (err) {
+      console.error('Failed to delete employee:', err);
+    }
+  };
+
+  const handleLinkTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmployeeId || !selectedTxId) return;
+
+    if (isDemo) {
+      const savedTx = localStorage.getItem('demo_transactions');
+      if (savedTx) {
+        const txs: Transaction[] = JSON.parse(savedTx);
+        const updatedTxs = txs.map(t => t.id === selectedTxId ? { ...t, employee_id: selectedEmployeeId } : t);
+        localStorage.setItem('demo_transactions', JSON.stringify(updatedTxs));
+        onAddTransaction();
+      }
+      setIsLinkModalOpen(false);
+      setSelectedTxId('');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ employee_id: selectedEmployeeId })
+        .eq('id', selectedTxId);
+      if (error) throw error;
+      onAddTransaction();
+      setIsLinkModalOpen(false);
+      setSelectedTxId('');
+    } catch (err) {
+      console.error('Failed to link transaction:', err);
+    }
+  };
+
+  const handleUnlinkTransaction = async (txId: string) => {
+    if (isDemo) {
+      const savedTx = localStorage.getItem('demo_transactions');
+      if (savedTx) {
+        const txs: Transaction[] = JSON.parse(savedTx);
+        const updatedTxs = txs.map(t => t.id === txId ? { ...t, employee_id: undefined } : t);
+        localStorage.setItem('demo_transactions', JSON.stringify(updatedTxs));
+        onAddTransaction();
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ employee_id: null })
+        .eq('id', txId);
+      if (error) throw error;
+      onAddTransaction();
+    } catch (err) {
+      console.error('Failed to unlink transaction:', err);
+    }
+  };
+
+  const resetForm = () => {
+    setNewName('');
+    setNewRole('');
+    setNewDept('');
+    setNewTarget(0);
+  };
+
+  // Get department options
+  const departments = ['All', ...Array.from(new Set(employees.map(e => e.department)))];
+
+  // Calculate actual revenue for each employee
+  const employeePerformanceData = employees.map(emp => {
+    const linkedTxs = transactions.filter(t => t.employee_id === emp.id && t.type === 'Inflow');
+    const actualRevenue = linkedTxs.reduce((sum, t) => sum + t.amount, 0);
+    const perfPercent = emp.monthly_target > 0 ? (actualRevenue / emp.monthly_target) * 100 : 0;
+
+    // Trend calculations (monthly grouping)
+    const monthlyGroups: Record<string, number> = {};
+    linkedTxs.forEach(t => {
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthlyGroups[key] = (monthlyGroups[key] || 0) + t.amount;
+    });
+
+    const trendData: { month: string; actual: number }[] = [];
+    const date = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const targetDate = new Date(date.getFullYear(), date.getMonth() - i, 1);
+      const key = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      trendData.push({
+        month: months[targetDate.getMonth()],
+        actual: monthlyGroups[key] || 0
+      });
+    }
+
+    return {
+      ...emp,
+      actualRevenue,
+      perfPercent,
+      trendData,
+      linkedTxs
+    };
+  });
+
+  const filteredEmployees = employeePerformanceData.filter(emp => {
+    const matchesDept = selectedDept === 'All' || emp.department === selectedDept;
+    const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          emp.role.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesDept && matchesSearch;
+  });
+
+  const unlinkedTransactions = transactions.filter(t => t.type === 'Inflow' && !t.employee_id);
+
+  return (
+    <div className="space-y-8">
+      {/* Header section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1">Ecosystem Intelligence</h4>
+          <p className="text-2xl font-black italic uppercase">Employee Performance Tracking</p>
+          <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest mt-1">
+            Real-time Target VS Actual Analysis & Transaction Attribution
+          </p>
+        </div>
+        <div className="flex gap-4">
+          <button
+            onClick={() => setIsLinkModalOpen(true)}
+            className="text-[9px] font-mono text-intelligence uppercase tracking-widest bg-intelligence/5 border border-intelligence/20 px-4 py-2 hover:bg-intelligence/10 transition-all flex items-center gap-2"
+          >
+            <Layers size={12} />
+            Link Sale Transaction
+          </button>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="text-[9px] font-mono text-brand uppercase tracking-widest bg-brand/5 border border-brand/20 px-4 py-2 hover:bg-brand/10 transition-all flex items-center gap-2"
+          >
+            <UserPlus size={12} />
+            Add Employee
+          </button>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="glass border-white/5 p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="flex gap-2 w-full md:w-auto overflow-x-auto py-1">
+          {departments.map(dept => (
+            <button
+              key={dept}
+              onClick={() => setSelectedDept(dept)}
+              className={cn(
+                "px-4 py-1.5 text-[9px] font-mono uppercase tracking-wider border transition-all whitespace-nowrap",
+                selectedDept === dept
+                  ? "bg-white text-black border-white"
+                  : "bg-white/5 text-gray-400 border-white/5 hover:bg-white/10 hover:text-white"
+              )}
+            >
+              {dept}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full md:w-80">
+          <input
+            type="text"
+            placeholder="SEARCH EMPLOYEE OR ROLE..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-black/40 border border-white/5 px-4 py-2 pl-9 text-[10px] font-mono uppercase tracking-widest focus:border-brand/40 focus:outline-none placeholder-gray-600 text-white rounded-none"
+          />
+          <Search size={12} className="absolute left-3 top-3 text-gray-500" />
+        </div>
+      </div>
+
+      {/* Grid of employee cards */}
+      {filteredEmployees.length === 0 ? (
+        <div className="h-[250px] glass border-white/5 flex flex-col items-center justify-center text-center">
+          <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">No Employees Found Matching Search Criteria</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredEmployees.map((emp) => {
+            const isOverTarget = emp.perfPercent >= 100;
+            return (
+              <div key={emp.id} className="glass border-white/5 p-6 relative overflow-hidden flex flex-col justify-between group hover:border-white/10 transition-all duration-300">
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <span className="text-[8px] font-mono bg-white/5 border border-white/5 px-2 py-0.5 rounded-sm text-gray-400 uppercase tracking-widest">
+                        {emp.department}
+                      </span>
+                      <h3 className="text-base font-black uppercase tracking-wider text-white mt-2 group-hover:text-brand transition-colors">
+                        {emp.name}
+                      </h3>
+                      <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">{emp.role}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteEmployee(emp.id)}
+                      className="p-1 hover:bg-brand/10 text-gray-500 hover:text-brand transition-colors"
+                      title="Delete Employee"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 mb-6">
+                    <div className="flex justify-between text-[9px] font-mono uppercase tracking-wider">
+                      <span className="text-gray-500">Target Achieved</span>
+                      <span className={cn("font-bold", isOverTarget ? "text-intelligence" : "text-brand")}>
+                        {emp.perfPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/5 overflow-hidden relative">
+                      <div 
+                        className={cn("h-full transition-all duration-500", isOverTarget ? "bg-intelligence" : "bg-brand")}
+                        style={{ width: `${Math.min(100, emp.perfPercent)}%` }}
+                      ></div>
+                      {isOverTarget && (
+                        <div 
+                          className="h-full bg-intelligence absolute top-0 right-0 animate-pulse" 
+                          style={{ width: `${Math.max(0, emp.perfPercent - 100)}%` }}
+                        ></div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-6 border-t border-white/5 pt-4">
+                    <div>
+                      <span className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">Monthly Target</span>
+                      <p className="text-sm font-black font-mono text-white mt-1">
+                        Rs. {new Intl.NumberFormat('en-NP').format(emp.monthly_target)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">Actual Sales</span>
+                      <p className={cn("text-sm font-black font-mono mt-1", isOverTarget ? "text-intelligence" : "text-white")}>
+                        Rs. {new Intl.NumberFormat('en-NP').format(emp.actualRevenue)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-white/5">
+                  <span className="text-[8px] font-mono text-gray-600 uppercase tracking-widest block mb-3">6-Month Trend</span>
+                  <div className="h-[50px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={emp.trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id={`grad-${emp.id}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={isOverTarget ? "#00f2ff" : "#dc143c"} stopOpacity={0.1} />
+                            <stop offset="100%" stopColor={isOverTarget ? "#00f2ff" : "#dc143c"} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <Area
+                          type="monotone"
+                          dataKey="actual"
+                          stroke={isOverTarget ? "#00f2ff" : "#dc143c"}
+                          strokeWidth={1.5}
+                          fill={`url(#grad-${emp.id})`}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+                  <div className="flex justify-between items-center text-[9px] font-mono uppercase tracking-widest">
+                    <span className="text-gray-500">Linked Inflows</span>
+                    <span className="text-white font-bold">{emp.linkedTxs.length} Transactions</span>
+                  </div>
+                  {emp.linkedTxs.length > 0 && (
+                    <div className="max-h-24 overflow-y-auto space-y-1 custom-scrollbar pr-1">
+                      {emp.linkedTxs.map(tx => (
+                        <div key={tx.id} className="flex justify-between items-center bg-white/[0.02] border border-white/5 p-1 px-2 text-[8px] font-mono">
+                          <span className="text-gray-400 truncate max-w-[120px]">{tx.description}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-intelligence">Rs. {tx.amount}</span>
+                            <button
+                              onClick={() => handleUnlinkTransaction(tx.id || '')}
+                              className="text-brand hover:text-white transition-colors"
+                              title="Unlink Transaction"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass border-white/10 p-8 max-w-md w-full relative">
+            <button
+              onClick={() => setIsAddModalOpen(false)}
+              className="absolute right-4 top-4 text-gray-500 hover:text-white transition-colors text-[10px] font-mono tracking-widest"
+            >
+              [CLOSE]
+            </button>
+            <h3 className="text-lg font-black uppercase tracking-widest text-brand mb-1">Add Employee</h3>
+            <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest mb-6">
+              Create a new employee profile to track sales performance targets.
+            </p>
+
+            <form onSubmit={handleAddEmployee} className="space-y-4">
+              <div>
+                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full bg-black/40 border border-white/5 px-4 py-2 text-[10px] font-mono focus:border-brand/40 focus:outline-none text-white rounded-none"
+                  placeholder="E.G. RAM BAHADUR LAMA"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Role / Designation</label>
+                  <input
+                    type="text"
+                    required
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    className="w-full bg-black/40 border border-white/5 px-4 py-2 text-[10px] font-mono focus:border-brand/40 focus:outline-none text-white rounded-none"
+                    placeholder="E.G. SALES ASSOCIATE"
+                  />
+                </div>
+                <div>
+                  <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Department</label>
+                  <input
+                    type="text"
+                    required
+                    value={newDept}
+                    onChange={(e) => setNewDept(e.target.value)}
+                    className="w-full bg-black/40 border border-white/5 px-4 py-2 text-[10px] font-mono focus:border-brand/40 focus:outline-none text-white rounded-none"
+                    placeholder="E.G. SALES"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Monthly Target (Rs.)</label>
+                <input
+                  type="number"
+                  required
+                  value={newTarget || ''}
+                  onChange={(e) => setNewTarget(Number(e.target.value))}
+                  className="w-full bg-black/40 border border-white/5 px-4 py-2 text-[10px] font-mono focus:border-brand/40 focus:outline-none text-white rounded-none"
+                  placeholder="E.G. 200000"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full text-[10px] font-mono text-black uppercase tracking-widest bg-brand px-4 py-3 hover:bg-brand-bright hover:shadow-[0_0_15px_#dc143c] transition-all font-bold mt-4"
+              >
+                Create Profile
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isLinkModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass border-white/10 p-8 max-w-md w-full relative">
+            <button
+              onClick={() => setIsLinkModalOpen(false)}
+              className="absolute right-4 top-4 text-gray-500 hover:text-white transition-colors text-[10px] font-mono tracking-widest"
+            >
+              [CLOSE]
+            </button>
+            <h3 className="text-lg font-black uppercase tracking-widest text-intelligence mb-1">Link Sale Transaction</h3>
+            <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest mb-6">
+              Attribute a customer transaction to a specific employee to track target performance.
+            </p>
+
+            {unlinkedTransactions.length === 0 ? (
+              <div className="text-center py-6 border border-white/5 bg-white/[0.01]">
+                <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">No unlinked inflow transactions available.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleLinkTransaction} className="space-y-4">
+                <div>
+                  <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Select Employee</label>
+                  <select
+                    required
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full bg-black/40 border border-white/5 px-4 py-2 text-[10px] font-mono focus:border-intelligence/40 focus:outline-none text-white rounded-none"
+                  >
+                    <option value="" disabled className="bg-[#05070a]">SELECT EMPLOYEE...</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id} className="bg-[#05070a]">
+                        {emp.name} ({emp.department})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Select Inflow Transaction</label>
+                  <select
+                    required
+                    value={selectedTxId}
+                    onChange={(e) => setSelectedTxId(e.target.value)}
+                    className="w-full bg-black/40 border border-white/5 px-4 py-2 text-[10px] font-mono focus:border-intelligence/40 focus:outline-none text-white rounded-none"
+                  >
+                    <option value="" disabled className="bg-[#05070a]">SELECT TRANSACTION...</option>
+                    {unlinkedTransactions.map(tx => (
+                      <option key={tx.id} value={tx.id} className="bg-[#05070a]">
+                        {tx.date} - {tx.description} (Rs. {tx.amount})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full text-[10px] font-mono text-black uppercase tracking-widest bg-intelligence px-4 py-3 hover:bg-intelligence-bright hover:shadow-[0_0_15px_#00f2ff] transition-all font-bold mt-4"
+                >
+                  Link Transaction
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<PlatformTab>('Overview');
   const [businessName, setBusinessName] = useState(localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL');
@@ -9305,15 +10569,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         setTransactions(JSON.parse(savedDemo));
       } else {
         const defaultDemo: Transaction[] = [
-          { id: '1', date: '2024-05-15', description: 'Room Booking Suite 402', amount: 45000, category: 'Sales', type: 'Inflow' },
-          { id: '2', date: '2024-05-14', description: 'Restaurant Banquet Dining Inflow', amount: 120000, category: 'Sales', type: 'Inflow' },
+          { id: '1', date: '2024-05-15', description: 'Room Booking Suite 402', amount: 45000, category: 'Sales', type: 'Inflow', employee_id: 'emp-2' },
+          { id: '2', date: '2024-05-14', description: 'Restaurant Banquet Dining Inflow', amount: 120000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
           { id: '3', date: '2024-05-12', description: 'Monthly Laundry Supplies Vendor', amount: 25000, category: 'Logistics', type: 'Outflow' },
           { id: '4', date: '2024-05-10', description: 'Pokhara Electricity Authority', amount: 85000, category: 'Infrastructure', type: 'Outflow' },
-          { id: '5', date: '2024-05-08', description: 'Spa Therapy Package Sales', amount: 65000, category: 'Sales', type: 'Inflow' },
+          { id: '5', date: '2024-05-08', description: 'Spa Therapy Package Sales', amount: 65000, category: 'Sales', type: 'Inflow', employee_id: 'emp-3' },
           { id: '6', date: '2024-05-05', description: 'Staff Salaries (May 2024)', amount: 450000, category: 'Payroll', type: 'Outflow' },
           { id: '7', date: '2024-05-02', description: 'Fresh Organic Kitchen Groceries', amount: 68000, category: 'Inventory', type: 'Outflow' },
           { id: '8', date: '2024-04-28', description: 'Premium Wine & Beverage Restock', amount: 110000, category: 'Inventory', type: 'Outflow' },
-          { id: '9', date: '2024-04-25', description: 'Corporate Seminar Hall Booking', amount: 250000, category: 'Sales', type: 'Inflow' },
+          { id: '9', date: '2024-04-25', description: 'Corporate Seminar Hall Booking', amount: 250000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
           { id: '10', date: '2024-04-20', description: 'Digital Marketing Pokhara Tourism', amount: 40000, category: 'Marketing', type: 'Outflow' }
         ];
         localStorage.setItem('demo_transactions', JSON.stringify(defaultDemo));
@@ -9334,6 +10598,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             description,
             amount,
             type,
+            employee_id,
             categories (
               name
             )
@@ -9349,7 +10614,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             description: item.description,
             amount: Number(item.amount),
             type: item.type,
-            category: item.categories?.name || 'Uncategorized'
+            category: item.categories?.name || 'Uncategorized',
+            employee_id: item.employee_id
           }));
           setTransactions(mapped);
         }
@@ -10064,6 +11330,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             { id: 'Customer Queries', icon: MessageSquare, label: 'QUERIES' },
             { id: 'Query Analytics', icon: BarChartIcon, label: 'QUERY ANALYTICS' },
             { id: 'Team Management', icon: Users, label: 'TEAM_INTEL' },
+            { id: 'Employee Performance', icon: Award, label: 'EMPLOYEE_PERFORMANCE' },
             { id: 'Data Entry', icon: Plus, label: 'DATA_INPUT' },
             { id: 'Voice', icon: Mic, label: 'VOICE_CONTROL' },
           ].filter(item => {
@@ -10320,7 +11587,24 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              {activeTab === 'Overview' && <OverviewView transactions={transactions} setTransactions={setTransactions} onViewReport={() => setActiveTab('Financial Summary')} dateFormat={dateFormat} onBulkAdd={bulkAddTransactions} />}
+              {activeTab === 'Overview' && (
+                userRole === 'Manager' ? (
+                  <ManagerDashboardView
+                    transactions={transactions}
+                    loadTransactions={loadTransactions}
+                    queries={queries}
+                    onMarkAsReplied={handleMarkAsReplied}
+                  />
+                ) : (
+                  <OverviewView
+                    transactions={transactions}
+                    setTransactions={setTransactions}
+                    onViewReport={() => setActiveTab('Financial Summary')}
+                    dateFormat={dateFormat}
+                    onBulkAdd={bulkAddTransactions}
+                  />
+                )
+              )}
               {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
               {activeTab === 'P&L Statement' && <PandLView />}
               {activeTab === 'Cash Flow' && <CashFlowView />}
@@ -10340,10 +11624,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               )}
               {activeTab === 'Team Management' && <TeamManagementView />}
               {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} />}
-              {activeTab === 'Settings' && <SettingsView transactions={transactions} setTransactions={setTransactions} onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} dateFormat={dateFormat} onChangeDateFormat={setDateFormat} autoSendReplies={autoSendReplies} setAutoSendReplies={setAutoSendReplies} />}
+              {activeTab === 'Settings' && <SettingsView transactions={transactions} setTransactions={setTransactions} onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} dateFormat={dateFormat} onChangeDateFormat={setDateFormat} autoSendReplies={autoSendReplies} setAutoSendReplies={setAutoSendReplies} userRole={userRole} setUserRole={setUserRole} />}
               {activeTab === 'Voice' && <VoiceCommandView transactions={transactions} />}
               {activeTab === 'Query Analytics' && <QueryAnalyticsView queries={dbQueries} />}
-              {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings', 'Voice', 'Query Analytics'].includes(activeTab) && <PlaceholderView name={activeTab} />}
+              {activeTab === 'Employee Performance' && <EmployeePerformanceView transactions={transactions} onAddTransaction={loadTransactions} />}
+              {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings', 'Voice', 'Query Analytics', 'Employee Performance'].includes(activeTab) && <PlaceholderView name={activeTab} />}
             </motion.div>
           </AnimatePresence>
 
