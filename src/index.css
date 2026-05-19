@@ -255,3 +255,26 @@ table tbody tr:hover {
   align-items: center !important;
   justify-content: center !important;
 }
+
+/* ==========================================
+   MOBILE RESPONSIVENESS & TOUCH OPTIMIZATIONS
+   ========================================== */
+
+/* Ensure tables don't overflow on mobile */
+.table-container,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .fixed.inset-0 {
+    padding: 1rem !important;
+  }
+  
+  .fixed.inset-0 .glass {
+    padding: 1.5rem !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+}

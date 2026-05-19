@@ -1,0 +1,65 @@
+###############################################################################
+# Render Blueprint – Neuralis Intelligence Ecosystem
+# https://render.com/docs/blueprint-spec
+#
+# This file is automatically picked up when you connect the repo to Render
+# via the "New > Blueprint Instance" flow.  Every push to `main` triggers a
+# fresh build & deploy.
+###############################################################################
+
+services:
+  # ── Static Site ────────────────────────────────────────────────────────────
+  - type: web
+    name: neuralis-intelligence-ecosystem
+    runtime: static
+    repo: https://github.com/YOUR_GITHUB_USERNAME/neuralis-intelligence-ecosystem  # ← update this
+    branch: main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+
+    # SPA routing – serve index.html for every path so React Router works
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    # Headers for security & caching
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+
+    # Environment variables injected at BUILD TIME by Vite
+    # Set the actual secret values in the Render Dashboard → Environment tab
+    envVars:
+      # ── Supabase ──────────────────────────────────────────────────────────
+      - key: VITE_SUPABASE_URL
+        sync: false                       # set in Render Dashboard
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false                       # set in Render Dashboard
+
+      # ── AI / LLM ─────────────────────────────────────────────────────────
+      - key: VITE_GEMINI_API_KEY
+        sync: false                       # set in Render Dashboard
+
+      # ── WhatsApp Business API ─────────────────────────────────────────────
+      - key: VITE_WHATSAPP_API_URL
+        sync: false                       # set in Render Dashboard
+      - key: VITE_WHATSAPP_API_TOKEN
+        sync: false                       # set in Render Dashboard
+      - key: VITE_WHATSAPP_PHONE_NUMBER_ID
+        sync: false                       # set in Render Dashboard
+
+      # ── Build mode ───────────────────────────────────────────────────────
+      - key: NODE_ENV
+        value: production

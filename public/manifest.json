@@ -1,0 +1,20 @@
+{
+  "short_name": "PROJECT N",
+  "name": "Neuralis Intelligence Ecosystem",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#05070a",
+  "background_color": "#05070a"
+}
