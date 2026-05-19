@@ -193,6 +193,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'CASH_FLOW': 'नगद प्रवाह',
   'BALANCE_SHEET': 'वासलात',
   'QUERIES': 'सोधपुछ',
+  'QUERY ANALYTICS': 'सोधपुछ विश्लेषण',
   'TEAM_INTEL': 'टोली व्यवस्थापन',
   'EMPLOYEE_PERFORMANCE': 'कर्मचारी कार्यसम्पादन',
   'DATA_INPUT': 'डाटा प्रविष्टि',
@@ -202,27 +203,156 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'VOICE_CONTROL': 'आवाज नियन्त्रण',
 
   // Buttons & Labels
-  'EXPORT_PDF': 'पीडीएफ निर्यात गर्नुहोस्',
+  'EXPORT_PDF': 'पीडीएफ निर्यात',
   'EXPORT_VAT_PDF': 'भ्याट पीडीएफ निर्यात',
   'IMPORT_FROM_GATEWAY': 'गेटवेबाट आयात',
   'COMMIT_TO_KERNEL': 'प्रणालीमा थप्नुहोस्',
   'Language (Language Preference)': 'भाषा (Language)',
   'RESOLVE_PROTOCOL': 'समाधान गर्नुहोस्',
+  'Add Transaction': 'कारोबार थप्नुहोस्',
+  'Delete': 'मेटाउनुहोस्',
+  'Edit': 'सम्पादन गर्नुहोस्',
+  'Save': 'बचत गर्नुहोस्',
+  'Submit': 'पेश गर्नुहोस्',
+  'Export CSV': 'CSV निर्यात',
+  'Reset Filters': 'फिल्टरहरू रिसेट गर्नुहोस्',
+  'RESET_FILTERS': 'फिल्टरहरू रिसेट गर्नुहोस्',
   
   // App specific
   'System Input': 'प्रणाली इनपुट',
   'TRANSACTION LOG ENTRY': 'कारोबार लग प्रविष्टि',
   
   // Settings Tab
+  'PROFILE': 'प्रोफाइल',
+  'KNOWLEDGE_BASE': 'ज्ञान आधार',
+  'CATEGORIES': 'कोटिहरू',
+  'PERMISSIONS': 'अनुमतिहरू',
+  'SECURITY_TELEMETRY': 'सुरक्षा टेलिमेट्री',
+  'BACKUP_RESTORE': 'ब्याकअप र रिस्टोर',
+  'DOMAIN_SETTINGS': 'डोमेन सेटिङहरू',
+  'PRODUCTION_MONITORING': 'उत्पादन अनुगमन',
   'BUSINESS PROFILE': 'व्यापार प्रोफाइल',
   'FINANCIAL PROTOCOLS': 'वित्तीय प्रोटोकलहरू',
-  'KNOWLEDGE BASE': 'ज्ञान आधार',
   'SYSTEM SETTINGS': 'प्रणाली सेटिङहरू',
+  'Business Name': 'व्यापारको नाम',
+  'Business Type': 'व्यापारको प्रकार',
+  'Owner Name': 'मालिकको नाम',
+  'Phone Number': 'फोन नम्बर',
+  'Address': 'ठेगाना',
+  'PAN Number': 'प्यान नम्बर',
+  'Primary Currency': 'प्राथमिक मुद्रा',
+  'Fiscal Year Start': 'आर्थिक वर्ष सुरु',
+  'Date Format': 'मिति ढाँचा',
+  'Role': 'भूमिका',
   
-  // Dashboard Header
+  // Dashboard Header & Stats
   'Total Assets': 'कुल सम्पत्ति',
   'Gross Value': 'कुल मूल्य',
   'Dead Capital': 'मृत पूँजी',
+  'Total Revenue': 'कुल राजस्व',
+  'Total Expenses': 'कुल खर्च',
+  'Net Profit': 'खुद नाफा',
+  'Total Transactions': 'कुल कारोबार',
+  'Recent Transactions': 'भर्खरका कारोबारहरू',
+  'Top Categories': 'शीर्ष कोटीहरू',
+  'Inflow': 'आम्दानी',
+  'Outflow': 'खर्च',
+  'Total Inflow': 'कुल आम्दानी',
+  'Total Outflow': 'कुल खर्च',
+  'Net Delta': 'खुद परिवर्तन',
+
+  // Table Headers / Labels
+  'Date': 'मिति',
+  'Description': 'विवरण',
+  'Category': 'कोटी',
+  'Amount': 'रकम',
+  'Type': 'प्रकार',
+  'Action': 'कार्य',
+  'Item Name': 'वस्तुको नाम',
+  'SKU': 'SKU',
+  'Stock': 'स्टक',
+  'Min. Stock': 'न्यूनतम स्टक',
+  'Price': 'मूल्य',
+  'Expiry': 'म्याद सकिने मिति',
+  'Status': 'अवस्था',
+  'Customer Name': 'ग्राहकको नाम',
+  'Message': 'सन्देश',
+  'Timestamp': 'समय',
+  'Context/Descriptor': 'विवरण',
+  'Protocol': 'कोटी',
+  'Status_Mode': 'प्रकार/अवस्था',
+  'Value_USD': 'मूल्य (USD)',
+  'Value_NPR': 'मूल्य (NPR)',
+  'Value': 'मूल्य',
+  'Details': 'विवरण',
+  'Classification': 'वर्गीकरण',
+  'Activity': 'गतिविधि',
+  
+  // Tab Headers
+  'Statement of Earnings': 'आम्दानीको विवरण',
+  'PROFIT & LOSS ANALYSIS': 'नाफा र नोक्सान विश्लेषण',
+  'Statement of Liquidity': 'तरलता विवरण',
+  'CASH FLOW STATEMENT': 'नगद प्रवाह विवरण',
+  'Statement of Financial Position': 'वित्तीय अवस्थाको विवरण',
+  'BALANCE SHEET': 'वासलात',
+  'Ledger Explorer': 'खाता अन्वेषक',
+  'TRANSACTION_RECORDS': 'कारोबार रेकर्डहरू',
+  'Stock Ledger': 'स्टक खाता',
+  'INVENTORY LEDGER': 'वस्तुसूची खाता',
+  'Personnel Protocol': 'कर्मचारी प्रोटोकल',
+  'TEAM MANAGEMENT': 'टोली व्यवस्थापन',
+  'Performance Ledger': 'कार्यसम्पादन खाता',
+  'EMPLOYEE PERFORMANCE MONITOR': 'कर्मचारी कार्यसम्पादन निगरानी',
+  'Vocal Command Protocol': 'मौखिक आदेश प्रोटोकल',
+  'VOICE CONTROL INTERFACE': 'आवाज नियन्त्रण इन्टरफेस',
+  'Interaction Analytics': 'सोधपुछ विश्लेषण',
+  'QUERY INSIGHTS & ANALYTICS': 'सोधपुछ अन्तरदृष्टि र विश्लेषण',
+  
+  // VAT Compliance Report specific
+  'Tax Compliance Protocol': 'कर अनुपालन प्रोटोकल',
+  'VAT_REPORT_SUMMARY': 'भ्याट रिपोर्ट सारांश',
+  'Tax Parameter': 'कर मापदण्ड',
+  'Rate/Basis': 'दर/आधार',
+  'Value (USD)': 'मूल्य (USD)',
+  'Value (NPR)': 'मूल्य (NPR)',
+  'Taxable Sales': 'करयोग्य बिक्री',
+  'Based on Revenue Streams': 'राजस्व प्रवाहमा आधारित',
+  'VAT Collected (13%)': 'भ्याट संकलन (१३%)',
+  '13% of Taxable Sales': 'करयोग्य बिक्रीको १३%',
+  'Taxable Purchases': 'करयोग्य खरिद',
+  'Based on COGS & Operational Inputs': 'खरिद र सञ्चालन खर्चमा आधारित',
+  'VAT Paid': 'भ्याट भुक्तानी',
+  '13% of Taxable Purchases': 'करयोग्य खरिदको १३%',
+  'Net VAT Payable': 'खुद भ्याट तिर्नुपर्ने',
+  'VAT Collected - VAT Paid': 'भ्याट संकलन - भ्याट भुक्तानी',
+  'As per IRD Nepal guidelines': 'आन्तरिक राजस्व विभाग नेपालको निर्देशिका अनुसार',
+  'Tax Exempt Sales': 'कर छुट बिक्री',
+  'Exempted Items': 'कर छुट वस्तुहरू',
+  'Export Sales (Zero Rated)': 'निकासी बिक्री (शून्य दर)',
+  'International Exports': 'अन्तर्राष्ट्रिय निकासी',
+  'Tax Exempt Purchases': 'कर छुट खरिद',
+  'Non-taxable Inputs': 'गैर-करयोग्य इनपुटहरू',
+  
+  // Additional Overview & General Labels
+  'Operational Authorization Active': 'सञ्चालन प्राधिकरण सक्रिय',
+  'Welcome back to the Command Node': 'कमान्ड नोडमा स्वागत छ',
+  'Standard_AD': 'मानक AD',
+  'Regional_BS': 'क्षेत्रीय BS',
+  'NRB POLICY TRACKER': 'नेपाल राष्ट्र बैंक नीति ट्र्याकर',
+  'NEPSE PERFORMANCE': 'नेप्से कार्यसम्पादन',
+  'ECONOMIC INDICATORS': 'आर्थिक सूचकहरू',
+  'AI INSIGHTS GENERATOR': 'एआई अन्तरदृष्टि जनरेटर',
+  'Refreshed:': 'अपडेट गरिएको:',
+  'Source: nrb.org.np · Updated hourly': 'स्रोत: nrb.org.np · प्रति घण्टा अपडेट',
+  'Preview data — cron pending': 'पूर्वावलोकन डाटा — क्रन विचाराधीन',
+  'Add Employee': 'कर्मचारी थप्नुहोस्',
+  'Link Transaction': 'कारोबार लिङ्क गर्नुहोस्',
+  'Clearance Level (User Role)': 'क्लियरेन्स स्तर (प्रयोगकर्ता भूमिका)',
+  'Auto-Send Simple Replies': 'साधारण जवाफहरू स्वतः पठाउनुहोस्',
+  'Say a command': 'आदेश भन्नुहोस्',
+  'Listening': 'सुन्दैछ...',
+  'No Recent Transactions Found': 'कुनै हालैका कारोबारहरू फेला परेनन्',
+  'RECENT_KRNL_COMMITS': 'हालैका प्रविष्टिहरू'
 };
 
 export const LanguageContext = React.createContext<{ t: (text: string) => string, language: 'EN' | 'NP', setLanguage: (lang: 'EN' | 'NP') => void }>({
@@ -3623,7 +3753,8 @@ function PLSection({ section }: { section: any }) {
   );
 }
 
-function PandLView() {
+function PandLView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
+  const { t, language } = React.useContext(LanguageContext);
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   
@@ -3718,45 +3849,64 @@ function PandLView() {
         if (pwd === null) return;
         const doc = new jsPDF();
         const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-
-        doc.setFontSize(20);
-        doc.text('VAT Compliance Report', 14, 22);
-        doc.setFontSize(11);
-        doc.setTextColor(100);
-        doc.text(`Entity: ${businessName}`, 14, 30);
-        doc.text(`Period: ${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`, 14, 36);
-        doc.text(`Protocol: As per IRD Nepal guidelines`, 14, 42);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 48);
-
+        const panNumber = localStorage.getItem('pan_number') || 'XXXXXXXXX';
+        // IRD Nepal Schedule 10 header
+        doc.setFillColor(230, 245, 255);
+        doc.rect(14, 12, 182, 38, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0, 50, 150);
+        doc.text('GOVERNMENT OF NEPAL', 105, 20, { align: 'center' });
+        doc.text('MINISTRY OF FINANCE - INLAND REVENUE DEPARTMENT', 105, 26, { align: 'center' });
+        doc.setFontSize(13); doc.setTextColor(0, 0, 0);
+        doc.text('VALUE ADDED TAX (VAT) RETURN FORM', 105, 34, { align: 'center' });
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+        doc.text('(Schedule 10 - Value Added Tax Rules, 2053)', 105, 40, { align: 'center' });
+        // Taxpayer info
+        doc.setFontSize(10); doc.setTextColor(40, 40, 40);
+        doc.text('Taxpayer: ' + businessName, 14, 55);
+        doc.text('PAN: ' + panNumber, 14, 61);
+        const bsNow = dateFormat === 'BS' ? convertGregorianToBS(new Date().toISOString().split('T')[0]) : new Date().toLocaleDateString();
+        let periodLabel: string = range;
+        if (range === 'Custom' && customDates.start && customDates.end) {
+          periodLabel = dateFormat === 'BS'
+            ? convertGregorianToBS(customDates.start) + ' to ' + convertGregorianToBS(customDates.end)
+            : customDates.start + ' to ' + customDates.end;
+        }
+        doc.text('Tax Period: ' + periodLabel, 14, 67);
+        doc.text('Generated: ' + bsNow, 14, 73);
+        // IRD-format table with NPR values
+        const fmtNPR = (v: number) => {
+          const s = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(v));
+          return v < 0 ? '(' + s + ')' : s;
+        };
         const vatBody = [
-          ["Taxable Sales", "Based on Revenue Streams", formatCurrency(taxableSales)],
-          ["VAT Collected (13%)", "13% of Taxable Sales", formatCurrency(vatCollected)],
-          ["Taxable Purchases", "Based on COGS & Operational Inputs", formatCurrency(taxablePurchases)],
-          ["VAT Paid", "13% of Taxable Purchases", formatCurrency(vatPaid)],
-          ["Net VAT Payable", "VAT Collected - VAT Paid", formatCurrency(netVATPayable)]
+          ['1', 'Taxable Sales (Domestic)', fmtNPR(taxableSales), '13%', fmtNPR(vatCollected)],
+          ['2', 'Tax Exempt Sales', fmtNPR(0), 'Exempt', fmtNPR(0)],
+          ['3', 'Export (Zero Rated)', fmtNPR(0), '0%', fmtNPR(0)],
+          ['4', 'Total Sales', fmtNPR(taxableSales), '-', fmtNPR(vatCollected)],
+          ['5', 'Taxable Purchases & Imports', fmtNPR(taxablePurchases), '13%', fmtNPR(vatPaid)],
+          ['6', 'Exempt Purchases', fmtNPR(0), 'Exempt', fmtNPR(0)],
+          ['7', 'Total Purchases', fmtNPR(taxablePurchases), '-', fmtNPR(vatPaid)],
+          ['8', 'Net VAT Payable / (Refundable)', '-', '-', fmtNPR(netVATPayable)],
         ];
-
         autoTable(doc, {
-          startY: 55,
-          head: [['Tax Parameter', 'Rate/Basis', 'Value (USD)']],
+          startY: 80,
+          head: [['S.N.', 'Particulars', 'Taxable Value (NPR)', 'Rate', 'VAT Amount (NPR)']],
           body: vatBody,
           theme: 'grid',
-          headStyles: { fillColor: [0, 242, 255], textColor: [0, 0, 0] },
-          styles: { font: 'helvetica', fontSize: 10 },
-          columnStyles: { 2: { halign: 'right' } }
+          headStyles: { fillColor: [0, 50, 150], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+          styles: { font: 'helvetica', fontSize: 9, cellPadding: 3 },
+          columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'center' }, 4: { halign: 'right' } }
         });
-
-        await saveEncryptedPdf(doc, `VAT_Report_${businessName.replace(/\s/g, '_')}.pdf`, pwd);
+        await saveEncryptedPdf(doc, `VAT_IRD_${businessName.replace(/\s/g, '_')}.pdf`, pwd);
       });
     }
   };
-
   return (
     <div className="space-y-12">
       <div className="flex justify-between items-end">
         <div>
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Statement of Earnings</h4>
-          <h2 className="text-5xl font-black italic uppercase">PROFIT & LOSS ANALYSIS</h2>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">{t('Statement of Earnings')}</h4>
+          <h2 className="text-5xl font-black italic uppercase">{t('PROFIT & LOSS ANALYSIS')}</h2>
         </div>
         <div className="flex gap-4 items-center">
           <div className="flex flex-col gap-2 items-end">
@@ -3851,15 +4001,15 @@ function PandLView() {
       <div className="pt-12 border-t border-white/5 space-y-6">
         <div className="flex justify-between items-end">
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Tax Compliance Protocol</h4>
-            <h2 className="text-3xl font-black italic uppercase">VAT_REPORT_SUMMARY</h2>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">{t('Tax Compliance Protocol')}</h4>
+            <h2 className="text-3xl font-black italic uppercase">{t('VAT_REPORT_SUMMARY')}</h2>
           </div>
           <button
             onClick={exportVATPDF}
             className="bg-intelligence/20 border border-intelligence/40 text-intelligence px-6 py-3 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 hover:bg-intelligence hover:text-black transition-all animate-pulse shadow-[0_0_15px_rgba(0,242,255,0.1)]"
           >
             <Download size={14} className="text-intelligence" />
-            EXPORT_VAT_PDF
+            {t('EXPORT_VAT_PDF')}
           </button>
         </div>
 
@@ -3867,42 +4017,42 @@ function PandLView() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02]">
-                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Tax Parameter</th>
-                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Rate/Basis</th>
-                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Value (USD)</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t('Tax Parameter')}</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t('Rate/Basis')}</th>
+                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">{t(language === 'NP' ? 'Value (NPR)' : 'Value (USD)')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               <tr className="hover:bg-white/[0.01] transition-colors">
-                <td className="p-6 text-xs font-bold text-white uppercase">Taxable Sales</td>
-                <td className="p-6 text-xs font-mono text-gray-500">Based on Revenue Streams</td>
+                <td className="p-6 text-xs font-bold text-white uppercase">{t('Taxable Sales')}</td>
+                <td className="p-6 text-xs font-mono text-gray-500">{t('Based on Revenue Streams')}</td>
                 <td className="p-6 text-right font-mono font-bold text-xs text-white">{formatCurrency(taxableSales)}</td>
               </tr>
               <tr className="hover:bg-white/[0.01] transition-colors">
-                <td className="p-6 text-xs font-bold text-white uppercase">VAT Collected (13%)</td>
-                <td className="p-6 text-xs font-mono text-intelligence">13% of Taxable Sales</td>
+                <td className="p-6 text-xs font-bold text-white uppercase">{t('VAT Collected (13%)')}</td>
+                <td className="p-6 text-xs font-mono text-intelligence">{t('13% of Taxable Sales')}</td>
                 <td className="p-6 text-right font-mono font-bold text-xs text-intelligence">+{formatCurrency(vatCollected)}</td>
               </tr>
               <tr className="hover:bg-white/[0.01] transition-colors">
-                <td className="p-6 text-xs font-bold text-white uppercase">Taxable Purchases</td>
-                <td className="p-6 text-xs font-mono text-gray-500">Based on COGS & Operational Inputs</td>
+                <td className="p-6 text-xs font-bold text-white uppercase">{t('Taxable Purchases')}</td>
+                <td className="p-6 text-xs font-mono text-gray-500">{t('Based on COGS & Operational Inputs')}</td>
                 <td className="p-6 text-right font-mono font-bold text-xs text-white">{formatCurrency(taxablePurchases)}</td>
               </tr>
               <tr className="hover:bg-white/[0.01] transition-colors">
-                <td className="p-6 text-xs font-bold text-white uppercase">VAT Paid</td>
-                <td className="p-6 text-xs font-mono text-brand">13% of Taxable Purchases</td>
+                <td className="p-6 text-xs font-bold text-white uppercase">{t('VAT Paid')}</td>
+                <td className="p-6 text-xs font-mono text-brand">{t('13% of Taxable Purchases')}</td>
                 <td className="p-6 text-right font-mono font-bold text-xs text-brand">-{formatCurrency(vatPaid)}</td>
               </tr>
               <tr className="bg-intelligence/5 border-l-4 border-l-intelligence hover:bg-intelligence/10 transition-colors">
-                <td className="p-6 text-xs font-black text-white uppercase italic">Net VAT Payable</td>
-                <td className="p-6 text-xs font-mono text-gray-400">VAT Collected - VAT Paid</td>
+                <td className="p-6 text-xs font-black text-white uppercase italic">{t('Net VAT Payable')}</td>
+                <td className="p-6 text-xs font-mono text-gray-400">{t('VAT Collected - VAT Paid')}</td>
                 <td className="p-6 text-right font-mono font-black text-sm text-intelligence">{formatCurrency(netVATPayable)}</td>
               </tr>
             </tbody>
           </table>
           <div className="p-6 border-t border-white/5 bg-black/20 flex items-center gap-2">
             <Shield size={12} className="text-gray-600 animate-pulse" />
-            <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">As per IRD Nepal guidelines</span>
+            <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">{t('As per IRD Nepal guidelines')}</span>
           </div>
         </div>
       </div>
@@ -3995,7 +4145,8 @@ export const getCashFlow = async (businessId: string, startDate?: string, endDat
   ];
 };
 
-function CashFlowView() {
+function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
+  const { t } = React.useContext(LanguageContext);
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
@@ -4049,7 +4200,7 @@ function CashFlowView() {
       (window as any).requestPdfPassword((pwd: string | null) => {
         if (pwd === null) return;
         const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-        const period = `${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`;
+        const period = dateFormat === 'BS' ? (range === 'Custom' && customDates.start && customDates.end ? `${convertGregorianToBS(customDates.start)} to ${convertGregorianToBS(customDates.end)}` : range) : `${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`;
         
         const body: any[] = [];
         cfData.forEach(section => {
@@ -4077,8 +4228,8 @@ function CashFlowView() {
     <div className="space-y-12">
       <div className="flex justify-between items-end">
         <div>
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-2">Liquidity Analysis</h4>
-          <h2 className="text-5xl font-black italic uppercase">CASH FLOW STATEMENT</h2>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-2">{t('Statement of Liquidity')}</h4>
+          <h2 className="text-5xl font-black italic uppercase">{t('CASH FLOW STATEMENT')}</h2>
         </div>
         <div className="flex gap-4 items-center">
           <div className="flex flex-col gap-2 items-end">
@@ -5172,7 +5323,8 @@ function InventoryView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
 
 // --- DATA ENTRY VIEW ---
 
-function DataEntryView({ transactions, onAdd, onDelete, categories }: { transactions: Transaction[], onAdd: (t: Transaction) => void, onDelete: (i: number) => void, categories: { name: string, type: string }[] }) {
+function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }: { transactions: Transaction[], onAdd: (t: Transaction) => void, onDelete: (i: number) => void, categories: { name: string, type: string }[], dateFormat: 'AD' | 'BS' }) {
+  const { t } = React.useContext(LanguageContext);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     type: 'Inflow',
@@ -5245,8 +5397,8 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
     <div className="space-y-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
         <div className="max-w-4xl">
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">System Input</h4>
-          <h2 className="text-5xl font-black italic uppercase">TRANSACTION LOG ENTRY</h2>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">{t('System Input')}</h4>
+          <h2 className="text-5xl font-black italic uppercase">{t('TRANSACTION LOG ENTRY')}</h2>
         </div>
         <div className="flex gap-4">
           <input
@@ -5396,13 +5548,13 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
           <div className="glass p-8 border-white/5 bg-white/[0.01]">
             <h3 className="text-xs font-black uppercase tracking-widest text-intelligence mb-6 flex items-center gap-2">
               <History size={14} />
-              RECENT_KRNL_COMMITS
+              {t('RECENT_KRNL_COMMITS')}
             </h3>
             <div className="space-y-4">
               {recentTransactions.map((t, i) => (
                 <div key={i} className="p-4 bg-white/5 border border-white/10 group relative hover:border-intelligence/30 transition-all">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">{t.date}</span>
+                    <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">{dateFormat === 'BS' ? convertGregorianToBS(t.date) : t.date}</span>
                     <div className="flex items-center gap-3">
                       <span className={cn(
                         "text-[9px] font-black uppercase tracking-widest",
@@ -5424,7 +5576,7 @@ function DataEntryView({ transactions, onAdd, onDelete, categories }: { transact
               ))}
               {recentTransactions.length === 0 && (
                 <div className="py-12 text-center">
-                  <p className="text-[10px] font-mono text-gray-700 uppercase tracking-widest">No Recent Transactions Found</p>
+                  <p className="text-[10px] font-mono text-gray-700 uppercase tracking-widest">{t('No Recent Transactions Found')}</p>
                 </div>
               )}
             </div>
@@ -8812,7 +8964,8 @@ export const getBalanceSheet = async (businessId: string, startDate?: string, en
     }
   };
 };
-function BalanceSheetView() {
+function BalanceSheetView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
+  const { t } = React.useContext(LanguageContext);
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
@@ -8870,7 +9023,7 @@ function BalanceSheetView() {
       (window as any).requestPdfPassword((pwd: string | null) => {
         if (pwd === null) return;
         const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-        const period = `As at ${new Date().toLocaleDateString()}`;
+        const period = dateFormat === 'BS' ? `As at ${convertGregorianToBS(new Date().toISOString().split('T')[0])}` : `As at ${new Date().toLocaleDateString()}`;
         
         const body: any[] = [];
         bsData.sections.forEach(section => {
@@ -8901,8 +9054,8 @@ function BalanceSheetView() {
     <div className="space-y-12">
       <div className="flex justify-between items-end">
         <div>
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-purple-400 mb-2">Statement of Financial Position</h4>
-          <h2 className="text-5xl font-black italic uppercase">BALANCE SHEET</h2>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-purple-400 mb-2">{t('Statement of Financial Position')}</h4>
+          <h2 className="text-5xl font-black italic uppercase">{t('BALANCE SHEET')}</h2>
         </div>
         <div className="flex gap-4 items-center">
           <button
@@ -9132,7 +9285,8 @@ function CommandPalette({
   );
 }
 
-function VoiceCommandView({ transactions }: { transactions: Transaction[] }) {
+function VoiceCommandView({ transactions, dateFormat }: { transactions: Transaction[], dateFormat: 'AD' | 'BS' }) {
+  const { t } = React.useContext(LanguageContext);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [status, setStatus] = useState('Waiting for wake word "Hey Project N"...');
@@ -9482,13 +9636,16 @@ function ManagerDashboardView({
   transactions,
   loadTransactions,
   queries,
-  onMarkAsReplied
+  onMarkAsReplied,
+  dateFormat
 }: {
   transactions: Transaction[];
   loadTransactions: () => void;
   queries: any[];
   onMarkAsReplied: (id: string, replyText: string) => Promise<void>;
+  dateFormat: 'AD' | 'BS';
 }) {
+  const { t } = React.useContext(LanguageContext);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -9713,7 +9870,7 @@ function ManagerDashboardView({
                 <div key={tx.id} className="glass border-white/5 bg-white/[0.01] p-4 flex justify-between items-center group hover:border-brand/20 transition-all duration-300">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-mono text-gray-400">{tx.date}</span>
+                      <span className="text-[9px] font-mono text-gray-400">{dateFormat === 'BS' ? convertGregorianToBS(tx.date) : tx.date}</span>
                       <span className="text-[8px] font-mono bg-white/5 border border-white/5 px-2 py-0.2 rounded-sm text-gray-500 uppercase tracking-widest">{tx.category}</span>
                     </div>
                     <h4 className="text-[11px] font-black uppercase tracking-wider text-white mt-1.5">{tx.description}</h4>
@@ -9961,13 +10118,16 @@ interface Employee {
   created_at?: string;
 }
 
-function EmployeePerformanceView({ 
-  transactions, 
-  onAddTransaction 
-}: { 
-  transactions: Transaction[]; 
-  onAddTransaction: () => void; 
- }) {
+function EmployeePerformanceView({
+  transactions,
+  onAddTransaction,
+  dateFormat
+}: {
+  transactions: Transaction[];
+  onAddTransaction: () => void;
+  dateFormat: 'AD' | 'BS';
+}) {
+  const { t } = React.useContext(LanguageContext);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -10514,7 +10674,7 @@ function EmployeePerformanceView({
                     <option value="" disabled className="bg-[#05070a]">SELECT TRANSACTION...</option>
                     {unlinkedTransactions.map(tx => (
                       <option key={tx.id} value={tx.id} className="bg-[#05070a]">
-                        {tx.date} - {tx.description} (Rs. {tx.amount})
+                        {dateFormat === 'BS' ? convertGregorianToBS(tx.date) : tx.date} - {tx.description} (Rs. {tx.amount})
                       </option>
                     ))}
                   </select>
@@ -11594,6 +11754,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     loadTransactions={loadTransactions}
                     queries={queries}
                     onMarkAsReplied={handleMarkAsReplied}
+                    dateFormat={dateFormat}
                   />
                 ) : (
                   <OverviewView
@@ -11606,9 +11767,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 )
               )}
               {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
-              {activeTab === 'P&L Statement' && <PandLView />}
-              {activeTab === 'Cash Flow' && <CashFlowView />}
-              {activeTab === 'Balance Sheet' && <BalanceSheetView />}
+              {activeTab === 'P&L Statement' && <PandLView dateFormat={dateFormat} />}
+              {activeTab === 'Cash Flow' && <CashFlowView dateFormat={dateFormat} />}
+              {activeTab === 'Balance Sheet' && <BalanceSheetView dateFormat={dateFormat} />}
               {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={updateTransaction} dateFormat={dateFormat} />}
               {activeTab === 'Inventory' && <InventoryView dateFormat={dateFormat} />}
               {activeTab === 'Customer Queries' && (
@@ -11623,11 +11784,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 />
               )}
               {activeTab === 'Team Management' && <TeamManagementView />}
-              {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} />}
+              {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} dateFormat={dateFormat} />}
               {activeTab === 'Settings' && <SettingsView transactions={transactions} setTransactions={setTransactions} onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} dateFormat={dateFormat} onChangeDateFormat={setDateFormat} autoSendReplies={autoSendReplies} setAutoSendReplies={setAutoSendReplies} userRole={userRole} setUserRole={setUserRole} />}
-              {activeTab === 'Voice' && <VoiceCommandView transactions={transactions} />}
+              {activeTab === 'Voice' && <VoiceCommandView transactions={transactions} dateFormat={dateFormat} />}
               {activeTab === 'Query Analytics' && <QueryAnalyticsView queries={dbQueries} />}
-              {activeTab === 'Employee Performance' && <EmployeePerformanceView transactions={transactions} onAddTransaction={loadTransactions} />}
+              {activeTab === 'Employee Performance' && <EmployeePerformanceView transactions={transactions} onAddTransaction={loadTransactions} dateFormat={dateFormat} />}
               {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings', 'Voice', 'Query Analytics', 'Employee Performance'].includes(activeTab) && <PlaceholderView name={activeTab} />}
             </motion.div>
           </AnimatePresence>
