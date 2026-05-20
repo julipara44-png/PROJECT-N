@@ -107,6 +107,8 @@ import { getSalesForecast, ForecastPoint, ForecastResult } from './services/fore
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PDFDocument } from 'pdf-lib';
+import { OverviewTab } from './components/OverviewTab';
+import { PandLView, PLSection } from './components/PLStatement';
 
 export const saveEncryptedPdf = async (doc: jsPDF, fileName: string, password?: string) => {
   if (password) {
@@ -125,7 +127,7 @@ export const saveEncryptedPdf = async (doc: jsPDF, fileName: string, password?: 
   }
 };
 
-const generateProfessionalPDF = async (title: string, rangeInfo: string, tableHead: string[][], tableBody: any[][], fileName: string, headerColor: [number, number, number], password?: string) => {
+export const generateProfessionalPDF = async (title: string, rangeInfo: string, tableHead: string[][], tableBody: any[][], fileName: string, headerColor: [number, number, number], password?: string) => {
   const doc = new jsPDF();
   const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
   const timestamp = new Date().toLocaleString();
@@ -384,7 +386,7 @@ const PIE_COLORS = ['#00f2ff', '#dc143c', '#ffffff', '#333333'];
 
 type PlatformTab = 'Overview' | 'P&L Statement' | 'Cash Flow' | 'Balance Sheet' | 'Transactions' | 'Inventory' | 'Data Entry' | 'Customer Queries' | 'Query Analytics' | 'Team Management' | 'Settings' | 'Financial Summary' | 'Voice' | 'Employee Performance';
 
-interface Transaction {
+export interface Transaction {
   id?: string;
   date: string;
   description: string;
@@ -392,6 +394,47 @@ interface Transaction {
   category: string;
   type: 'Inflow' | 'Outflow';
   employee_id?: string;
+}
+
+// --- EMPTY STATE COMPONENT ---
+
+interface EmptyStateProps {
+  icon: React.ComponentType<any>;
+  title: string;
+  description: string;
+  ctaText?: string;
+  onCtaClick?: () => void;
+}
+
+function EmptyState({ icon: Icon, title, description, ctaText, onCtaClick }: EmptyStateProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col items-center justify-center py-20 px-12 border border-white/5 bg-white/[0.01] relative overflow-hidden text-center min-h-[350px] group"
+    >
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-intelligence/50 to-transparent"></div>
+      <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+      <div className="p-5 border border-intelligence/15 bg-intelligence/5 mb-8 group-hover:scale-110 group-hover:bg-intelligence/10 transition-all duration-500">
+        <Icon className="text-intelligence" size={32} />
+      </div>
+      <h3 className="text-lg font-black italic uppercase tracking-wider text-white mb-3">
+        {title}
+      </h3>
+      <p className="text-gray-500 font-mono text-[11px] max-w-md leading-relaxed mb-8 uppercase tracking-wide">
+        {description}
+      </p>
+      {ctaText && onCtaClick && (
+        <button
+          onClick={onCtaClick}
+          className="bg-intelligence text-black px-10 py-4 font-black text-[10px] uppercase tracking-[0.3em] hover:shadow-[0_0_25px_rgba(0,242,255,0.5)] active:scale-95 transition-all duration-300 flex items-center gap-3"
+        >
+          <Plus size={14} />
+          {ctaText}
+        </button>
+      )}
+    </motion.div>
+  );
 }
 
 // --- 3D COMPONENTS ---
@@ -695,39 +738,36 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
     setIsAuthenticating(true);
     setErrorMsg('');
     try {
-      let result = await supabase.auth.signInWithPassword({
-        email: 'demo@projectn.ai',
-        password: 'demo123'
-      });
+      localStorage.setItem('is_demo_mode', 'true');
+      localStorage.setItem('user_role', 'Owner');
+      localStorage.setItem('business_name', 'NEPAL ROYAL RESORT & SPA');
+      localStorage.setItem('primary_currency', 'NPR');
+      localStorage.setItem('pan_number', '601234567');
+      localStorage.setItem('fiscal_year_start', '2024-01-01');
+      localStorage.setItem('onboarding_completed', 'true');
 
-      if (result.error) {
-        if (result.error.message.includes('Invalid login credentials') || result.error.message.includes('User not found')) {
-          // Provision the user in Supabase auth first
-          const signUpResult = await supabase.auth.signUp({
-            email: 'demo@projectn.ai',
-            password: 'demo123'
-          });
-          if (signUpResult.error) throw signUpResult.error;
+      const currentYear = new Date().getFullYear();
+      const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+      const prevMonth = String(new Date().getMonth() === 0 ? 12 : new Date().getMonth()).padStart(2, '0');
+      const prevMonthYear = new Date().getMonth() === 0 ? currentYear - 1 : currentYear;
 
-          // Retry login
-          result = await supabase.auth.signInWithPassword({
-            email: 'demo@projectn.ai',
-            password: 'demo123'
-          });
-          if (result.error) throw result.error;
-        } else {
-          throw result.error;
-        }
-      }
-
+      const defaultDemo: Transaction[] = [
+        { id: '1', date: `${currentYear}-${currentMonth}-15`, description: 'Room Booking Suite 402', amount: 45000, category: 'Sales', type: 'Inflow', employee_id: 'emp-2' },
+        { id: '2', date: `${currentYear}-${currentMonth}-14`, description: 'Restaurant Banquet Dining Inflow', amount: 120000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
+        { id: '3', date: `${currentYear}-${currentMonth}-12`, description: 'Monthly Laundry Supplies Vendor', amount: 25000, category: 'Logistics', type: 'Outflow' },
+        { id: '4', date: `${currentYear}-${currentMonth}-10`, description: 'Pokhara Electricity Authority', amount: 85000, category: 'Infrastructure', type: 'Outflow' },
+        { id: '5', date: `${currentYear}-${currentMonth}-08`, description: 'Spa Therapy Package Sales', amount: 65000, category: 'Sales', type: 'Inflow', employee_id: 'emp-3' },
+        { id: '6', date: `${currentYear}-${currentMonth}-05`, description: 'Staff Salaries', amount: 450000, category: 'Payroll', type: 'Outflow' },
+        { id: '7', date: `${currentYear}-${currentMonth}-02`, description: 'Fresh Organic Kitchen Groceries', amount: 68000, category: 'Inventory', type: 'Outflow' },
+        { id: '8', date: `${prevMonthYear}-${prevMonth}-28`, description: 'Premium Wine & Beverage Restock', amount: 110000, category: 'Inventory', type: 'Outflow' },
+        { id: '9', date: `${prevMonthYear}-${prevMonth}-25`, description: 'Corporate Seminar Hall Booking', amount: 250000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
+        { id: '10', date: `${prevMonthYear}-${prevMonth}-20`, description: 'Digital Marketing Pokhara Tourism', amount: 40000, category: 'Marketing', type: 'Outflow' }
+      ];
+      localStorage.setItem('demo_transactions', JSON.stringify(defaultDemo));
       sessionStorage.removeItem('demo_seeded_this_session');
       onLogin();
     } catch (err: any) {
-      let msg = err.message || 'Demo activation failed.';
-      if (msg.toLowerCase().includes('email not confirmed')) {
-        msg = '⚠️ Email not confirmed. To enable Investor Demo Mode, please run the SQL setup script located at src/lib/demo_reset_cron.sql in your Supabase SQL Editor to confirm the demo account and schedule daily resets.';
-      }
-      setErrorMsg(msg);
+      setErrorMsg(err.message || 'Demo activation failed.');
     } finally {
       setIsAuthenticating(false);
     }
@@ -1888,224 +1928,8 @@ function LandingPage({ onLogin, onRegister }: { onLogin: () => void, onRegister:
   );
 }
 
-// --- PREDICTIVE ANALYTICS COMPONENT ---
-
-function QuantumIntelligence() {
-  const [insight, setInsight] = useState<AnalyticsInsight | null>(null);
-  const [brief, setBrief] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-
-  useEffect(() => {
-    async function loadData() {
-      // 1. Load Heuristic Predictions
-      const context = "Global market volatility is increasing, corporate debt is at record highs, and institutional capital is shifting towards emerging tech sectors.";
-      const result = await getPredictiveAnalytics(context);
-      setInsight(result);
-
-      // 2. Load Daily METIS Brief
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabase
-          .from('metis_briefs')
-          .select('content')
-          .eq('date', today)
-          .maybeSingle();
-
-        if (data && data.content) {
-          setBrief(data.content);
-        }
-      } catch (err) {
-        console.error("Could not fetch daily brief:", err);
-      }
-
-      setLoading(false);
-    }
-    loadData();
-  }, []);
-
-  const handleForceGenerate = async () => {
-    setGenerating(true);
-    try {
-      // Fetch limited live data for demo generation
-      const { data: txs } = await supabase.from('transactions').select('date, description, amount, type').limit(50);
-      const { data: inv } = await supabase.from('inventory').select('name, stock, price').limit(50);
-      const { data: queries } = await supabase.from('customer_queries').select('message').limit(20);
-
-      const newBrief = await generateMetisDailyBrief(
-        localStorage.getItem('business_name') || 'N CORP',
-        txs || [],
-        inv || [],
-        queries || []
-      );
-
-      if (newBrief) {
-        setBrief(newBrief);
-        // Attempt to persist if RLS allows
-        const { data: userData } = await supabase.from('users').select('business_id').eq('auth_id', (await supabase.auth.getSession()).data.session?.user?.id).maybeSingle();
-        if (userData?.business_id) {
-          await supabase.from('metis_briefs').upsert({
-            business_id: userData.business_id,
-            date: new Date().toISOString().split('T')[0],
-            content: newBrief
-          }, { onConflict: 'business_id,date' });
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    setGenerating(false);
-  };
-
-  if (loading) {
-    return (
-      <div className="glass border-white/5 p-8 flex flex-col gap-6 min-h-[300px]">
-        <div className="h-8 w-1/3 bg-white/5 animate-pulse rounded-sm"></div>
-        <div className="space-y-4">
-          <div className="h-4 w-full bg-white/5 animate-pulse rounded-sm"></div>
-          <div className="h-4 w-5/6 bg-white/5 animate-pulse rounded-sm"></div>
-          <div className="h-4 w-4/6 bg-white/5 animate-pulse rounded-sm"></div>
-        </div>
-        <div className="mt-8 grid grid-cols-3 gap-4">
-          <div className="h-20 bg-white/5 animate-pulse rounded-sm"></div>
-          <div className="h-20 bg-white/5 animate-pulse rounded-sm"></div>
-          <div className="h-20 bg-white/5 animate-pulse rounded-sm"></div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="xl:col-span-3 glass border-intelligence/20 p-8 relative overflow-hidden bg-intelligence/[0.02]"
-    >
-      <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-        <Brain size={120} className="text-intelligence" />
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-12 relative z-10">
-        
-        {/* METIS DAILY BRIEF SECTION */}
-        <div className="md:w-1/2 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand/20 border border-brand/50 rounded-sm shadow-[0_0_15px_rgba(220,20,60,0.3)]">
-                <Brain className="text-brand" size={20} />
-              </div>
-              <div>
-                <h3 className="text-xl font-black italic uppercase text-white tracking-widest">METIS DAILY BRIEF</h3>
-                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-[0.2em]">{new Date().toISOString().split('T')[0]}</p>
-              </div>
-            </div>
-            
-            {!brief && (
-              <button 
-                onClick={handleForceGenerate}
-                disabled={generating}
-                className="bg-brand/10 border border-brand text-brand hover:bg-brand hover:text-black px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-              >
-                {generating ? <RefreshCw size={12} className="animate-spin" /> : <Activity size={12} />}
-                {generating ? "PROCESSING..." : "FORCE CRON SYNC"}
-              </button>
-            )}
-          </div>
-
-          {brief ? (
-            <div className="space-y-6 flex-1 bg-white/[0.02] border border-white/5 p-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-brand/5 rounded-full blur-3xl"></div>
-              
-              <div className="relative z-10 space-y-5">
-                <div>
-                  <h4 className="text-[9px] font-black text-brand uppercase tracking-widest mb-1">Executive Summary</h4>
-                  <p className="text-sm text-white font-mono leading-relaxed">{brief.executiveSummary}</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-black/40 border border-white/5 p-3">
-                    <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Database size={10} /> Financial Health</h4>
-                    <p className="text-xs text-gray-300 font-mono leading-relaxed">{brief.financialHealth}</p>
-                  </div>
-                  <div className="bg-black/40 border border-white/5 p-3">
-                    <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Container size={10} /> Inventory Status</h4>
-                    <p className="text-xs text-gray-300 font-mono leading-relaxed">{brief.inventoryInsights}</p>
-                  </div>
-                </div>
-                
-                <div className="bg-black/40 border border-white/5 p-3">
-                  <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1"><MessageSquare size={10} /> Customer Sentiment</h4>
-                  <p className="text-xs text-gray-300 font-mono leading-relaxed">{brief.customerSentiment}</p>
-                </div>
-                
-                <div className="border-l-2 border-brand pl-4 py-2 bg-brand/5">
-                  <h4 className="text-[10px] font-black text-brand uppercase tracking-widest mb-1">Strategic Recommendation</h4>
-                  <p className="text-sm text-white font-mono italic">{brief.strategicRecommendation}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 border border-dashed border-gray-700 bg-black/20 flex flex-col items-center justify-center p-8 text-center min-h-[300px]">
-              <AlertTriangle className="text-gray-600 mb-4" size={32} />
-              <p className="text-xs font-mono text-gray-500 uppercase tracking-widest leading-relaxed max-w-xs">
-                Awaiting Nightly Cron Execution.<br/>No brief synthesized for {new Date().toISOString().split('T')[0]}.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* QUANTUM INSIGHTS SECTION */}
-        <div className="md:w-1/2 flex flex-col">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-intelligence/20 rounded-sm shadow-[0_0_15px_rgba(0,242,255,0.2)]">
-              <Sparkles className="text-intelligence" size={20} />
-            </div>
-            <h3 className="text-xl font-black italic uppercase glow-text">Predictive Models</h3>
-          </div>
-
-          <div className="flex-1">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Advanced Outcome Forecasts</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {insight?.predictions.map((pred, i) => (
-                <div key={i} className="p-6 bg-white/[0.03] border border-white/10 hover:border-intelligence/30 transition-all group">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className={cn(
-                      "px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest",
-                      pred.impactLevel === 'Critical' ? "bg-brand/20 text-brand" :
-                        pred.impactLevel === 'High' ? "bg-orange-500/20 text-orange-500" :
-                          "bg-intelligence/20 text-intelligence"
-                    )}>
-                      {pred.impactLevel} IMPACT
-                    </div>
-                    <p className="text-[10px] font-mono text-gray-500">{pred.timeframe}</p>
-                  </div>
-
-                  <h4 className="text-sm font-bold text-white mb-2 uppercase group-hover:text-intelligence transition-colors">{pred.title}</h4>
-                  <p className="text-[11px] text-gray-500 font-mono mb-4 leading-normal">{pred.description}</p>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[8px] font-mono text-gray-600 uppercase">
-                      <span>Probability</span>
-                      <span>{pred.probability}%</span>
-                    </div>
-                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pred.probability}%` }}
-                        transition={{ duration: 1, delay: 0.5 }}
-                        className={cn("h-full", pred.impactLevel === 'Critical' ? "bg-brand" : "bg-intelligence")}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+// QuantumIntelligence, NepseWatchlist, NrbPolicyTracker, OverviewView, ManagerDashboardView
+// — all moved to src/components/OverviewTab.tsx
 
 // --- SUB-VIEWS ---
 
@@ -2345,1222 +2169,7 @@ function FinancialSummaryView({ onBack }: { onBack: () => void }) {
   );
 }
 
-// ─── NEPSE LIVE WATCHLIST WIDGET ────────────────────────────────────────────
-interface MarketRow {
-  ticker: string;
-  company_name: string;
-  price: number;
-  change_amount: number;
-  change_percent: number;
-  volume: number;
-  fetched_at: string;
-}
-
-function NepseWatchlist() {
-  const [stocks, setStocks] = useState<MarketRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [isLive, setIsLive] = useState(false);
-
-  useEffect(() => {
-    async function fetchMarketData() {
-      try {
-        // Get the latest fetched_at timestamp
-        const { data: latestRow } = await supabase
-          .from('market_data')
-          .select('fetched_at')
-          .order('fetched_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (latestRow?.fetched_at) {
-          // Fetch all tickers from the latest snapshot
-          const { data, error } = await supabase
-            .from('market_data')
-            .select('ticker, company_name, price, change_amount, change_percent, volume, fetched_at')
-            .eq('fetched_at', latestRow.fetched_at)
-            .order('ticker');
-
-          if (!error && data && data.length > 0) {
-            setStocks(data);
-            setLastUpdated(new Date(latestRow.fetched_at).toLocaleTimeString());
-            setIsLive(true);
-          }
-        }
-      } catch (err) {
-        console.error('[NepseWatchlist] Fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchMarketData();
-  }, []);
-
-  // Fallback data shown when cron hasn't run yet
-  const fallbackStocks: MarketRow[] = [
-    { ticker: 'NABIL', company_name: 'Nabil Bank', price: 510.20, change_amount: 12.1, change_percent: 2.43, volume: 12340, fetched_at: '' },
-    { ticker: 'NTC', company_name: 'Nepal Telecom', price: 890.00, change_amount: -10.8, change_percent: -1.20, volume: 8920, fetched_at: '' },
-    { ticker: 'NICA', company_name: 'NIC Asia Bank', price: 720.50, change_amount: 5.7, change_percent: 0.80, volume: 15670, fetched_at: '' },
-    { ticker: 'EBL', company_name: 'Everest Bank', price: 430.10, change_amount: 6.3, change_percent: 1.49, volume: 9340, fetched_at: '' },
-    { ticker: 'CHCL', company_name: 'Chilime Hydro', price: 310.80, change_amount: -11.0, change_percent: -3.42, volume: 6780, fetched_at: '' },
-  ];
-
-  const displayStocks = stocks.length > 0 ? stocks : fallbackStocks;
-
-  return (
-    <div className="glass border-white/5 p-8 mt-8 relative overflow-hidden">
-      <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-        <Activity size={120} className="text-intelligence" />
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-6 border-b border-white/5 pb-4 relative z-10 gap-4">
-        <div>
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2 flex items-center gap-2">
-            <Globe size={14} />
-            Market Telemetry · Merolagani
-          </h4>
-          <h2 className="text-2xl font-black italic uppercase text-white flex items-center gap-3">
-            NEPSE WATCHLIST
-            {isLive && (
-              <span className="flex items-center gap-1.5 text-[9px] font-mono text-intelligence bg-intelligence/10 border border-intelligence/30 px-2 py-1 uppercase tracking-widest">
-                <span className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse"></span>
-                LIVE
-              </span>
-            )}
-          </h2>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          {lastUpdated && (
-            <p className="text-[9px] font-mono text-gray-400 uppercase tracking-widest bg-black/40 px-3 py-1 border border-white/5">
-              Last synced: {lastUpdated}
-            </p>
-          )}
-          <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">
-            {isLive ? 'Source: Merolagani · Updated hourly' : 'Cached data — cron pending'}
-          </p>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-white/[0.02] border border-white/5 p-4 animate-pulse h-20" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 relative z-10">
-          {displayStocks.map((stock) => {
-            const up = stock.change_percent >= 0;
-            return (
-              <div key={stock.ticker} className="bg-white/[0.02] border border-white/5 p-4 hover:bg-white/[0.05] transition-all group flex flex-col justify-between gap-2">
-                <div>
-                  <h5 className="text-sm font-black tracking-widest text-white">{stock.ticker}</h5>
-                  <p className="text-[9px] font-mono text-gray-600 truncate">{stock.company_name}</p>
-                </div>
-                <div>
-                  <p className="text-lg font-mono text-white">Rs. {stock.price.toFixed(2)}</p>
-                  <div className="flex items-center gap-1">
-                    {up ? <ArrowUpRight size={12} className="text-intelligence" /> : <ArrowDownRight size={12} className="text-brand" />}
-                    <span className={cn("text-[10px] font-bold font-mono", up ? "text-intelligence" : "text-brand")}>
-                      {up ? '+' : ''}{stock.change_percent.toFixed(2)}%
-                    </span>
-                  </div>
-                  <p className="text-[9px] font-mono text-gray-600 mt-1">Vol: {stock.volume.toLocaleString()}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Legal Disclaimer */}
-      <div className="mt-6 p-3 border border-white/5 bg-white/[0.01] flex items-start gap-2">
-        <AlertTriangle size={12} className="text-brand shrink-0 mt-0.5" />
-        <p className="text-[9px] font-mono text-gray-600 leading-relaxed">
-          <span className="text-brand font-black">DISCLAIMER:</span> Market data displayed is sourced from Merolagani.com and is provided for informational purposes only. Data may be delayed. This is not financial advice. PROJECT N is not affiliated with NEPSE or any licensed brokerage. Always consult a SEBON-registered advisor before making investment decisions.
-        </p>
-      </div>
-    </div>
-  );
-}
-// ────────────────────────────────────────────────────────────────────────────
-
-function OverviewView({ transactions, setTransactions, onViewReport, dateFormat, onBulkAdd }: { transactions: Transaction[], setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>, onViewReport: () => void, dateFormat: 'AD' | 'BS', onBulkAdd: (txs: Transaction[]) => Promise<void> }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isBannerDismissed, setIsBannerDismissed] = useState(() => localStorage.getItem('overview_banner_dismissed') === 'true');
-
-  const [isEditingLayout, setIsEditingLayout] = useState(false);
-  const [layout, setLayout] = useState(() => {
-    const saved = localStorage.getItem('overview_layout');
-    if (saved) return JSON.parse(saved);
-    return {
-      summaryCardsOrder: [0, 1, 2, 3],
-      showBarChart: true,
-      showPieChart: true,
-      showForecast: true,
-      showNepse: true,
-      showEconomic: true,
-      aiInsightsVisibility: [true, true, true, true]
-    };
-  });
-  const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    localStorage.setItem('overview_layout', JSON.stringify(layout));
-  }, [layout]);
-
-  const handleCardDragStart = (e: React.DragEvent, index: number) => {
-    if (!isEditingLayout) return;
-    setDraggedCardIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
-  };
-
-  const handleCardDrop = (e: React.DragEvent, dropIndex: number) => {
-    if (!isEditingLayout) return;
-    let dragIndex = draggedCardIndex;
-    if (dragIndex === null) {
-      const data = e.dataTransfer.getData('text/plain');
-      if (data) {
-        dragIndex = parseInt(data, 10);
-      }
-    }
-    if (dragIndex === null || isNaN(dragIndex)) return;
-    
-    const newOrder = [...layout.summaryCardsOrder];
-    const item = newOrder.splice(dragIndex, 1)[0];
-    newOrder.splice(dropIndex, 0, item);
-    setLayout({ ...layout, summaryCardsOrder: newOrder });
-    setDraggedCardIndex(null);
-  };
-
-  const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-  const today = new Date();
-  const adDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  
-  // Dynamic BS Date calculation matching conversion utility format: e.g. "Magh 15, 2081 BS"
-  const getDynamicFormattedBSDate = (adDateStr: string): string => {
-    const bsStr = convertGregorianToBS(adDateStr);
-    const parts = bsStr.split(' ')[0].split('-');
-    if (parts.length < 3) return bsStr;
-    const year = parts[0];
-    const monthIndex = parseInt(parts[1], 10) - 1;
-    const day = parts[2];
-    const BS_MONTH_NAMES = ["Baishakh", "Jestha", "Asar", "Shrawan", "Bhadra", "Ashwin", "Kartik", "Mangsir", "Poush", "Magh", "Fagun", "Chaitra"];
-    return `${BS_MONTH_NAMES[monthIndex]} ${day}, ${year} BS`;
-  };
-  
-  const bsDate = getDynamicFormattedBSDate(today.toISOString().split('T')[0]);
-
-  const dismissBanner = () => {
-    setIsBannerDismissed(true);
-    localStorage.setItem('overview_banner_dismissed', 'true');
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    Papa.parse(file, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const parsed: Transaction[] = results.data.map((row: any) => {
-          const amount = Math.abs(Number(row.amount));
-          const type: 'Inflow' | 'Outflow' = Number(row.amount) >= 0 ? 'Inflow' : 'Outflow';
-          return {
-            date: String(row.date || new Date().toISOString().split('T')[0]),
-            description: String(row.description || ''),
-            amount: amount,
-            category: String(row.category || 'Uncategorized'),
-            type: type
-          };
-        }).filter(t => !isNaN(t.amount) && t.amount > 0);
-        if (parsed.length > 0) {
-          onBulkAdd(parsed);
-        }
-      }
-    });
-  };
-
-  const dashboardStats = useMemo(() => {
-    const totalInflow = transactions.filter(t => t.type === 'Inflow').reduce((acc, t) => acc + t.amount, 0);
-    const totalOutflow = Math.abs(transactions.filter(t => t.type === 'Outflow').reduce((acc, t) => acc + t.amount, 0));
-    const netDelta = totalInflow - totalOutflow;
-
-    const formatter = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 1,
-      notation: 'compact'
-    });
-
-    return [
-      { label: "Total Inflow", val: formatter.format(totalInflow), trend: "LIVE", c: "intelligence", icon: ArrowUpRight },
-      { label: "Total Outflow", val: formatter.format(totalOutflow), trend: "LIVE", c: "brand", icon: ArrowDownRight },
-      { label: "Net Delta", val: formatter.format(netDelta), trend: netDelta >= 0 ? "SURPLUS" : "DEFICIT", c: netDelta >= 0 ? "intelligence" : "brand", icon: Activity },
-      { label: "Transactions", val: transactions.length.toLocaleString(), trend: "SYNCED", c: "intelligence", icon: Zap }
-    ];
-  }, [transactions]);
-
-  const barChartData = useMemo(() => {
-    const groups: Record<string, { inflow: number; outflow: number }> = {};
-
-    // Sort transactions by date first
-    const sorted = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    sorted.forEach(t => {
-      const date = new Date(t.date);
-      const month = date.toLocaleString('default', { month: 'short' }).toUpperCase();
-      if (!groups[month]) groups[month] = { inflow: 0, outflow: 0 };
-      if (t.type === 'Inflow') groups[month].inflow += t.amount;
-      else groups[month].outflow += Math.abs(t.amount);
-    });
-
-    return Object.entries(groups).map(([name, data]) => ({ name, ...data }));
-  }, [transactions]);
-
-  const pieChartData = useMemo(() => {
-    const categories: Record<string, number> = {};
-    transactions.forEach(t => {
-      categories[t.category] = (categories[t.category] || 0) + Math.abs(t.amount);
-    });
-
-    return Object.entries(categories).map(([name, value]) => ({ name, value }));
-  }, [transactions]);
-
-  // ── Sales Forecast Engine (real data) ────────────────────────────────────
-  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null);
-  const [isForecastLoading, setIsForecastLoading] = useState(false);
-
-  const loadForecast = async () => {
-    setIsForecastLoading(true);
-    try {
-      const result = await getSalesForecast(
-        transactions.map(t => ({ date: t.date, amount: t.amount, type: t.type }))
-      );
-      setForecastResult(result);
-    } catch (e) {
-      console.error('[ForecastEngine] Failed:', e);
-    } finally {
-      setIsForecastLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (transactions.length > 0) {
-      loadForecast();
-    }
-  }, [transactions]);
-
-  const forecastChartData = forecastResult?.data ?? [];
-
-  return (
-    <div className="space-y-8">
-      {/* Welcome Banner */}
-      <AnimatePresence>
-        {!isBannerDismissed && (
-          <motion.div
-            initial={{ height: 0, opacity: 0, marginBottom: 0 }}
-            animate={{ height: 'auto', opacity: 1, marginBottom: 32 }}
-            exit={{ height: 0, opacity: 0, marginBottom: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="glass p-10 border-intelligence/30 bg-intelligence/[0.02] relative group">
-              <button 
-                onClick={dismissBanner}
-                className="absolute top-6 right-6 text-gray-500 hover:text-white p-2 transition-colors"
-              >
-                <X size={20} />
-              </button>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-center">
-                <div className="lg:col-span-2 space-y-6">
-                  <div>
-                    <h4 className="text-[10px] font-black text-intelligence uppercase tracking-[0.4em] mb-3">Operational Authorization Active</h4>
-                    <h2 className="text-4xl font-black italic uppercase leading-tight">Welcome back to the Command Node, <span className="text-intelligence underline decoration-intelligence/30">{businessName}</span></h2>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-8">
-                     <div className="flex items-center gap-3">
-                        <Calendar size={18} className="text-gray-600" />
-                        <div>
-                           <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Standard_AD</p>
-                           <p className="text-xs font-black text-white uppercase">{adDate}</p>
-                        </div>
-                     </div>
-                     <div className="flex items-center gap-3">
-                        <Globe size={18} className="text-intelligence/60" />
-                        <div>
-                           <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Regional_BS</p>
-                           <p className="text-xs font-black text-intelligence uppercase">{bsDate}</p>
-                        </div>
-                     </div>
-                  </div>
-
-                  <p className="text-sm font-mono text-gray-400 italic">"The future of finance isn't just about data; it's about the intelligence that drives it."</p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                   <button 
-                     onClick={() => {
-                        // We can't navigate directly from here without lifting state or using a custom event
-                        // But since OverviewView is inside Dashboard, we can't easily change activeTab
-                        // However, we can trigger the CSV upload which is local.
-                        // Let's assume the user wants these actions to be functional.
-                        alert("NAVIGATING_TO_DATA_INPUT..."); 
-                     }}
-                     className="w-full bg-white text-black font-black uppercase text-[10px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:bg-intelligence transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-                   >
-                      <Plus size={14} />
-                      ADD_TRANSACTION
-                   </button>
-                   <button 
-                     onClick={() => fileInputRef.current?.click()}
-                     className="w-full bg-intelligence/10 text-intelligence border border-intelligence/30 font-black uppercase text-[10px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:bg-intelligence hover:text-black transition-all"
-                   >
-                      <Upload size={14} />
-                      UPLOAD_CSV_BATCH
-                   </button>
-                   <button 
-                     onClick={onViewReport}
-                     className="w-full bg-white/5 border border-white/10 text-white font-black uppercase text-[10px] tracking-[0.3em] py-4 flex items-center justify-center gap-3 hover:bg-white/10 transition-all"
-                   >
-                      <BarChart3 size={14} />
-                      GENERATE_REPORT
-                   </button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
-      {/* Header with Upload */}
-      <div className="flex justify-between items-end mb-4">
-        <div>
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">Platform Overview</h4>
-          <h2 className="text-5xl font-black italic uppercase">FINANCIAL INTELLIGENCE</h2>
-        </div>
-        <div className="flex gap-4">
-          <input
-            type="file"
-            accept=".csv"
-            className="hidden"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-          />
-          <button
-            onClick={() => setIsEditingLayout(!isEditingLayout)}
-            className={cn(
-              "border px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transition-all",
-              isEditingLayout ? "bg-brand text-black border-brand shadow-[0_0_20px_rgba(220,20,60,0.4)]" : "border-brand text-brand hover:bg-brand/10"
-            )}
-          >
-            <Settings size={16} />
-            {isEditingLayout ? 'FINISH EDITING' : 'EDIT DASHBOARD'}
-          </button>
-          <button
-            onClick={onViewReport}
-            className="border border-white/10 text-white px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3 hover:bg-white/5 transition-all"
-          >
-            <BarChartIcon size={16} />
-            VIEW FULL REPORT
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-intelligence text-black px-8 py-3 font-black text-[11px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all"
-          >
-            <Plus size={16} />
-            UPLOAD_CSV_DATA
-          </button>
-        </div>
-      </div>
-
-      <AnimatePresence>
-      {isEditingLayout && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="glass p-8 mb-8 border-brand bg-brand/[0.02] border-2 border-dashed relative overflow-hidden">
-          <div className="flex justify-between items-center mb-6 border-b border-brand/20 pb-4">
-            <h3 className="text-xl font-black italic uppercase text-brand flex items-center gap-3">
-              <Settings size={24} /> Dashboard Customization Mode
-            </h3>
-            <p className="text-[10px] font-mono text-brand uppercase tracking-widest italic">Changes auto-save to Kernel Memory</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            <div>
-              <h4 className="text-xs font-black uppercase text-gray-400 mb-6 tracking-widest">Section Visibility</h4>
-              <div className="space-y-4">
-                 <label className="flex items-center gap-4 cursor-pointer group">
-                    <div className="relative">
-                      <input type="checkbox" checked={layout.showBarChart} onChange={(e) => setLayout({...layout, showBarChart: e.target.checked})} className="sr-only" />
-                      <div className={cn("w-10 h-5 rounded-full transition-colors", layout.showBarChart ? "bg-brand" : "bg-white/10")}></div>
-                      <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", layout.showBarChart ? "left-6" : "left-1")}></div>
-                    </div>
-                    <span className="text-[10px] font-mono uppercase text-gray-300 group-hover:text-white transition-colors">Financial Activity (Bar Chart)</span>
-                 </label>
-                 <label className="flex items-center gap-4 cursor-pointer group">
-                    <div className="relative">
-                      <input type="checkbox" checked={layout.showPieChart} onChange={(e) => setLayout({...layout, showPieChart: e.target.checked})} className="sr-only" />
-                      <div className={cn("w-10 h-5 rounded-full transition-colors", layout.showPieChart ? "bg-brand" : "bg-white/10")}></div>
-                      <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", layout.showPieChart ? "left-6" : "left-1")}></div>
-                    </div>
-                    <span className="text-[10px] font-mono uppercase text-gray-300 group-hover:text-white transition-colors">Asset Distribution (Pie Chart)</span>
-                 </label>
-                 <label className="flex items-center gap-4 cursor-pointer group">
-                    <div className="relative">
-                      <input type="checkbox" checked={layout.showForecast} onChange={(e) => setLayout({...layout, showForecast: e.target.checked})} className="sr-only" />
-                      <div className={cn("w-10 h-5 rounded-full transition-colors", layout.showForecast ? "bg-brand" : "bg-white/10")}></div>
-                      <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", layout.showForecast ? "left-6" : "left-1")}></div>
-                    </div>
-                    <span className="text-[10px] font-mono uppercase text-gray-300 group-hover:text-white transition-colors">Sales Forecast Panel</span>
-                 </label>
-                 <label className="flex items-center gap-4 cursor-pointer group">
-                    <div className="relative">
-                      <input type="checkbox" checked={layout.showNepse} onChange={(e) => setLayout({...layout, showNepse: e.target.checked})} className="sr-only" />
-                      <div className={cn("w-10 h-5 rounded-full transition-colors", layout.showNepse ? "bg-brand" : "bg-white/10")}></div>
-                      <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", layout.showNepse ? "left-6" : "left-1")}></div>
-                    </div>
-                    <span className="text-[10px] font-mono uppercase text-gray-300 group-hover:text-white transition-colors">NEPSE Watchlist</span>
-                 </label>
-                 <label className="flex items-center gap-4 cursor-pointer group">
-                    <div className="relative">
-                      <input type="checkbox" checked={layout.showEconomic} onChange={(e) => setLayout({...layout, showEconomic: e.target.checked})} className="sr-only" />
-                      <div className={cn("w-10 h-5 rounded-full transition-colors", layout.showEconomic ? "bg-brand" : "bg-white/10")}></div>
-                      <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", layout.showEconomic ? "left-6" : "left-1")}></div>
-                    </div>
-                    <span className="text-[10px] font-mono uppercase text-gray-300 group-hover:text-white transition-colors">Economic Indicators</span>
-                 </label>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase text-gray-400 mb-6 tracking-widest">AI Insights Visibility</h4>
-              <div className="space-y-4">
-                 {['Revenue Trend', 'Top Expense Warning', 'Cash Flow Health', 'Inventory Alert'].map((name, i) => (
-                   <label key={i} className="flex items-center gap-4 cursor-pointer group">
-                      <div className="relative">
-                        <input type="checkbox" checked={layout.aiInsightsVisibility[i]} onChange={(e) => {
-                           const newVis = [...layout.aiInsightsVisibility];
-                           newVis[i] = e.target.checked;
-                           setLayout({...layout, aiInsightsVisibility: newVis});
-                        }} className="sr-only" />
-                        <div className={cn("w-10 h-5 rounded-full transition-colors", layout.aiInsightsVisibility[i] ? "bg-intelligence" : "bg-white/10")}></div>
-                        <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", layout.aiInsightsVisibility[i] ? "left-6" : "left-1")}></div>
-                      </div>
-                      <span className="text-[10px] font-mono uppercase text-gray-300 group-hover:text-white transition-colors">{name}</span>
-                   </label>
-                 ))}
-              </div>
-              <div className="mt-8 p-4 border border-brand/20 bg-brand/5">
-                <p className="text-[9px] font-mono text-brand uppercase leading-relaxed flex items-center gap-2">
-                   <Move size={12} />
-                   Drag and drop the 4 top summary cards below to reorder them in real-time.
-                </p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-      </AnimatePresence>
-
-      {/* 4 Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {layout.summaryCardsOrder.map((statIndex, displayIndex) => {
-          const stat = dashboardStats[statIndex];
-          if (!stat) return null;
-          return (
-            <div 
-              key={statIndex} 
-              draggable={isEditingLayout}
-              onDragStart={(e) => handleCardDragStart(e, displayIndex)}
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (isEditingLayout) {
-                  e.dataTransfer.dropEffect = 'move';
-                }
-              }}
-              onDrop={(e) => handleCardDrop(e, displayIndex)}
-              className={cn(
-                "glass p-8 border-white/5 relative overflow-hidden group transition-all",
-                isEditingLayout ? "cursor-move border-dashed border-2 border-brand hover:bg-brand/5" : ""
-              )}
-            >
-              <div className={cn("absolute top-0 right-0 w-24 h-24 blur-3xl -mr-12 -mt-12 opacity-20", stat.c === 'brand' ? 'bg-brand' : 'bg-intelligence')}></div>
-              <div className="flex justify-between items-start mb-4">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest group-hover:text-white transition-colors">{stat.label}</p>
-                <stat.icon className={cn("w-4 h-4", stat.c === 'brand' ? 'text-brand' : 'text-intelligence')} />
-              </div>
-              <p className="text-4xl font-black text-white font-mono tracking-tighter mb-2 italic">{stat.val}</p>
-              <div className="flex items-center gap-2">
-                <div className={cn("w-1 h-1 rounded-full", stat.c === 'brand' ? 'bg-brand animate-ping' : 'bg-intelligence animate-pulse')}></div>
-                <p className={cn("text-[10px] font-black uppercase tracking-widest", stat.c === 'brand' ? 'text-brand' : 'text-intelligence')}>{stat.trend}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Charts Section */}
-      {(layout.showBarChart || layout.showPieChart) && (
-      <div className={cn("grid gap-8", layout.showBarChart && layout.showPieChart ? "grid-cols-1 xl:grid-cols-3" : "grid-cols-1")}>
-        {/* Bar Chart */}
-        {layout.showBarChart && (
-        <div className={cn("glass border-white/5 p-8", layout.showPieChart ? "xl:col-span-2" : "")}>
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-1">Financial Activity</h4>
-              <p className="text-xl font-black italic">INFLOW VS OUTFLOW OVERVIEW</p>
-            </div>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-intelligence"></div>
-                <span className="text-[9px] font-mono text-gray-500 uppercase">Inflow</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-brand"></div>
-                <span className="text-[9px] font-mono text-gray-500 uppercase">Outflow</span>
-              </div>
-            </div>
-          </div>
-          <div className="h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#444', fontSize: 10, fontWeight: 'bold' }}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                />
-                <Bar dataKey="inflow" fill="#00f2ff" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="outflow" fill="#dc143c" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        )}
-
-        {/* Pie Chart */}
-        {layout.showPieChart && (
-        <div className="glass border-white/5 p-8 flex flex-col">
-          <div className="mb-8">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1">Asset Distribution</h4>
-            <p className="text-xl font-black italic">PORTFOLIO DENSITY</p>
-          </div>
-          <div className="flex-1 h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {pieChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#05070a', border: '1px solid #333', fontSize: '10px', color: '#fff' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-8">
-            {pieChartData.map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-2 h-2" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}></div>
-                <span className="text-[10px] font-mono text-gray-500 uppercase">{item.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        )}
-      </div>
-      )}
-
-      {/* Sales Forecast Panel — Real Data + Linear Regression + Confidence Bands */}
-      {layout.showForecast && (
-      <div className="glass border-white/5 p-8 mt-8 relative overflow-hidden">
-        {/* Ambient glow */}
-        <div className="absolute -top-20 -right-20 w-60 h-60 bg-intelligence/5 blur-[120px] rounded-full pointer-events-none"></div>
-        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-brand/5 blur-[120px] rounded-full pointer-events-none"></div>
-
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8 relative z-10">
-          <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1 flex items-center gap-2">
-              <TrendingUp size={12} />
-              Regression Forecast Engine
-            </h4>
-            <p className="text-xl font-black italic">SALES FORECAST (90-DAY OUTLOOK)</p>
-            {forecastResult && (
-              <div className="flex gap-6 mt-3">
-                <div className="flex items-center gap-2">
-                  <div className={cn("w-1.5 h-1.5 rounded-full", forecastResult.rSquared > 0.6 ? 'bg-green-400' : forecastResult.rSquared > 0.3 ? 'bg-yellow-400' : 'bg-brand')}></div>
-                  <span className="text-[9px] font-mono text-gray-500 uppercase">R² = {forecastResult.rSquared.toFixed(3)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {forecastResult.monthlyGrowthRate >= 0
-                    ? <ArrowUpRight size={10} className="text-intelligence" />
-                    : <ArrowDownRight size={10} className="text-brand" />}
-                  <span className={cn("text-[9px] font-mono uppercase font-bold", forecastResult.monthlyGrowthRate >= 0 ? 'text-intelligence' : 'text-brand')}>
-                    {forecastResult.monthlyGrowthRate >= 0 ? '+' : ''}{forecastResult.monthlyGrowthRate.toFixed(1)}% / MONTH
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Database size={10} className="text-gray-600" />
-                  <span className="text-[9px] font-mono text-gray-600 uppercase">
-                    Source: {forecastResult.dataSource === 'supabase' ? 'LIVE DB' : 'LOCAL CACHE'}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col items-start md:items-end gap-3">
-             <div className="flex gap-4">
-               <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 bg-intelligence"></div>
-                 <span className="text-[9px] font-mono text-gray-500 uppercase">Actual Revenue</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 border border-brand bg-brand/20"></div>
-                 <span className="text-[9px] font-mono text-gray-500 uppercase">Projected Revenue</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <div className="w-3 h-2 bg-brand/10 border border-brand/30"></div>
-                 <span className="text-[9px] font-mono text-gray-500 uppercase">80% Confidence Band</span>
-               </div>
-             </div>
-             <button
-               onClick={loadForecast}
-               disabled={isForecastLoading}
-               className="text-[9px] font-mono text-intelligence uppercase tracking-widest bg-intelligence/5 border border-intelligence/20 px-4 py-2 flex items-center gap-2 hover:bg-intelligence/10 transition-all disabled:opacity-50"
-             >
-               <RefreshCw size={10} className={cn(isForecastLoading && 'animate-spin')} />
-               {isForecastLoading ? 'COMPUTING...' : 'REFRESH MODEL'}
-             </button>
-          </div>
-        </div>
-
-        {isForecastLoading && forecastChartData.length === 0 ? (
-          <div className="h-[350px] flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <div className="flex justify-center gap-2">
-                <div className="w-2 h-2 bg-intelligence rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-intelligence rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                <div className="w-2 h-2 bg-intelligence rounded-full animate-bounce [animation-delay:0.4s]"></div>
-              </div>
-              <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Initializing Regression Engine...</p>
-            </div>
-          </div>
-        ) : (
-          <div className="h-[350px] w-full relative z-10">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={forecastChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="forecastConfBand" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#dc143c" stopOpacity={0.15} />
-                    <stop offset="100%" stopColor="#dc143c" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="actualAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#00f2ff" stopOpacity={0.08} />
-                    <stop offset="100%" stopColor="#00f2ff" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a2e" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#555', fontSize: 10, fontWeight: 'bold' }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#555', fontSize: 10, fontWeight: 'bold' }}
-                  width={80}
-                  tickFormatter={(val: number) => {
-                    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
-                    if (val >= 1_000) return `${(val / 1_000).toFixed(0)}k`;
-                    return String(val);
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0a0c14', border: '1px solid #222', borderRadius: '0', fontSize: '10px', color: '#fff', fontFamily: 'monospace' }}
-                  labelStyle={{ color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                  formatter={(value: any, name: string) => {
-                    const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
-                    const labels: Record<string, string> = {
-                      actual: 'Actual Revenue',
-                      projected: 'Projected',
-                      upperBand: 'Upper Bound',
-                      lowerBand: 'Lower Bound',
-                    };
-                    return [formatted, labels[name] || name];
-                  }}
-                />
-                {/* Confidence interval band (upper) */}
-                <Area
-                  type="monotone"
-                  dataKey="upperBand"
-                  stroke="none"
-                  fill="url(#forecastConfBand)"
-                  fillOpacity={1}
-                  connectNulls={false}
-                  isAnimationActive={true}
-                  animationDuration={1200}
-                />
-                {/* Confidence interval band (lower boundary eraser) */}
-                <Area
-                  type="monotone"
-                  dataKey="lowerBand"
-                  stroke="none"
-                  fill="#05070a"
-                  fillOpacity={0.8}
-                  connectNulls={false}
-                  isAnimationActive={true}
-                  animationDuration={1200}
-                />
-                {/* Actual revenue area + line */}
-                <Area
-                  type="monotone"
-                  dataKey="actual"
-                  stroke="#00f2ff"
-                  strokeWidth={3}
-                  fill="url(#actualAreaGrad)"
-                  fillOpacity={1}
-                  dot={{ r: 4, fill: '#00f2ff', strokeWidth: 0 }}
-                  activeDot={{ r: 6, fill: '#00f2ff', stroke: '#00f2ff', strokeWidth: 2 }}
-                  connectNulls={false}
-                  isAnimationActive={true}
-                  animationDuration={800}
-                />
-                {/* Projected revenue line */}
-                <Line
-                  type="monotone"
-                  dataKey="projected"
-                  stroke="#dc143c"
-                  strokeWidth={3}
-                  strokeDasharray="8 4"
-                  dot={{ r: 5, fill: '#0a0c14', stroke: '#dc143c', strokeWidth: 2 }}
-                  activeDot={{ r: 7, fill: '#dc143c', stroke: '#dc143c', strokeWidth: 2 }}
-                  connectNulls={false}
-                  isAnimationActive={true}
-                  animationDuration={1000}
-                  animationBegin={600}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Regression stats footer */}
-        {forecastResult && !isForecastLoading && (
-          <div className="mt-6 pt-4 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              {
-                label: 'Model Confidence',
-                value: `${(forecastResult.rSquared * 100).toFixed(1)}%`,
-                sub: forecastResult.rSquared > 0.7 ? 'STRONG FIT' : forecastResult.rSquared > 0.4 ? 'MODERATE FIT' : 'WEAK FIT',
-                color: forecastResult.rSquared > 0.7 ? 'text-green-400' : forecastResult.rSquared > 0.4 ? 'text-yellow-400' : 'text-brand'
-              },
-              {
-                label: 'Monthly Growth',
-                value: `${forecastResult.monthlyGrowthRate >= 0 ? '+' : ''}${forecastResult.monthlyGrowthRate.toFixed(1)}%`,
-                sub: forecastResult.monthlyGrowthRate > 0 ? 'UPTREND' : forecastResult.monthlyGrowthRate < 0 ? 'DOWNTREND' : 'FLAT',
-                color: forecastResult.monthlyGrowthRate >= 0 ? 'text-intelligence' : 'text-brand'
-              },
-              {
-                label: 'Data Points',
-                value: String(forecastChartData.filter((d: ForecastPoint) => d.actual !== null && d.actual > 0).length),
-                sub: 'MONTHS ANALYZED',
-                color: 'text-gray-400'
-              },
-              {
-                label: 'Projection Window',
-                value: '3 MO',
-                sub: '90-DAY OUTLOOK',
-                color: 'text-brand'
-              }
-            ].map((stat, i) => (
-              <div key={i} className="bg-white/[0.02] border border-white/5 p-4 hover:bg-white/[0.04] transition-colors">
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-2">{stat.label}</p>
-                <p className={cn("text-xl font-black font-mono", stat.color)}>{stat.value}</p>
-                <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest mt-1">{stat.sub}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* NEPSE Watchlist */}
-      {layout.showNepse && <NepseWatchlist />}
-
-      {/* Economic Indicators */}
-      {layout.showEconomic && (
-      <div className="glass border-white/5 p-8 mt-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 border-b border-white/5 pb-4 gap-4">
-          <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1">Macro Trends</h4>
-            <p className="text-xl font-black italic">ECONOMIC INDICATORS</p>
-          </div>
-          <div className="flex flex-col items-start sm:items-end gap-2">
-            <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest bg-white/5 px-3 py-1 flex items-center gap-2">
-               <Activity size={10} className="text-intelligence" />
-               Last Updated: {today.toLocaleDateString()} {today.toLocaleTimeString()}
-            </p>
-            <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest italic">
-               Data for reference only
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          {[
-            { label: 'USD/NPR Rate', val: '133.45', trend: '+0.12%', up: true, icon: Globe },
-            { label: 'Inflation Rate', val: '7.3%', trend: '-0.2%', up: false, icon: TrendingUp },
-            { label: 'NRB Policy Rate', val: '6.5%', trend: '0.0%', up: true, icon: Activity },
-            { label: 'Fuel Price Index', val: 'Rs. 170', trend: '+1.5%', up: true, icon: Package }
-          ].map((indicator, i) => (
-             <div key={i} className="bg-white/[0.02] border border-white/5 p-5 hover:bg-white/[0.04] transition-colors relative overflow-hidden group">
-                <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-110 transition-transform">
-                   <indicator.icon size={80} />
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">{indicator.label}</p>
-                <div className="flex items-end gap-4 relative z-10">
-                   <p className="text-3xl font-black font-mono text-white leading-none">{indicator.val}</p>
-                   <div className="flex items-center gap-1 mb-1">
-                      {indicator.up ? <ArrowUpRight size={12} className="text-intelligence" /> : <ArrowDownRight size={12} className="text-brand" />}
-                      <span className={cn("text-[10px] font-bold font-mono", indicator.up ? "text-intelligence" : "text-brand")}>{indicator.trend}</span>
-                   </div>
-                </div>
-             </div>
-          ))}
-        </div>
-      </div>
-      )}
-
-      {/* JARVIS Analysis Section */}
-      {layout.aiInsightsVisibility.some(v => v) && (
-      <div className="space-y-6 mt-12 mb-12">
-        <div className="flex justify-between items-end mb-6 border-b border-white/5 pb-4">
-          <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-2 flex items-center gap-2">
-              <Brain size={14} />
-              AI Synthesizer
-            </h4>
-            <h2 className="text-3xl font-black italic uppercase text-white">PROJECT N ANALYSIS AI</h2>
-          </div>
-          <button className="bg-white/5 text-white border border-white/10 px-6 py-3 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:bg-white/10 transition-all">
-            <RefreshCw size={14} className="text-intelligence" />
-            REFRESH ANALYSIS
-          </button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Revenue Trend */}
-          {layout.aiInsightsVisibility[0] && (
-          <div className="glass p-6 border-l-2 border-l-intelligence bg-white/[0.02] hover:bg-white/[0.04] transition-all group">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-intelligence/10 text-intelligence rounded-sm group-hover:scale-110 transition-transform">
-                <TrendingUp size={16} />
-              </div>
-              <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Revenue Trend</h5>
-            </div>
-            <p className="text-sm font-mono text-white leading-relaxed">
-              Q1 SaaS subscriptions generated 45% of total inflow. Suggesting a pivot to scale enterprise licensing model for Q3.
-            </p>
-          </div>
-          )}
-
-          {/* Top Expense Warning */}
-          {layout.aiInsightsVisibility[1] && (
-          <div className="glass p-6 border-l-2 border-l-brand bg-white/[0.02] hover:bg-white/[0.04] transition-all group">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-brand/10 text-brand rounded-sm group-hover:scale-110 transition-transform">
-                <AlertTriangle size={16} />
-              </div>
-              <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Top Expense</h5>
-            </div>
-            <p className="text-sm font-mono text-white leading-relaxed">
-              Cloud infra costs spiked by 18% relative to previous month. Recommended to audit inactive vertex AI nodes.
-            </p>
-          </div>
-          )}
-
-          {/* Cash Flow Health */}
-          {layout.aiInsightsVisibility[2] && (
-          <div className="glass p-6 border-l-2 border-l-green-500 bg-white/[0.02] hover:bg-white/[0.04] transition-all group">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-green-500/10 text-green-500 rounded-sm group-hover:scale-110 transition-transform">
-                <Activity size={16} />
-              </div>
-              <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Cash Flow Health</h5>
-            </div>
-            <p className="text-sm font-mono text-white leading-relaxed">
-              Operating cash flow is stable. 6-month runway maintained at current burn rate. High liquidity detected.
-            </p>
-          </div>
-          )}
-
-          {/* Inventory Alert */}
-          {layout.aiInsightsVisibility[3] && (
-          <div className="glass p-6 border-l-2 border-l-orange-500 bg-white/[0.02] hover:bg-white/[0.04] transition-all group">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-orange-500/10 text-orange-500 rounded-sm group-hover:scale-110 transition-transform">
-                <Package size={16} />
-              </div>
-              <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Inventory Alert</h5>
-            </div>
-            <p className="text-sm font-mono text-white leading-relaxed">
-              "Alpha Node" stock is approaching critical minimum threshold. Recommend automated reorder from primary supplier.
-            </p>
-          </div>
-          )}
-        </div>
-      </div>
-      )}
-
-      {/* Predictive Analytics */}
-      <QuantumIntelligence />
-
-      {/* NRB Policy Tracker */}
-      <NrbPolicyTracker />
-    </div>
-  );
-}
-
-// ─── NRB POLICY TRACKER ─────────────────────────────────────────────────────
-interface NrbUpdate {
-  id: string;
-  title: string;
-  link: string | null;
-  description: string | null;
-  pub_date: string | null;
-  category: string;
-}
-
-const NRB_CATEGORY_COLORS: Record<string, string> = {
-  'Press Release': 'text-intelligence border-intelligence/40 bg-intelligence/10',
-  'Monetary Policy': 'text-brand border-brand/40 bg-brand/10',
-  'Notice': 'text-orange-400 border-orange-400/40 bg-orange-400/10',
-  'General': 'text-gray-400 border-gray-400/40 bg-gray-400/10'
-};
-
-function NrbPolicyTracker() {
-  const [updates, setUpdates] = useState<NrbUpdate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastFetched, setLastFetched] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadNrbUpdates() {
-      try {
-        const { data, error } = await supabase
-          .from('nrb_updates')
-          .select('id, title, link, description, pub_date, category')
-          .order('pub_date', { ascending: false })
-          .limit(5);
-
-        if (!error && data && data.length > 0) {
-          setUpdates(data);
-          setLastFetched(new Date().toLocaleTimeString());
-        }
-      } catch (err) {
-        console.error('[NrbPolicyTracker] Fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadNrbUpdates();
-  }, []);
-
-  // Offline/pre-cron fallback items
-  const fallbackUpdates: NrbUpdate[] = [
-    {
-      id: '1', category: 'Monetary Policy',
-      title: 'NRB Monetary Policy 2081/82 — Policy Rate Maintained at 5.5%',
-      link: 'https://www.nrb.org.np/monetary-policy',
-      description: 'The Nepal Rastra Bank has decided to maintain the policy rate at 5.5% for the current fiscal year.',
-      pub_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: '2', category: 'Press Release',
-      title: 'Foreign Exchange Reserves Stand at USD 13.4 Billion',
-      link: 'https://www.nrb.org.np/press-release',
-      description: 'Nepal\'s foreign exchange reserves are sufficient to cover 11.7 months of goods and services imports.',
-      pub_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: '3', category: 'Notice',
-      title: 'Circular on Digital Payment Infrastructure Enhancement',
-      link: 'https://www.nrb.org.np/notices',
-      description: 'All BFIs are directed to comply with updated digital payment security standards by mid-Ashad 2082.',
-      pub_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: '4', category: 'Press Release',
-      title: 'Current Macroeconomic and Financial Situation of Nepal',
-      link: 'https://www.nrb.org.np/press-release',
-      description: 'The remittance inflow increased by 12.4% year-on-year, contributing to improved BOP position.',
-      pub_date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: '5', category: 'Notice',
-      title: 'Interest Rate Corridor Framework — Updated Guidelines',
-      link: 'https://www.nrb.org.np/notices',
-      description: 'NRB updates the interest rate corridor with revised floor and ceiling rates effective immediately.',
-      pub_date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
-    }
-  ];
-
-  const displayUpdates = updates.length > 0 ? updates : fallbackUpdates;
-  const isLive = updates.length > 0;
-
-  return (
-    <div className="glass border-white/5 p-8 mt-8 relative overflow-hidden">
-      {/* Background icon */}
-      <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-        <FileText size={120} className="text-brand" />
-      </div>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-6 border-b border-white/5 pb-4 relative z-10 gap-4">
-        <div>
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-2 flex items-center gap-2">
-            <Globe size={14} />
-            Nepal Rastra Bank · Policy Feed
-          </h4>
-          <h2 className="text-2xl font-black italic uppercase text-white flex items-center gap-3">
-            NRB POLICY TRACKER
-            {isLive ? (
-              <span className="flex items-center gap-1.5 text-[9px] font-mono text-intelligence bg-intelligence/10 border border-intelligence/30 px-2 py-1 uppercase tracking-widest">
-                <span className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse"></span>
-                LIVE
-              </span>
-            ) : (
-              <span className="text-[9px] font-mono text-gray-600 bg-white/5 border border-white/10 px-2 py-1 uppercase tracking-widest">
-                CACHED
-              </span>
-            )}
-          </h2>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          {lastFetched && (
-            <p className="text-[9px] font-mono text-gray-400 uppercase tracking-widest bg-black/40 px-3 py-1 border border-white/5">
-              Refreshed: {lastFetched}
-            </p>
-          )}
-          <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">
-            {isLive ? 'Source: nrb.org.np · Updated hourly' : 'Preview data — cron pending'}
-          </p>
-        </div>
-      </div>
-
-      {/* Updates List */}
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-white/[0.02] border border-white/5 animate-pulse rounded-sm" />
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-3 relative z-10">
-          {displayUpdates.map((update, i) => {
-            const colorClass = NRB_CATEGORY_COLORS[update.category] || NRB_CATEGORY_COLORS['General'];
-            const pubDate = update.pub_date
-              ? new Date(update.pub_date).toLocaleDateString('en-NP', { year: 'numeric', month: 'short', day: 'numeric' })
-              : 'Date N/A';
-
-            return (
-              <motion.div
-                key={update.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.07 }}
-                className="flex items-start gap-4 p-4 bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-white/10 transition-all group"
-              >
-                {/* Index */}
-                <div className="text-[10px] font-black text-gray-700 font-mono w-4 shrink-0 pt-0.5">
-                  {String(i + 1).padStart(2, '0')}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                    <span className={cn(
-                      "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 border",
-                      colorClass
-                    )}>
-                      {update.category}
-                    </span>
-                    <span className="text-[9px] font-mono text-gray-600 flex items-center gap-1">
-                      <Clock size={9} />
-                      {pubDate}
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-bold text-white group-hover:text-intelligence transition-colors leading-snug line-clamp-2">
-                    {update.title}
-                  </p>
-                  {update.description && (
-                    <p className="text-[10px] font-mono text-gray-600 mt-1 leading-relaxed line-clamp-1">
-                      {update.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* Link */}
-                {update.link && (
-                  <a
-                    href={update.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-gray-600 hover:text-intelligence transition-colors mt-0.5"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <ExternalLink size={12} />
-                    <span className="hidden sm:inline">View</span>
-                  </a>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Footer note */}
-      <div className="mt-4 flex items-center justify-between">
-        <p className="text-[8px] font-mono text-gray-700 uppercase tracking-widest">
-          Showing latest 5 of {isLive ? 'live' : 'cached'} NRB publications
-        </p>
-        <a
-          href="https://www.nrb.org.np"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[9px] font-black text-gray-600 hover:text-intelligence transition-colors uppercase tracking-widest flex items-center gap-1"
-        >
-          <ExternalLink size={10} />
-          nrb.org.np
-        </a>
-      </div>
-    </div>
-  );
-}
-// ────────────────────────────────────────────────────────────────────────────
+// NepseWatchlist, OverviewView, NrbPolicyTracker moved to OverviewTab.tsx
 
 function PlaceholderView({ name }: { name: string }) {
   return (
@@ -3574,481 +2183,29 @@ function PlaceholderView({ name }: { name: string }) {
 
 // --- P&L STATEMENT VIEW ---
 
-const formatCurrency = (val: number) => {
+export const formatCurrency = (val: number) => {
+  const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+  const currency = isDemo ? 'NPR' : (localStorage.getItem('primary_currency') || 'USD');
   const absVal = Math.abs(val);
-  const formatted = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0
-  }).format(absVal);
-  return val < 0 ? `(${formatted})` : formatted;
-};
-
-export const getPLStatement = async (businessId: string, startDate?: string, endDate?: string) => {
-  let query = supabase.from('transactions').select(`
-    amount,
-    type,
-    categories (name)
-  `).eq('business_id', businessId);
-
-  if (startDate) {
-    query = query.gte('date', startDate);
-  }
-  if (endDate) {
-    query = query.lte('date', endDate);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error('Failed to fetch P&L data:', error);
-    return null;
-  }
-
-  const plData = {
-    revenue: [] as { name: string, val: number }[],
-    cogs: [] as { name: string, val: number }[],
-    operatingExpenses: [] as { name: string, val: number }[]
-  };
-
-  const categoryTotals: Record<string, number> = {};
-  const cogsKeywords = ['raw material', 'labor', 'production', 'cogs', 'inventory', 'supplier', 'manufacturing', 'freight', 'direct'];
-
-  data?.forEach((tx: any) => {
-    const catName = tx.categories?.name || 'Uncategorized';
-    const amount = Number(tx.amount);
-    const key = `${tx.type}_${catName}`;
-    categoryTotals[key] = (categoryTotals[key] || 0) + amount;
-  });
-
-  Object.entries(categoryTotals).forEach(([key, val]) => {
-    const [type, ...nameParts] = key.split('_');
-    const name = nameParts.join('_');
-    
-    if (type === 'Inflow') {
-      plData.revenue.push({ name, val });
-    } else {
-      const isCogs = cogsKeywords.some(kw => name.toLowerCase().includes(kw));
-      if (isCogs) {
-         plData.cogs.push({ name, val: -val });
-      } else {
-         plData.operatingExpenses.push({ name, val: -val });
-      }
-    }
-  });
-
-  const revTotal = plData.revenue.reduce((acc, i) => acc + i.val, 0);
-  const cogsTotal = plData.cogs.reduce((acc, i) => acc + i.val, 0);
-  const grossProfit = revTotal + cogsTotal;
-  const expTotal = plData.operatingExpenses.reduce((acc, i) => acc + i.val, 0);
-  const netProfit = grossProfit + expTotal;
-
-  return {
-    plList: [
-      {
-        category: "Revenue",
-        total: formatCurrency(revTotal),
-        items: plData.revenue.map(i => ({ ...i, val: formatCurrency(i.val) }))
-      },
-      {
-        category: "COGS",
-        total: formatCurrency(cogsTotal),
-        items: plData.cogs.map(i => ({ ...i, val: formatCurrency(i.val) }))
-      },
-      {
-        category: "Gross Profit",
-        total: formatCurrency(grossProfit),
-        isResult: true,
-        items: []
-      },
-      {
-        category: "Operating Expenses",
-        total: formatCurrency(expTotal),
-        items: plData.operatingExpenses.map(i => ({ ...i, val: formatCurrency(i.val) }))
-      },
-      {
-        category: "Net Profit",
-        total: formatCurrency(netProfit),
-        isResult: true,
-        highlight: true,
-        items: []
-      }
-    ],
-    rawTotals: {
-      revTotal,
-      cogsTotal,
-      expTotal
-    }
-  };
-};
-
-function PLSection({ section }: { section: any }) {
-  const [isOpen, setIsOpen] = useState(true);
-  const hasItems = section.items && section.items.length > 0;
-
-  return (
-    <div className={cn(
-      "border-b border-white/5",
-      section.highlight ? "bg-intelligence/5 border-l-4 border-l-intelligence" : "",
-      section.isResult ? "border-brand border-2 my-2 bg-brand/5" : ""
-    )}>
-      <button
-        onClick={() => hasItems && setIsOpen(!isOpen)}
-        className={cn(
-          "w-full flex items-center justify-between p-6 hover:bg-white/[0.02] transition-colors",
-          !hasItems && "cursor-default"
-        )}
-      >
-        <div className="flex items-center gap-4">
-          {hasItems && (
-            isOpen ? <ChevronUp size={16} className="text-intelligence" /> : <ChevronDown size={16} className="text-gray-600" />
-          )}
-          {!hasItems && <div className="w-4" />}
-          <h3 className={cn(
-            "text-sm font-black uppercase tracking-widest",
-            section.isResult ? "text-white" : "text-gray-400"
-          )}>
-            {section.category}
-          </h3>
-        </div>
-        <p className={cn(
-          "font-mono font-bold italic",
-          section.highlight ? "text-intelligence text-xl" :
-            section.isResult ? "text-white text-lg" : "text-gray-500"
-        )}>
-          {section.total}
-        </p>
-      </button>
-
-      <AnimatePresence>
-        {isOpen && hasItems && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden bg-black/20"
-          >
-            <div className="px-16 py-4 space-y-3">
-              {section.items.map((item, i) => (
-                <div key={i} className="flex justify-between items-center text-xs font-mono group">
-                  <span className="text-gray-600 group-hover:text-gray-400 transition-colors">{item.name}</span>
-                  <div className="flex-1 mx-4 border-b border-white/5 border-dotted"></div>
-                  <span className="text-gray-400">{item.val}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function PandLView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
-  const { t, language } = React.useContext(LanguageContext);
-  const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
-  const [customDates, setCustomDates] = useState({ start: '', end: '' });
   
-  const [plData, setPlData] = useState<any[]>([]);
-  const [taxData, setTaxData] = useState({ taxableSales: 0, vatCollected: 0, rawCogs: 0, rawExp: 0, taxablePurchases: 0, vatPaid: 0, netVATPayable: 0 });
-  const [isLoading, setIsLoading] = useState(false);
+  if (currency === 'NPR') {
+    const formatted = new Intl.NumberFormat('en-NP', {
+      style: 'currency',
+      currency: 'NPR',
+      maximumFractionDigits: 0
+    }).format(absVal).replace('NPR', 'रू');
+    return val < 0 ? `(${formatted})` : formatted;
+  } else {
+    const formatted = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(absVal);
+    return val < 0 ? `(${formatted})` : formatted;
+  }
+};
 
-  useEffect(() => {
-    const fetchPL = async () => {
-      setIsLoading(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return;
-        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-        if (!profile?.business_id) return;
-
-        let startDate, endDate;
-        const now = new Date();
-        if (range === 'This Month') {
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        } else if (range === 'Last Month') {
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-        } else if (range === 'This Quarter') {
-          const quarter = Math.floor(now.getMonth() / 3);
-          startDate = new Date(now.getFullYear(), quarter * 3, 1);
-          endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0);
-        } else if (range === 'Custom' && customDates.start && customDates.end) {
-          startDate = new Date(customDates.start);
-          endDate = new Date(customDates.end);
-        }
-
-        const startStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
-        const endStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
-
-        const result = await getPLStatement(profile.business_id, startStr, endStr);
-        if (result) {
-          setPlData(result.plList);
-          const taxableSales = result.rawTotals.revTotal;
-          const vatCollected = taxableSales * 0.13;
-          const rawCogs = result.rawTotals.cogsTotal;
-          const rawExp = result.rawTotals.expTotal;
-          const taxablePurchases = (Math.abs(rawCogs) + Math.abs(rawExp)) * 0.6;
-          const vatPaid = taxablePurchases * 0.13;
-          const netVATPayable = vatCollected - vatPaid;
-          setTaxData({ taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable });
-        }
-      } catch (err) {
-        console.error('Error fetching P&L', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchPL();
-  }, [range, customDates]);
-
-  const { taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable } = taxData;
-
-  const exportPDF = () => {
-    if ((window as any).requestPdfPassword) {
-      (window as any).requestPdfPassword((pwd: string | null) => {
-        if (pwd === null) return;
-        const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-        const period = `${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`;
-        
-        const body: any[] = [];
-        plData.forEach(section => {
-          body.push([section.category.toUpperCase(), '', section.total]);
-          section.items.forEach(item => {
-            body.push([`   ${item.name}`, '', item.val]);
-          });
-          body.push(['', '', '']); // spacer
-        });
-
-        generateProfessionalPDF(
-          'Profit & Loss Statement',
-          period,
-          [['Category', 'Details', 'Value']],
-          body,
-          `PL_Statement_${businessName.replace(/\s/g, '_')}.pdf`,
-          [0, 242, 255],
-          pwd
-        );
-      });
-    }
-  };
-
-  const exportVATPDF = () => {
-    if ((window as any).requestPdfPassword) {
-      (window as any).requestPdfPassword(async (pwd: string | null) => {
-        if (pwd === null) return;
-        const doc = new jsPDF();
-        const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
-        const panNumber = localStorage.getItem('pan_number') || 'XXXXXXXXX';
-        // IRD Nepal Schedule 10 header
-        doc.setFillColor(230, 245, 255);
-        doc.rect(14, 12, 182, 38, 'F');
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0, 50, 150);
-        doc.text('GOVERNMENT OF NEPAL', 105, 20, { align: 'center' });
-        doc.text('MINISTRY OF FINANCE - INLAND REVENUE DEPARTMENT', 105, 26, { align: 'center' });
-        doc.setFontSize(13); doc.setTextColor(0, 0, 0);
-        doc.text('VALUE ADDED TAX (VAT) RETURN FORM', 105, 34, { align: 'center' });
-        doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-        doc.text('(Schedule 10 - Value Added Tax Rules, 2053)', 105, 40, { align: 'center' });
-        // Taxpayer info
-        doc.setFontSize(10); doc.setTextColor(40, 40, 40);
-        doc.text('Taxpayer: ' + businessName, 14, 55);
-        doc.text('PAN: ' + panNumber, 14, 61);
-        const bsNow = dateFormat === 'BS' ? convertGregorianToBS(new Date().toISOString().split('T')[0]) : new Date().toLocaleDateString();
-        let periodLabel: string = range;
-        if (range === 'Custom' && customDates.start && customDates.end) {
-          periodLabel = dateFormat === 'BS'
-            ? convertGregorianToBS(customDates.start) + ' to ' + convertGregorianToBS(customDates.end)
-            : customDates.start + ' to ' + customDates.end;
-        }
-        doc.text('Tax Period: ' + periodLabel, 14, 67);
-        doc.text('Generated: ' + bsNow, 14, 73);
-        // IRD-format table with NPR values
-        const fmtNPR = (v: number) => {
-          const s = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(v));
-          return v < 0 ? '(' + s + ')' : s;
-        };
-        const vatBody = [
-          ['1', 'Taxable Sales (Domestic)', fmtNPR(taxableSales), '13%', fmtNPR(vatCollected)],
-          ['2', 'Tax Exempt Sales', fmtNPR(0), 'Exempt', fmtNPR(0)],
-          ['3', 'Export (Zero Rated)', fmtNPR(0), '0%', fmtNPR(0)],
-          ['4', 'Total Sales', fmtNPR(taxableSales), '-', fmtNPR(vatCollected)],
-          ['5', 'Taxable Purchases & Imports', fmtNPR(taxablePurchases), '13%', fmtNPR(vatPaid)],
-          ['6', 'Exempt Purchases', fmtNPR(0), 'Exempt', fmtNPR(0)],
-          ['7', 'Total Purchases', fmtNPR(taxablePurchases), '-', fmtNPR(vatPaid)],
-          ['8', 'Net VAT Payable / (Refundable)', '-', '-', fmtNPR(netVATPayable)],
-        ];
-        autoTable(doc, {
-          startY: 80,
-          head: [['S.N.', 'Particulars', 'Taxable Value (NPR)', 'Rate', 'VAT Amount (NPR)']],
-          body: vatBody,
-          theme: 'grid',
-          headStyles: { fillColor: [0, 50, 150], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-          styles: { font: 'helvetica', fontSize: 9, cellPadding: 3 },
-          columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'center' }, 4: { halign: 'right' } }
-        });
-        await saveEncryptedPdf(doc, `VAT_IRD_${businessName.replace(/\s/g, '_')}.pdf`, pwd);
-      });
-    }
-  };
-  return (
-    <div className="space-y-12">
-      <div className="flex justify-between items-end">
-        <div>
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">{t('Statement of Earnings')}</h4>
-          <h2 className="text-5xl font-black italic uppercase">{t('PROFIT & LOSS ANALYSIS')}</h2>
-        </div>
-        <div className="flex gap-4 items-center">
-          <div className="flex flex-col gap-2 items-end">
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 p-1">
-              {['This Month', 'Last Month', 'This Quarter', 'Custom'].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRange(r as any)}
-                  className={cn(
-                    "px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all",
-                    range === r ? "bg-intelligence text-black shadow-[0_0_15px_rgba(0,242,255,0.3)]" : "text-gray-500 hover:text-white"
-                  )}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-            {range === 'Custom' && (
-              <motion.div
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-4 mt-2"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Start</span>
-                  <input
-                    type="date"
-                    value={customDates.start}
-                    onChange={(e) => setCustomDates({ ...customDates, start: e.target.value })}
-                    className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-intelligence/50 font-mono"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">End</span>
-                  <input
-                    type="date"
-                    value={customDates.end}
-                    onChange={(e) => setCustomDates({ ...customDates, end: e.target.value })}
-                    className="bg-black/40 border border-white/10 text-[10px] text-white px-3 py-1 focus:outline-none focus:border-intelligence/50 font-mono"
-                  />
-                </div>
-              </motion.div>
-            )}
-          </div>
-          <button
-            onClick={exportPDF}
-            className="bg-intelligence text-black px-8 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all h-fit"
-          >
-            <Download size={16} />
-            EXPORT_PDF
-          </button>
-        </div>
-      </div>
-
-      <div className="glass border-white/5 overflow-hidden p-2">
-        {plData.map((section, i) => (
-          <PLSection key={i} section={section} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="glass p-8 border-white/5 bg-intelligence/[0.02]">
-          <div className="flex items-center gap-3 mb-6">
-            <Zap className="text-intelligence" size={16} />
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-intelligence">Efficiency Metrics</h4>
-          </div>
-          <div className="space-y-6">
-            {[
-              { label: "Gross Margin", val: "64.8%", trend: "+2.1%" },
-              { label: "Operating Margin", val: "41.9%", trend: "+0.4%" },
-              { label: "Tax Optimization", val: "84%", trend: "STABLE" }
-            ].map((m, i) => (
-              <div key={i} className="flex justify-between items-center">
-                <p className="text-[10px] font-mono text-gray-500 uppercase">{m.label}</p>
-                <div className="flex items-center gap-4">
-                  <p className="text-lg font-mono font-bold text-white italic">{m.val}</p>
-                  <span className="text-[9px] font-black text-intelligence">{m.trend}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="glass p-8 border-white/5 bg-white/[0.01]">
-          <p className="text-[10px] font-mono text-gray-600 uppercase mb-4 tracking-widest">Auditor Notes</p>
-          <p className="text-xs text-gray-500 font-mono leading-relaxed uppercase">
-            All figures adjusted for quantum variance. Revenue recognition follows G-SEC protocols. COGS includes accelerated depreciation on hardware clusters. Net profit remains within target corridors despite increased R&D allocation.
-          </p>
-        </div>
-      </div>
-
-      {/* VAT Compliance Report Section */}
-      <div className="pt-12 border-t border-white/5 space-y-6">
-        <div className="flex justify-between items-end">
-          <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">{t('Tax Compliance Protocol')}</h4>
-            <h2 className="text-3xl font-black italic uppercase">{t('VAT_REPORT_SUMMARY')}</h2>
-          </div>
-          <button
-            onClick={exportVATPDF}
-            className="bg-intelligence/20 border border-intelligence/40 text-intelligence px-6 py-3 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 hover:bg-intelligence hover:text-black transition-all animate-pulse shadow-[0_0_15px_rgba(0,242,255,0.1)]"
-          >
-            <Download size={14} className="text-intelligence" />
-            {t('EXPORT_VAT_PDF')}
-          </button>
-        </div>
-
-        <div className="glass border-white/5 overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-white/10 bg-white/[0.02]">
-                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t('Tax Parameter')}</th>
-                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t('Rate/Basis')}</th>
-                <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">{t(language === 'NP' ? 'Value (NPR)' : 'Value (USD)')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              <tr className="hover:bg-white/[0.01] transition-colors">
-                <td className="p-6 text-xs font-bold text-white uppercase">{t('Taxable Sales')}</td>
-                <td className="p-6 text-xs font-mono text-gray-500">{t('Based on Revenue Streams')}</td>
-                <td className="p-6 text-right font-mono font-bold text-xs text-white">{formatCurrency(taxableSales)}</td>
-              </tr>
-              <tr className="hover:bg-white/[0.01] transition-colors">
-                <td className="p-6 text-xs font-bold text-white uppercase">{t('VAT Collected (13%)')}</td>
-                <td className="p-6 text-xs font-mono text-intelligence">{t('13% of Taxable Sales')}</td>
-                <td className="p-6 text-right font-mono font-bold text-xs text-intelligence">+{formatCurrency(vatCollected)}</td>
-              </tr>
-              <tr className="hover:bg-white/[0.01] transition-colors">
-                <td className="p-6 text-xs font-bold text-white uppercase">{t('Taxable Purchases')}</td>
-                <td className="p-6 text-xs font-mono text-gray-500">{t('Based on COGS & Operational Inputs')}</td>
-                <td className="p-6 text-right font-mono font-bold text-xs text-white">{formatCurrency(taxablePurchases)}</td>
-              </tr>
-              <tr className="hover:bg-white/[0.01] transition-colors">
-                <td className="p-6 text-xs font-bold text-white uppercase">{t('VAT Paid')}</td>
-                <td className="p-6 text-xs font-mono text-brand">{t('13% of Taxable Purchases')}</td>
-                <td className="p-6 text-right font-mono font-bold text-xs text-brand">-{formatCurrency(vatPaid)}</td>
-              </tr>
-              <tr className="bg-intelligence/5 border-l-4 border-l-intelligence hover:bg-intelligence/10 transition-colors">
-                <td className="p-6 text-xs font-black text-white uppercase italic">{t('Net VAT Payable')}</td>
-                <td className="p-6 text-xs font-mono text-gray-400">{t('VAT Collected - VAT Paid')}</td>
-                <td className="p-6 text-right font-mono font-black text-sm text-intelligence">{formatCurrency(netVATPayable)}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div className="p-6 border-t border-white/5 bg-black/20 flex items-center gap-2">
-            <Shield size={12} className="text-gray-600 animate-pulse" />
-            <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">{t('As per IRD Nepal guidelines')}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+// P&L Statement components (getPLStatement, PLSection, PandLView) moved to src/components/PLStatement.tsx
 
 // --- CASH FLOW VIEW ---
 
@@ -4147,12 +2304,9 @@ function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
     const fetchCF = async () => {
       setIsLoading(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return;
-        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-        if (!profile?.business_id) return;
+        const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
 
-        let startDate, endDate;
+        let startDate: Date | undefined, endDate: Date | undefined;
         const now = new Date();
         if (range === 'This Month') {
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -4168,6 +2322,43 @@ function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
           startDate = new Date(customDates.start);
           endDate = new Date(customDates.end);
         }
+
+        if (isDemoMode) {
+          const savedDemo = localStorage.getItem('demo_transactions');
+          const txList = savedDemo ? JSON.parse(savedDemo) : [];
+          let filtered = txList;
+          if (startDate && endDate) {
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+            filtered = txList.filter((tx: any) => {
+              const txDate = new Date(tx.date).getTime();
+              return txDate >= startDate!.getTime() && txDate <= endDate!.getTime();
+            });
+          }
+          const opActivities: { name: string; val: number }[] = [];
+          const catTotals: Record<string, number> = {};
+          filtered.forEach((tx: any) => {
+            const catName = tx.category || 'Uncategorized';
+            const amount = Number(tx.amount);
+            const val = tx.type === 'Inflow' ? amount : -amount;
+            catTotals[catName] = (catTotals[catName] || 0) + val;
+          });
+          Object.entries(catTotals).forEach(([name, val]) => opActivities.push({ name, val }));
+          const opTotal = opActivities.reduce((acc, i) => acc + i.val, 0);
+          setCfData([
+            { category: 'Operating Activities', total: formatCurrency(opTotal), items: opActivities.map(i => ({ ...i, val: formatCurrency(i.val) })) },
+            { category: 'Investing Activities', total: formatCurrency(0), items: [] },
+            { category: 'Financing Activities', total: formatCurrency(0), items: [] },
+            { category: 'Net Cash Flow', total: formatCurrency(opTotal), isResult: true, highlight: true, items: [] }
+          ]);
+          setIsLoading(false);
+          return;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) { setIsLoading(false); return; }
+        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+        if (!profile?.business_id) { setIsLoading(false); return; }
 
         const startStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
         const endStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
@@ -4462,13 +2653,45 @@ const InventoryView = React.memo(function InventoryView({ dateFormat }: { dateFo
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  const defaultDemoInventory: InventoryItem[] = [
+    { id: 'di-1', name: 'Premium Egyptian Cotton Bed Sheets', category: 'Rooms', sku: 'INV-HOT-BedSheet-001', qty: 150, min_stock: 30, price: 45.00, expiry: '2027-12-31', status: 'GOOD' },
+    { id: 'di-2', name: 'Organic Spa Lavender Massage Oil', category: 'Spa & Wellness', sku: 'INV-HOT-LavenderOil-002', qty: 80, min_stock: 20, price: 12.00, expiry: '2027-11-30', status: 'GOOD' },
+    { id: 'di-3', name: 'Single Malt Himalayan Oak Whiskey', category: 'F&B Bar', sku: 'INV-HOT-Whiskey-003', qty: 45, min_stock: 15, price: 95.00, expiry: '2030-06-15', status: 'GOOD' },
+    { id: 'di-4', name: 'Smart RFID Suite Door Locks', category: 'Maintenance', sku: 'INV-HOT-DoorLock-004', qty: 12, min_stock: 5, price: 150.00, expiry: '2032-01-01', status: 'GOOD' },
+    { id: 'di-5', name: 'Luxury Silk-Blend Bathrobes', category: 'Rooms', sku: 'INV-HOT-Bathrobe-005', qty: 65, min_stock: 15, price: 35.00, expiry: '2028-08-20', status: 'GOOD' },
+    { id: 'di-6', name: 'Artisan Bamboo Room Slippers', category: 'Rooms', sku: 'INV-HOT-Slipper-006', qty: 240, min_stock: 50, price: 4.50, expiry: '2027-05-15', status: 'GOOD' },
+    { id: 'di-7', name: 'Biodegradable Amenity Toiletries Kits', category: 'Rooms', sku: 'INV-HOT-Amenities-007', qty: 450, min_stock: 100, price: 2.20, expiry: '2027-03-01', status: 'GOOD' },
+    { id: 'di-8', name: 'Organic Coffee Beans (Himalayan Blend)', category: 'F&B Kitchen', sku: 'INV-HOT-Coffee-008', qty: 8, min_stock: 25, price: 18.00, expiry: '2026-09-10', status: 'LOW STOCK' },
+    { id: 'di-9', name: 'High-Thread Count Bath Towels', category: 'Rooms', sku: 'INV-HOT-Towels-009', qty: 180, min_stock: 40, price: 15.00, expiry: '2028-07-05', status: 'GOOD' },
+    { id: 'di-10', name: 'Imported Premium Dark Chocolates (Minibar)', category: 'F&B Minibar', sku: 'INV-HOT-Chocolates-010', qty: 95, min_stock: 20, price: 6.50, expiry: '2026-12-25', status: 'GOOD' },
+    { id: 'di-11', name: 'Himalayan Herbal Tea Box (Assorted)', category: 'Rooms', sku: 'INV-HOT-HerbalTea-011', qty: 160, min_stock: 30, price: 8.00, expiry: '2027-02-18', status: 'GOOD' },
+    { id: 'di-12', name: 'Eco-Friendly Bamboo Toothbrushes', category: 'Rooms', sku: 'INV-HOT-Toothbrush-012', qty: 320, min_stock: 50, price: 1.50, expiry: '2027-10-12', status: 'GOOD' }
+  ];
+
   const fetchInventory = async () => {
     setIsLoading(true);
+    const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
+    if (isDemoMode) {
+      const saved = localStorage.getItem('demo_inventory');
+      if (saved) {
+        setInventory(JSON.parse(saved));
+      } else {
+        const withStatus = defaultDemoInventory.map(item => ({
+          ...item,
+          status: getStatusFromData(item.qty, item.min_stock, item.expiry)
+        }));
+        localStorage.setItem('demo_inventory', JSON.stringify(withStatus));
+        setInventory(withStatus);
+      }
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+      if (!session?.user) { setIsLoading(false); return; }
       const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-      if (!profile?.business_id) return;
+      if (!profile?.business_id) { setIsLoading(false); return; }
 
       const data = await getInventory(profile.business_id);
       setInventory(data);
@@ -4575,6 +2798,26 @@ const InventoryView = React.memo(function InventoryView({ dateFormat }: { dateFo
   const resolveAlert = async (id: string, type: string) => {
     const item = inventory.find(i => i.id === id);
     if (!item) return;
+    const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
+
+    if (isDemoMode) {
+      const updated = inventory.map(it => {
+        if (it.id === id) {
+          if (type === 'QUANTITY_CRITICAL') {
+            return { ...it, qty: 100, status: getStatusFromData(100, it.min_stock, it.expiry) };
+          } else {
+            const nextYear = new Date();
+            nextYear.setFullYear(nextYear.getFullYear() + 1);
+            const newExpiry = nextYear.toISOString().split('T')[0];
+            return { ...it, expiry: newExpiry, status: getStatusFromData(it.qty, it.min_stock, newExpiry) };
+          }
+        }
+        return it;
+      });
+      localStorage.setItem('demo_inventory', JSON.stringify(updated));
+      setInventory(updated);
+      return;
+    }
 
     try {
       if (type === 'QUANTITY_CRITICAL') {
@@ -4636,14 +2879,35 @@ const InventoryView = React.memo(function InventoryView({ dateFormat }: { dateFo
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
+    const qtyNum = Number(newItem.qty);
+    const priceNum = Number(newItem.price);
+
+    if (isDemoMode) {
+      const product: InventoryItem = {
+        id: `demo-${Date.now()}`,
+        name: newItem.name,
+        category: newItem.category,
+        sku: `PRD-${Date.now()}`,
+        qty: qtyNum,
+        min_stock: 10,
+        price: priceNum,
+        expiry: newItem.expiry,
+        status: getStatusFromData(qtyNum, 10, newItem.expiry)
+      };
+      const updated = [product, ...inventory];
+      localStorage.setItem('demo_inventory', JSON.stringify(updated));
+      setInventory(updated);
+      setIsModalOpen(false);
+      setNewItem({ name: '', category: 'Hardware', qty: '', price: '', expiry: new Date().toISOString().split('T')[0] });
+      return;
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
       const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
       if (!profile?.business_id) return;
-
-      const qtyNum = Number(newItem.qty);
-      const priceNum = Number(newItem.price);
 
       const product = {
         name: newItem.name,
@@ -4673,11 +2937,25 @@ const InventoryView = React.memo(function InventoryView({ dateFormat }: { dateFo
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
+    const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
+    const qtyNum = Number(editingItem.qty);
+    const priceNum = Number(editingItem.price);
+
+    if (isDemoMode) {
+      const updated = inventory.map(item => {
+        if (item.id === editingItem.id) {
+          return { ...item, name: editingItem.name, category: editingItem.category, qty: qtyNum, price: priceNum, expiry: editingItem.expiry, status: getStatusFromData(qtyNum, item.min_stock, editingItem.expiry) };
+        }
+        return item;
+      });
+      localStorage.setItem('demo_inventory', JSON.stringify(updated));
+      setInventory(updated);
+      setIsEditModalOpen(false);
+      setEditingItem(null);
+      return;
+    }
 
     try {
-      const qtyNum = Number(editingItem.qty);
-      const priceNum = Number(editingItem.price);
-
       await updateInventoryProduct(editingItem.id, {
         name: editingItem.name,
         category: editingItem.category,
@@ -4695,6 +2973,18 @@ const InventoryView = React.memo(function InventoryView({ dateFormat }: { dateFo
 
   const handleDeleteProduct = async () => {
     if (!editingItem) return;
+    const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
+
+    if (isDemoMode) {
+      const updated = inventory.filter(item => item.id !== editingItem.id);
+      localStorage.setItem('demo_inventory', JSON.stringify(updated));
+      setInventory(updated);
+      setIsEditModalOpen(false);
+      setEditingItem(null);
+      setShowDeleteConfirm(false);
+      return;
+    }
+
     try {
       await deleteInventoryProduct(editingItem.id);
       await fetchInventory();
@@ -6972,17 +5262,74 @@ const ACTIVITY_LOG = [
 ];
 
 function TeamManagementView() {
-  const [members, setMembers] = useState(TEAM_MEMBERS);
+  const isDemo = localStorage.getItem('is_demo_mode') === 'true';
+  const [members, setMembers] = useState<any[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [pendingInvites, setPendingInvites] = useState([
-    { email: 'john@example.com', sentDate: '2024-05-10', role: 'Manager' },
-    { email: 'sarah.d@finance.sys', sentDate: '2024-05-14', role: 'Accountant' }
-  ]);
+  const [pendingInvites, setPendingInvites] = useState(() => {
+    return isDemo ? [
+      { email: 'john@example.com', sentDate: '2024-05-10', role: 'Manager' },
+      { email: 'sarah.d@finance.sys', sentDate: '2024-05-14', role: 'Accountant' }
+    ] : [];
+  });
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Manager');
   const [message, setMessage] = useState('');
   const [inviteCode, setInviteCode] = useState('LOADING...');
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchTeamData = async () => {
+      if (isDemo) {
+        setMembers(TEAM_MEMBERS);
+        setActivityLogs(ACTIVITY_LOG);
+        return;
+      }
+
+      setIsLoadingMembers(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
+        if (!profile?.business_id) return;
+
+        // Fetch team members
+        const { data: teamData, error: teamErr } = await supabase
+          .from('team_members')
+          .select('*')
+          .eq('business_id', profile.business_id)
+          .order('name', { ascending: true });
+
+        if (!teamErr && teamData) {
+          setMembers(teamData.map(m => ({ id: m.id, name: m.name, role: m.role, joined: m.created_at?.split('T')[0] || '' })));
+        }
+
+        // Fetch audit logs
+        const { data: logData, error: logErr } = await supabase
+          .from('audit_logs')
+          .select('*')
+          .eq('business_id', profile.business_id)
+          .order('timestamp', { ascending: false })
+          .limit(20);
+
+        if (!logErr && logData) {
+          setActivityLogs(logData.map(item => ({
+            id: item.id,
+            who: 'Team Member',
+            action: item.action_type.toLowerCase() === 'create' ? 'added record' : item.action_type.toLowerCase() === 'update' ? 'modified entry' : 'deleted record',
+            record: `${item.table_name} — ${item.record_id}`,
+            when: formatTimeAgo(item.timestamp)
+          })));
+        }
+      } catch (e) {
+        console.error('Failed to load team data:', e);
+      } finally {
+        setIsLoadingMembers(false);
+      }
+    };
+    fetchTeamData();
+  }, []);
 
   useEffect(() => {
     const fetchInviteCode = async () => {
@@ -9005,10 +7352,35 @@ function BalanceSheetView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
     const fetchBS = async () => {
       setIsLoading(true);
       try {
+        const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
+        if (isDemoMode) {
+          // For demo mode, balance sheet is derived from demo_transactions
+          const savedDemo = localStorage.getItem('demo_transactions');
+          const txList = savedDemo ? JSON.parse(savedDemo) : [];
+          const totalInflow = txList.filter((t: any) => t.type === 'Inflow').reduce((a: number, t: any) => a + Number(t.amount), 0);
+          const totalOutflow = txList.filter((t: any) => t.type === 'Outflow').reduce((a: number, t: any) => a + Number(t.amount), 0);
+          const retainedEarnings = totalInflow - totalOutflow;
+          const cash = totalInflow - totalOutflow * 0.8;
+          const receivables = totalInflow * 0.1;
+          const totalAssets = cash + receivables;
+          setBsData({
+            sections: [
+              { category: 'Current Assets', total: formatCurrency(totalAssets), items: [{ name: 'Cash & Equivalents', val: formatCurrency(cash) }, { name: 'Accounts Receivable', val: formatCurrency(receivables) }] },
+              { category: 'Fixed Assets', total: formatCurrency(0), items: [] },
+              { category: 'Current Liabilities', total: formatCurrency(0), items: [] },
+              { category: 'Long-term Liabilities', total: formatCurrency(0), items: [] },
+              { category: 'Equity', total: formatCurrency(retainedEarnings), items: [{ name: 'Retained Earnings', val: formatCurrency(retainedEarnings) }] }
+            ],
+            summary: { totalAssets: formatCurrency(totalAssets), totalLiabilitiesEquity: formatCurrency(retainedEarnings), isValid: Math.abs(totalAssets - retainedEarnings) < 1 }
+          });
+          setIsLoading(false);
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return;
+        if (!session?.user) { setIsLoading(false); return; }
         const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-        if (!profile?.business_id) return;
+        if (!profile?.business_id) { setIsLoading(false); return; }
 
         let endDate;
         const now = new Date();
@@ -9652,482 +8024,7 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
   );
 }
 
-function ManagerDashboardView({
-  transactions,
-  loadTransactions,
-  queries,
-  onMarkAsReplied,
-  dateFormat
-}: {
-  transactions: Transaction[];
-  loadTransactions: () => void;
-  queries: any[];
-  onMarkAsReplied: (id: string, replyText: string) => Promise<void>;
-  dateFormat: 'AD' | 'BS';
-}) {
-  const { t } = React.useContext(LanguageContext);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [restockItem, setRestockItem] = useState<any>(null);
-  const [restockQty, setRestockQty] = useState(50);
-  const [replyQuery, setReplyQuery] = useState<any>(null);
-  const [manualReplyText, setManualReplyText] = useState('');
-  
-  const [approvedTxIds, setApprovedTxIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('manager_approved_transactions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const isDemo = localStorage.getItem('is_demo_mode') === 'true';
-
-  const pendingApprovals = useMemo(() => {
-    return transactions.filter(t => t.amount > 50000 && !approvedTxIds.includes(t.id || ''));
-  }, [transactions, approvedTxIds]);
-
-  const queryBacklog = useMemo(() => {
-    return queries.filter(q => q.status === 'Pending');
-  }, [queries]);
-
-  const loadInventoryAlerts = async () => {
-    if (isDemo) {
-      const mockInventory = [
-        { id: 'inv-1', name: 'OPTIC_SENSOR_V9', category: 'Components', sku: 'SKU-001', qty: 3, min_stock: 10, price: 120, status: 'LOW STOCK' },
-        { id: 'inv-2', name: 'HYPERLINK_CABLE', category: 'Networking', sku: 'SKU-002', qty: 25, min_stock: 50, price: 25, status: 'LOW STOCK' },
-        { id: 'inv-3', name: 'COOLANT_FLUID_Z', category: 'Support', sku: 'SKU-003', qty: 0, min_stock: 5, price: 85, status: 'EXPIRED' }
-      ];
-      setInventoryItems(mockInventory);
-      return;
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-      if (!profile?.business_id) return;
-
-      const data = await getInventory(profile.business_id);
-      if (data) {
-        const alerts = data.filter(item => item.qty <= item.min_stock || item.status === 'EXPIRED' || item.status === 'EXPIRING SOON');
-        setInventoryItems(alerts);
-      }
-    } catch (e) {
-      console.error('Failed to load inventory alerts:', e);
-    }
-  };
-
-  const loadAuditLogs = async () => {
-    if (isDemo) {
-      const mockLogs = [
-        { id: 'log-1', timestamp: new Date(Date.now() - 600000).toISOString(), action_type: 'CREATE', table_name: 'transactions', record_id: 'tx-100', user_name: 'Pooja Karki', details: 'Added Inflow transaction: Room Booking' },
-        { id: 'log-2', timestamp: new Date(Date.now() - 3600000).toISOString(), action_type: 'UPDATE', table_name: 'inventory', record_id: 'inv-200', user_name: 'Siddharth Lama', details: 'Updated stock: OPTIC_SENSOR_V9 (+15)' },
-        { id: 'log-3', timestamp: new Date(Date.now() - 7200000).toISOString(), action_type: 'CREATE', table_name: 'transactions', record_id: 'tx-101', user_name: 'Aayush Shrestha', details: 'Created Outflow transaction: Electricity' },
-        { id: 'log-4', timestamp: new Date(Date.now() - 86400000).toISOString(), action_type: 'DELETE', table_name: 'transactions', record_id: 'tx-99', user_name: 'Pooja Karki', details: 'Removed duplicate transaction record' }
-      ];
-      setAuditLogs(mockLogs);
-      return;
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-      if (!profile?.business_id) return;
-
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*, users:user_id(name)')
-        .eq('business_id', profile.business_id)
-        .order('timestamp', { ascending: false })
-        .limit(10);
-
-      if (error) {
-        const { data: fallbackData } = await supabase
-          .from('audit_logs')
-          .select('*')
-          .eq('business_id', profile.business_id)
-          .order('timestamp', { ascending: false })
-          .limit(10);
-        setAuditLogs(fallbackData || []);
-      } else {
-        setAuditLogs(data.map((log: any) => ({
-          ...log,
-          user_name: log.users?.name || 'System Agent',
-          details: `${log.action_type} on ${log.table_name} (ID: ${log.record_id})`
-        })));
-      }
-    } catch (e) {
-      console.error('Failed to load audit logs:', e);
-    }
-  };
-
-  const initData = async () => {
-    setIsLoading(true);
-    await Promise.all([loadInventoryAlerts(), loadAuditLogs()]);
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    initData();
-  }, [transactions]);
-
-  const handleApproveTransaction = async (txId: string) => {
-    const nextApproved = [...approvedTxIds, txId];
-    setApprovedTxIds(nextApproved);
-    localStorage.setItem('manager_approved_transactions', JSON.stringify(nextApproved));
-    
-    const tx = transactions.find(t => t.id === txId);
-    if (tx) {
-      await logAudit('UPDATE', 'transactions', txId, tx, { ...tx, approved_by_manager: true });
-    }
-    loadTransactions();
-    loadAuditLogs();
-  };
-
-  const handleRestock = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!restockItem || restockQty <= 0) return;
-
-    if (isDemo) {
-      setInventoryItems(prev => prev.map(item => item.id === restockItem.id ? { ...item, qty: item.qty + restockQty, status: 'GOOD' } : item).filter(item => item.qty <= item.min_stock));
-      setRestockItem(null);
-      return;
-    }
-
-    try {
-      const newQty = restockItem.qty + restockQty;
-      const { error } = await supabase
-        .from('inventory')
-        .update({ stock: newQty })
-        .eq('id', restockItem.id);
-
-      if (error) throw error;
-      await logAudit('UPDATE', 'inventory', restockItem.id, restockItem, { ...restockItem, stock: newQty });
-      await loadInventoryAlerts();
-      setRestockItem(null);
-    } catch (e) {
-      console.error('Failed to restock:', e);
-    }
-  };
-
-  const handleSendReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyQuery || !manualReplyText) return;
-
-    await onMarkAsReplied(replyQuery.id, manualReplyText);
-    setReplyQuery(null);
-    setManualReplyText('');
-    loadAuditLogs();
-  };
-
-  return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-brand mb-1">Ecosystem Control</h4>
-        <p className="text-2xl font-black italic uppercase">Manager Operations Dashboard</p>
-        <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest mt-1">
-          Heuristic Task Telemetry, Sign-offs, Alerts, and Query Backlogs
-        </p>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className={cn("glass p-6 border-white/5 relative overflow-hidden", pendingApprovals.length > 0 ? "border-brand/30 shadow-[0_0_15px_rgba(220,20,60,0.1)]" : "")}>
-          <span className="text-[8px] font-mono text-gray-500 uppercase tracking-widest block mb-2">Compliance sign-off hold</span>
-          <p className={cn("text-3xl font-black font-mono", pendingApprovals.length > 0 ? "text-brand animate-pulse" : "text-white")}>
-            {pendingApprovals.length}
-          </p>
-          <p className="text-[7px] font-mono text-gray-600 uppercase tracking-widest mt-2">Transactions &gt; Rs. 50,000</p>
-        </div>
-
-        <div className={cn("glass p-6 border-white/5 relative overflow-hidden", inventoryItems.length > 0 ? "border-yellow-500/30" : "")}>
-          <span className="text-[8px] font-mono text-gray-500 uppercase tracking-widest block mb-2">Critical stock Alerts</span>
-          <p className="text-3xl font-black font-mono text-yellow-500">
-            {inventoryItems.length}
-          </p>
-          <p className="text-[7px] font-mono text-gray-600 uppercase tracking-widest mt-2">Low Stock or Expired items</p>
-        </div>
-
-        <div className={cn("glass p-6 border-white/5 relative overflow-hidden", queryBacklog.length > 0 ? "border-intelligence/30" : "")}>
-          <span className="text-[8px] font-mono text-gray-500 uppercase tracking-widest block mb-2">Unresolved Queries</span>
-          <p className="text-3xl font-black font-mono text-intelligence">
-            {queryBacklog.length}
-          </p>
-          <p className="text-[7px] font-mono text-gray-600 uppercase tracking-widest mt-2">Awaiting dispatch replies</p>
-        </div>
-
-        <div className="glass p-6 border-white/5 relative overflow-hidden">
-          <span className="text-[8px] font-mono text-gray-500 uppercase tracking-widest block mb-2">Today Team Telemetry</span>
-          <p className="text-3xl font-black font-mono text-white">
-            {auditLogs.length}
-          </p>
-          <p className="text-[7px] font-mono text-gray-600 uppercase tracking-widest mt-2">Events logged in feed</p>
-        </div>
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Pending Approvals */}
-        <div className="glass border-white/5 p-6 relative overflow-hidden flex flex-col h-[400px]">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-brand">NPR 50,000+ COMPLIANCE QUEUE</h3>
-              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Sign-off required for processing</p>
-            </div>
-            <div className="w-2 h-2 bg-brand rounded-full animate-ping"></div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-            {pendingApprovals.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <CheckCircle2 size={24} className="text-intelligence mb-2" />
-                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">All transactions cleared and signed-off</p>
-              </div>
-            ) : (
-              pendingApprovals.map(tx => (
-                <div key={tx.id} className="glass border-white/5 bg-white/[0.01] p-4 flex justify-between items-center group hover:border-brand/20 transition-all duration-300">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-mono text-gray-400">{dateFormat === 'BS' ? convertGregorianToBS(tx.date) : tx.date}</span>
-                      <span className="text-[8px] font-mono bg-white/5 border border-white/5 px-2 py-0.2 rounded-sm text-gray-500 uppercase tracking-widest">{tx.category}</span>
-                    </div>
-                    <h4 className="text-[11px] font-black uppercase tracking-wider text-white mt-1.5">{tx.description}</h4>
-                  </div>
-                  <div className="text-right flex items-center gap-4">
-                    <div>
-                      <span className="text-[7px] font-mono text-gray-600 block uppercase">Amount</span>
-                      <span className="text-xs font-mono font-black text-brand">Rs. {new Intl.NumberFormat('en-NP').format(tx.amount)}</span>
-                    </div>
-                    <button
-                      onClick={() => handleApproveTransaction(tx.id || '')}
-                      className="text-[9px] font-mono text-black bg-brand px-3 py-1.5 hover:bg-brand-bright hover:shadow-[0_0_10px_#dc143c] transition-all font-bold uppercase tracking-wider"
-                    >
-                      Sign Off
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Team Activity Feed */}
-        <div className="glass border-white/5 p-6 relative overflow-hidden flex flex-col h-[400px]">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-white">TEAM TELEMETRY FEED</h3>
-              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Real-time ecosystem logs</p>
-            </div>
-            <Activity size={14} className="text-intelligence animate-pulse" />
-          </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-            {auditLogs.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">No activities recorded today</p>
-              </div>
-            ) : (
-              auditLogs.map(log => {
-                const getActionColor = (act: string) => {
-                  if (act === 'CREATE') return 'text-intelligence border-intelligence/20 bg-intelligence/5';
-                  if (act === 'UPDATE') return 'text-yellow-500 border-yellow-500/20 bg-yellow-500/5';
-                  return 'text-brand border-brand/20 bg-brand/5';
-                };
-                return (
-                  <div key={log.id} className="border border-white/5 bg-white/[0.01] p-3 text-[10px] font-mono relative">
-                    <div className="flex justify-between items-center mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("text-[7px] border px-1.5 py-0.2 rounded-sm font-black tracking-widest uppercase", getActionColor(log.action_type))}>
-                          {log.action_type}
-                        </span>
-                        <span className="text-white font-bold">{log.user_name}</span>
-                      </div>
-                      <span className="text-[8px] text-gray-600">{log.timestamp ? formatTimeAgo(log.timestamp) : 'Recently'}</span>
-                    </div>
-                    <p className="text-gray-400 text-[9px] mt-1.5">{log.details || `${log.action_type} execution on table ${log.table_name}`}</p>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Inventory Warning Alerts */}
-        <div className="glass border-white/5 p-6 relative overflow-hidden flex flex-col h-[400px]">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-yellow-500">INVENTORY WARP DEVIATION (LOW STOCK)</h3>
-              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Items at or below critical replenishment threshold</p>
-            </div>
-            <AlertTriangle size={14} className="text-yellow-500 animate-bounce" />
-          </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-            {inventoryItems.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <CheckCircle2 size={24} className="text-intelligence mb-2" />
-                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Inventory levels within normal range parameters</p>
-              </div>
-            ) : (
-              inventoryItems.map(item => (
-                <div key={item.id} className="glass border-white/5 bg-white/[0.01] p-4 flex justify-between items-center group hover:border-yellow-500/20 transition-all duration-300">
-                  <div>
-                    <span className="text-[8px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.2 rounded-sm text-yellow-500 uppercase tracking-widest">{item.category}</span>
-                    <h4 className="text-[11px] font-black uppercase tracking-wider text-white mt-1.5">{item.name}</h4>
-                    <span className="text-[8px] font-mono text-gray-500 block uppercase mt-0.5">SKU: {item.sku || 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <span className="text-[7px] font-mono text-gray-600 block uppercase">Stock Level</span>
-                      <span className="text-xs font-mono font-black text-brand">{item.qty} <span className="text-[8px] text-gray-500 font-normal">/ {item.min_stock} MIN</span></span>
-                    </div>
-                    <button
-                      onClick={() => setRestockItem(item)}
-                      className="text-[9px] font-mono text-black bg-yellow-500 px-3 py-1.5 hover:bg-yellow-400 hover:shadow-[0_0_10px_#eab308] transition-all font-bold uppercase tracking-wider"
-                    >
-                      Restock
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Customer Query Backlog */}
-        <div className="glass border-white/5 p-6 relative overflow-hidden flex flex-col h-[400px]">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-intelligence">METIS DISPATCH BACKLOG</h3>
-              <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Customer queries awaiting manual neural intervention</p>
-            </div>
-            <MessageSquare size={14} className="text-intelligence animate-pulse" />
-          </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-            {queryBacklog.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <CheckCircle2 size={24} className="text-intelligence mb-2" />
-                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">All incoming customer traffic processed</p>
-              </div>
-            ) : (
-              queryBacklog.map(q => (
-                <div key={q.id} className="glass border-white/5 bg-white/[0.01] p-4 flex flex-col justify-between group hover:border-intelligence/20 transition-all duration-300">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="text-[8px] font-mono bg-intelligence/10 border border-intelligence/20 px-2 py-0.2 rounded-sm text-intelligence uppercase tracking-widest">{q.platform}</span>
-                      <h4 className="text-[10px] font-black uppercase tracking-wider text-white mt-1">{q.name}</h4>
-                    </div>
-                    <span className="text-[8px] font-mono text-gray-500">{q.time}</span>
-                  </div>
-                  <p className="text-[10px] font-mono text-gray-400 bg-black/40 border border-white/5 p-2 italic my-1.5">"{q.message}"</p>
-                  <div className="flex justify-end mt-2">
-                    <button
-                      onClick={() => {
-                        setReplyQuery(q);
-                        setManualReplyText('');
-                      }}
-                      className="text-[9px] font-mono text-black bg-intelligence px-3 py-1.5 hover:bg-intelligence-bright hover:shadow-[0_0_10px_#00f2ff] transition-all font-bold uppercase tracking-wider"
-                    >
-                      Process Reply
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      {/* Restock Dialog */}
-      {restockItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="glass border-white/10 p-8 max-w-sm w-full relative">
-            <button
-              onClick={() => setRestockItem(null)}
-              className="absolute right-4 top-4 text-gray-500 hover:text-white transition-colors text-[10px] font-mono tracking-widest"
-            >
-              [CLOSE]
-            </button>
-            <h3 className="text-lg font-black uppercase tracking-widest text-yellow-500 mb-1">Restock Replenish</h3>
-            <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest mb-6">
-              Enter quantity units to restock {restockItem.name}.
-            </p>
-
-            <form onSubmit={handleRestock} className="space-y-4">
-              <div>
-                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Item Code</label>
-                <p className="text-xs font-mono font-black text-white">{restockItem.name} ({restockItem.sku})</p>
-              </div>
-              <div>
-                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Restock Quantity</label>
-                <input
-                  type="number"
-                  required
-                  value={restockQty}
-                  onChange={(e) => setRestockQty(Number(e.target.value))}
-                  className="w-full bg-black/40 border border-white/5 px-4 py-2 text-[10px] font-mono focus:border-yellow-500/40 focus:outline-none text-white rounded-none"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full text-[10px] font-mono text-black uppercase tracking-widest bg-yellow-500 px-4 py-3 hover:bg-yellow-400 hover:shadow-[0_0_15px_#eab308] transition-all font-bold mt-4"
-              >
-                Execute Reorder
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Process Reply Dialog */}
-      {replyQuery && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="glass border-white/10 p-8 max-w-md w-full relative">
-            <button
-              onClick={() => setReplyQuery(null)}
-              className="absolute right-4 top-4 text-gray-500 hover:text-white transition-colors text-[10px] font-mono tracking-widest"
-            >
-              [CLOSE]
-            </button>
-            <h3 className="text-lg font-black uppercase tracking-widest text-intelligence mb-1">METIS Dispatch Interface</h3>
-            <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest mb-6">
-              Neural gateway communication response channel.
-            </p>
-
-            <form onSubmit={handleSendReply} className="space-y-4">
-              <div>
-                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Customer Query Details</label>
-                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">{replyQuery.name} via {replyQuery.platform}</p>
-                <p className="text-xs font-mono text-white italic bg-white/5 p-3 border border-white/5 mt-1">"{replyQuery.message}"</p>
-              </div>
-              <div>
-                <label className="text-[8px] font-mono text-gray-400 uppercase tracking-widest block mb-1">Manual Response Dispatch</label>
-                <textarea
-                  required
-                  rows={4}
-                  value={manualReplyText}
-                  onChange={(e) => setManualReplyText(e.target.value)}
-                  placeholder="Enter manual override dispatch message here..."
-                  className="w-full bg-black/40 border border-white/5 p-3 text-[10px] font-mono focus:border-intelligence/40 focus:outline-none text-white rounded-none resize-none"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full text-[10px] font-mono text-black uppercase tracking-widest bg-intelligence px-4 py-3 hover:bg-intelligence-bright hover:shadow-[0_0_15px_#00f2ff] transition-all font-bold mt-4"
-              >
-                Dispatch Over Neural Mesh
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// ManagerDashboardView moved to OverviewTab.tsx
 
 interface Employee {
   id: string;
@@ -10748,17 +8645,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       if (savedDemo) {
         setTransactions(JSON.parse(savedDemo));
       } else {
+        const currentYear = new Date().getFullYear();
+        const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+        const prevMonth = String(new Date().getMonth() === 0 ? 12 : new Date().getMonth()).padStart(2, '0');
+        const prevMonthYear = new Date().getMonth() === 0 ? currentYear - 1 : currentYear;
+
         const defaultDemo: Transaction[] = [
-          { id: '1', date: '2024-05-15', description: 'Room Booking Suite 402', amount: 45000, category: 'Sales', type: 'Inflow', employee_id: 'emp-2' },
-          { id: '2', date: '2024-05-14', description: 'Restaurant Banquet Dining Inflow', amount: 120000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
-          { id: '3', date: '2024-05-12', description: 'Monthly Laundry Supplies Vendor', amount: 25000, category: 'Logistics', type: 'Outflow' },
-          { id: '4', date: '2024-05-10', description: 'Pokhara Electricity Authority', amount: 85000, category: 'Infrastructure', type: 'Outflow' },
-          { id: '5', date: '2024-05-08', description: 'Spa Therapy Package Sales', amount: 65000, category: 'Sales', type: 'Inflow', employee_id: 'emp-3' },
-          { id: '6', date: '2024-05-05', description: 'Staff Salaries (May 2024)', amount: 450000, category: 'Payroll', type: 'Outflow' },
-          { id: '7', date: '2024-05-02', description: 'Fresh Organic Kitchen Groceries', amount: 68000, category: 'Inventory', type: 'Outflow' },
-          { id: '8', date: '2024-04-28', description: 'Premium Wine & Beverage Restock', amount: 110000, category: 'Inventory', type: 'Outflow' },
-          { id: '9', date: '2024-04-25', description: 'Corporate Seminar Hall Booking', amount: 250000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
-          { id: '10', date: '2024-04-20', description: 'Digital Marketing Pokhara Tourism', amount: 40000, category: 'Marketing', type: 'Outflow' }
+          { id: '1', date: `${currentYear}-${currentMonth}-15`, description: 'Room Booking Suite 402', amount: 45000, category: 'Sales', type: 'Inflow', employee_id: 'emp-2' },
+          { id: '2', date: `${currentYear}-${currentMonth}-14`, description: 'Restaurant Banquet Dining Inflow', amount: 120000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
+          { id: '3', date: `${currentYear}-${currentMonth}-12`, description: 'Monthly Laundry Supplies Vendor', amount: 25000, category: 'Logistics', type: 'Outflow' },
+          { id: '4', date: `${currentYear}-${currentMonth}-10`, description: 'Pokhara Electricity Authority', amount: 85000, category: 'Infrastructure', type: 'Outflow' },
+          { id: '5', date: `${currentYear}-${currentMonth}-08`, description: 'Spa Therapy Package Sales', amount: 65000, category: 'Sales', type: 'Inflow', employee_id: 'emp-3' },
+          { id: '6', date: `${currentYear}-${currentMonth}-05`, description: 'Staff Salaries', amount: 450000, category: 'Payroll', type: 'Outflow' },
+          { id: '7', date: `${currentYear}-${currentMonth}-02`, description: 'Fresh Organic Kitchen Groceries', amount: 68000, category: 'Inventory', type: 'Outflow' },
+          { id: '8', date: `${prevMonthYear}-${prevMonth}-28`, description: 'Premium Wine & Beverage Restock', amount: 110000, category: 'Inventory', type: 'Outflow' },
+          { id: '9', date: `${prevMonthYear}-${prevMonth}-25`, description: 'Corporate Seminar Hall Booking', amount: 250000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
+          { id: '10', date: `${prevMonthYear}-${prevMonth}-20`, description: 'Digital Marketing Pokhara Tourism', amount: 40000, category: 'Marketing', type: 'Outflow' }
         ];
         localStorage.setItem('demo_transactions', JSON.stringify(defaultDemo));
         setTransactions(defaultDemo);
@@ -11243,34 +9145,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
           if (error) throw error;
 
-          let finalData = data || [];
-          if (data && data.length > 0) {
-            setDbQueries(data);
-          } else {
-            const defaultQueries = CUSTOMER_QUERIES_DATA.map((q, idx) => ({
-              business_id: profile.business_id,
-              platform: q.platform === 'Email' ? 'Website' : q.platform,
-              customer_name: q.name,
-              message: q.message,
-              status: q.status,
-              created_at: new Date(Date.now() - idx * 3600000).toISOString(),
-              replied_at: q.status === 'Replied' ? new Date(Date.now() - idx * 3600000 + 1800000).toISOString() : null,
-              reply_text: q.status === 'Replied' ? 'Response has been dispatched via neural mesh.' : null
-            }));
+          const finalData = data || [];
+          setDbQueries(finalData);
 
-            const { data: inserted, error: insertError } = await supabase
-              .from('customer_queries')
-              .insert(defaultQueries)
-              .select();
-
-            if (insertError) throw insertError;
-            if (inserted) {
-              setDbQueries(inserted);
-              finalData = inserted;
-            }
-          }
-
-          if (localStorage.getItem('auto_send_simple_replies') === 'true') {
+          if (finalData.length > 0 && localStorage.getItem('auto_send_simple_replies') === 'true') {
             setTimeout(() => triggerAutoReplies(finalData), 500);
           }
         }
@@ -11768,23 +9646,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               transition={{ duration: 0.3 }}
             >
               {activeTab === 'Overview' && (
-                userRole === 'Manager' ? (
-                  <ManagerDashboardView
-                    transactions={transactions}
-                    loadTransactions={loadTransactions}
-                    queries={queries}
-                    onMarkAsReplied={handleMarkAsReplied}
-                    dateFormat={dateFormat}
-                  />
-                ) : (
-                  <OverviewView
-                    transactions={transactions}
-                    setTransactions={setTransactions}
-                    onViewReport={() => setActiveTab('Financial Summary')}
-                    dateFormat={dateFormat}
-                    onBulkAdd={bulkAddTransactions}
-                  />
-                )
+                <OverviewTab
+                  transactions={transactions}
+                  setTransactions={setTransactions}
+                  onViewReport={() => setActiveTab('Financial Summary')}
+                  dateFormat={dateFormat}
+                  onBulkAdd={bulkAddTransactions}
+                  userRole={userRole}
+                  queries={queries}
+                  loadTransactions={loadTransactions}
+                  handleMarkAsReplied={handleMarkAsReplied}
+                  onSelectTab={(tab) => setActiveTab(tab as PlatformTab)}
+                />
               )}
               {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
               {activeTab === 'P&L Statement' && <PandLView dateFormat={dateFormat} />}
@@ -12032,6 +9905,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (localStorage.getItem('is_demo_mode') === 'true') {
+      setView('dashboard');
+      return;
+    }
+
     // Check if user has active Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user && localStorage.getItem('is_demo_mode') !== 'true' && localStorage.getItem('is_registering') !== 'true') {
@@ -12293,12 +10171,12 @@ export default function App() {
 }
 
 // Utility Helper
-function cn(...classes: any[]) {
+export function cn(...classes: any[]) {
   return classes.filter(Boolean).join(' ');
 }
 
 // Bikram Sambat (BS) dynamic converter utility
-function convertGregorianToBS(gregorianDateString: string): string {
+export function convertGregorianToBS(gregorianDateString: string): string {
   if (!gregorianDateString) return '';
   const date = new Date(gregorianDateString);
   if (isNaN(date.getTime())) return gregorianDateString;
