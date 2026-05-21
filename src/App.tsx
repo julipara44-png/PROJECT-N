@@ -155,7 +155,7 @@ export const generateProfessionalPDF = async (title: string, rangeInfo: string, 
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'bold');
   doc.text(title, 14, 42);
-  
+
   doc.setFontSize(10);
   doc.setTextColor(80, 80, 80);
   doc.setFont('helvetica', 'normal');
@@ -219,11 +219,11 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'Export CSV': 'CSV निर्यात',
   'Reset Filters': 'फिल्टरहरू रिसेट गर्नुहोस्',
   'RESET_FILTERS': 'फिल्टरहरू रिसेट गर्नुहोस्',
-  
+
   // App specific
   'System Input': 'प्रणाली इनपुट',
   'TRANSACTION LOG ENTRY': 'कारोबार लग प्रविष्टि',
-  
+
   // Settings Tab
   'PROFILE': 'प्रोफाइल',
   'KNOWLEDGE_BASE': 'ज्ञान आधार',
@@ -246,7 +246,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'Fiscal Year Start': 'आर्थिक वर्ष सुरु',
   'Date Format': 'मिति ढाँचा',
   'Role': 'भूमिका',
-  
+
   // Dashboard Header & Stats
   'Total Assets': 'कुल सम्पत्ति',
   'Gross Value': 'कुल मूल्य',
@@ -289,7 +289,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'Details': 'विवरण',
   'Classification': 'वर्गीकरण',
   'Activity': 'गतिविधि',
-  
+
   // Tab Headers
   'Statement of Earnings': 'आम्दानीको विवरण',
   'PROFIT & LOSS ANALYSIS': 'नाफा र नोक्सान विश्लेषण',
@@ -309,7 +309,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'VOICE CONTROL INTERFACE': 'आवाज नियन्त्रण इन्टरफेस',
   'Interaction Analytics': 'सोधपुछ विश्लेषण',
   'QUERY INSIGHTS & ANALYTICS': 'सोधपुछ अन्तरदृष्टि र विश्लेषण',
-  
+
   // VAT Compliance Report specific
   'Tax Compliance Protocol': 'कर अनुपालन प्रोटोकल',
   'VAT_REPORT_SUMMARY': 'भ्याट रिपोर्ट सारांश',
@@ -334,7 +334,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
   'International Exports': 'अन्तर्राष्ट्रिय निकासी',
   'Tax Exempt Purchases': 'कर छुट खरिद',
   'Non-taxable Inputs': 'गैर-करयोग्य इनपुटहरू',
-  
+
   // Additional Overview & General Labels
   'Operational Authorization Active': 'सञ्चालन प्राधिकरण सक्रिय',
   'Welcome back to the Command Node': 'कमान्ड नोडमा स्वागत छ',
@@ -360,7 +360,7 @@ const NEPALI_TRANSLATIONS: Record<string, string> = {
 export const LanguageContext = React.createContext<{ t: (text: string) => string, language: 'EN' | 'NP', setLanguage: (lang: 'EN' | 'NP') => void }>({
   t: (text) => text,
   language: 'EN',
-  setLanguage: () => {}
+  setLanguage: () => { }
 });
 
 // --- MOCK DATA ---
@@ -396,7 +396,26 @@ export interface Transaction {
   employee_id?: string;
 }
 
+export const TransactionsContext = React.createContext<{
+  transactions: Transaction[];
+  isLoadingTransactions: boolean;
+  addTransaction: (t: Transaction) => Promise<void>;
+  updateTransaction: (updatedTx: Transaction, index: number) => Promise<void>;
+  deleteTransaction: (index: number) => Promise<void>;
+  bulkAddTransactions: (txs: Transaction[]) => Promise<void>;
+  loadTransactions: () => Promise<void>;
+}>({
+  transactions: [],
+  isLoadingTransactions: false,
+  addTransaction: async () => { },
+  updateTransaction: async () => { },
+  deleteTransaction: async () => { },
+  bulkAddTransactions: async () => { },
+  loadTransactions: async () => { }
+});
+
 // --- EMPTY STATE COMPONENT ---
+
 
 interface EmptyStateProps {
   icon: React.ComponentType<any>;
@@ -665,7 +684,7 @@ function LoginPage({ onLogin, onBack, onRegister }: { onLogin: () => void, onBac
       });
 
       if (error) throw error;
-      
+
       const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
 
@@ -1305,8 +1324,8 @@ function OnboardingPage({ onComplete }: { onComplete: () => void }) {
             .from('users')
             .select('business_id')
             .eq('auth_id', session.user.id)
-            .single();
-            
+            .maybeSingle(); // safe: won't throw if row doesn't exist yet
+
           if (profile?.business_id) {
             await supabase
               .from('businesses')
@@ -2187,7 +2206,7 @@ export const formatCurrency = (val: number) => {
   const isDemo = localStorage.getItem('is_demo_mode') === 'true';
   const currency = isDemo ? 'NPR' : (localStorage.getItem('primary_currency') || 'USD');
   const absVal = Math.abs(val);
-  
+
   if (currency === 'NPR') {
     const formatted = new Intl.NumberFormat('en-NP', {
       style: 'currency',
@@ -2251,7 +2270,7 @@ export const getCashFlow = async (businessId: string, startDate?: string, endDat
   Object.entries(categoryTotals).forEach(([name, val]) => {
     const isInvesting = investingKeywords.some(kw => name.toLowerCase().includes(kw));
     const isFinancing = financingKeywords.some(kw => name.toLowerCase().includes(kw));
-    
+
     if (isInvesting) {
       cfData.investing.push({ name, val });
     } else if (isFinancing) {
@@ -2292,8 +2311,10 @@ export const getCashFlow = async (businessId: string, startDate?: string, endDat
   ];
 };
 
-function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
+function CashFlowView({ dateFormat, transactions: propTransactions }: { dateFormat: 'AD' | 'BS', transactions?: Transaction[] }) {
   const { t } = React.useContext(LanguageContext);
+  const { transactions: contextTransactions } = React.useContext(TransactionsContext);
+  const transactions = propTransactions || contextTransactions || [];
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
@@ -2304,8 +2325,6 @@ function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
     const fetchCF = async () => {
       setIsLoading(true);
       try {
-        const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
-
         let startDate: Date | undefined, endDate: Date | undefined;
         const now = new Date();
         if (range === 'This Month') {
@@ -2323,50 +2342,76 @@ function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
           endDate = new Date(customDates.end);
         }
 
-        if (isDemoMode) {
-          const savedDemo = localStorage.getItem('demo_transactions');
-          const txList = savedDemo ? JSON.parse(savedDemo) : [];
-          let filtered = txList;
-          if (startDate && endDate) {
-            startDate.setHours(0, 0, 0, 0);
-            endDate.setHours(23, 59, 59, 999);
-            filtered = txList.filter((tx: any) => {
-              const txDate = new Date(tx.date).getTime();
-              return txDate >= startDate!.getTime() && txDate <= endDate!.getTime();
-            });
-          }
-          const opActivities: { name: string; val: number }[] = [];
-          const catTotals: Record<string, number> = {};
-          filtered.forEach((tx: any) => {
-            const catName = tx.category || 'Uncategorized';
-            const amount = Number(tx.amount);
-            const val = tx.type === 'Inflow' ? amount : -amount;
-            catTotals[catName] = (catTotals[catName] || 0) + val;
+        let filtered = transactions;
+        if (startDate && endDate) {
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
+          filtered = transactions.filter((tx: any) => {
+            const txDate = new Date(tx.date).getTime();
+            return txDate >= startDate!.getTime() && txDate <= endDate!.getTime();
           });
-          Object.entries(catTotals).forEach(([name, val]) => opActivities.push({ name, val }));
-          const opTotal = opActivities.reduce((acc, i) => acc + i.val, 0);
-          setCfData([
-            { category: 'Operating Activities', total: formatCurrency(opTotal), items: opActivities.map(i => ({ ...i, val: formatCurrency(i.val) })) },
-            { category: 'Investing Activities', total: formatCurrency(0), items: [] },
-            { category: 'Financing Activities', total: formatCurrency(0), items: [] },
-            { category: 'Net Cash Flow', total: formatCurrency(opTotal), isResult: true, highlight: true, items: [] }
-          ]);
-          setIsLoading(false);
-          return;
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) { setIsLoading(false); return; }
-        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-        if (!profile?.business_id) { setIsLoading(false); return; }
+        const investingKeywords = ['asset', 'equipment', 'infrastructure', 'investment', 'property', 'liquidation'];
+        const financingKeywords = ['loan', 'dividend', 'equity', 'venture', 'stakeholder', 'shareholder'];
 
-        const startStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
-        const endStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
+        const cfDataLocal = {
+          operating: [] as { name: string, val: number }[],
+          investing: [] as { name: string, val: number }[],
+          financing: [] as { name: string, val: number }[]
+        };
 
-        const result = await getCashFlow(profile.business_id, startStr, endStr);
-        if (result) {
-          setCfData(result);
-        }
+        const categoryTotals: Record<string, number> = {};
+
+        filtered.forEach((tx: any) => {
+          const catName = tx.category || 'Uncategorized';
+          const amount = Number(tx.amount);
+          const val = tx.type === 'Inflow' ? amount : -amount;
+          categoryTotals[catName] = (categoryTotals[catName] || 0) + val;
+        });
+
+        Object.entries(categoryTotals).forEach(([name, val]) => {
+          const isInvesting = investingKeywords.some(kw => name.toLowerCase().includes(kw));
+          const isFinancing = financingKeywords.some(kw => name.toLowerCase().includes(kw));
+
+          if (isInvesting) {
+            cfDataLocal.investing.push({ name, val });
+          } else if (isFinancing) {
+            cfDataLocal.financing.push({ name, val });
+          } else {
+            cfDataLocal.operating.push({ name, val });
+          }
+        });
+
+        const opTotal = cfDataLocal.operating.reduce((acc, i) => acc + i.val, 0);
+        const invTotal = cfDataLocal.investing.reduce((acc, i) => acc + i.val, 0);
+        const finTotal = cfDataLocal.financing.reduce((acc, i) => acc + i.val, 0);
+        const netTotal = opTotal + invTotal + finTotal;
+
+        setCfData([
+          {
+            category: "Operating Activities",
+            total: formatCurrency(opTotal),
+            items: cfDataLocal.operating.map(i => ({ ...i, val: formatCurrency(i.val) }))
+          },
+          {
+            category: "Investing Activities",
+            total: formatCurrency(invTotal),
+            items: cfDataLocal.investing.map(i => ({ ...i, val: formatCurrency(i.val) }))
+          },
+          {
+            category: "Financing Activities",
+            total: formatCurrency(finTotal),
+            items: cfDataLocal.financing.map(i => ({ ...i, val: formatCurrency(i.val) }))
+          },
+          {
+            category: "Net Cash Flow",
+            total: formatCurrency(netTotal),
+            isResult: true,
+            highlight: true,
+            items: []
+          }
+        ]);
       } catch (err) {
         console.error('Error fetching Cash Flow', err);
       } finally {
@@ -2374,7 +2419,7 @@ function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
       }
     };
     fetchCF();
-  }, [range, customDates]);
+  }, [range, customDates, transactions]);
 
   const exportPDF = () => {
     if ((window as any).requestPdfPassword) {
@@ -2382,7 +2427,7 @@ function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
         if (pwd === null) return;
         const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
         const period = dateFormat === 'BS' ? (range === 'Custom' && customDates.start && customDates.end ? `${convertGregorianToBS(customDates.start)} to ${convertGregorianToBS(customDates.end)}` : range) : `${range}${range === 'Custom' ? ` (${customDates.start} to ${customDates.end})` : ''}`;
-        
+
         const body: any[] = [];
         cfData.forEach(section => {
           body.push([section.category.toUpperCase(), '', section.total]);
@@ -2474,10 +2519,10 @@ function CashFlowView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
       <div className="h-[300px] w-full glass p-8 border-white/5">
         <p className="text-[10px] font-black uppercase tracking-widest text-brand mb-6">Cash Position Forecast</p>
         <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={[
-              { n: 'WK1', v: 4000 }, { n: 'WK2', v: 4500 }, { n: 'WK3', v: 4200 }, { n: 'WK4', v: 4800 },
-              { n: 'WK5', v: 5100 }, { n: 'WK6', v: 5500 }, { n: 'WK7', v: 5300 }, { n: 'WK8', v: 5800 },
-            ]}>
+          <AreaChart data={[
+            { n: 'WK1', v: 4000 }, { n: 'WK2', v: 4500 }, { n: 'WK3', v: 4200 }, { n: 'WK4', v: 4800 },
+            { n: 'WK5', v: 5100 }, { n: 'WK6', v: 5500 }, { n: 'WK7', v: 5300 }, { n: 'WK8', v: 5800 },
+          ]}>
             <defs>
               <linearGradient id="cfGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#dc143c" stopOpacity={0.3} />
@@ -2502,7 +2547,7 @@ export const getStatusFromData = (qty: number, min_stock: number, expiry?: strin
     const expiryDate = new Date(expiry);
     const diffTime = expiryDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays < 0) return 'EXPIRED';
     if (diffDays < 7) return 'EXPIRING SOON';
   }
@@ -2516,12 +2561,12 @@ export const getInventory = async (businessId: string) => {
     .select('*')
     .eq('business_id', businessId)
     .order('name', { ascending: true });
-    
+
   if (error) {
     console.error('Error fetching inventory:', error);
     return [];
   }
-  
+
   return data.map(item => ({
     id: item.id,
     name: item.name,
@@ -3625,8 +3670,13 @@ const InventoryView = React.memo(function InventoryView({ dateFormat }: { dateFo
 
 // --- DATA ENTRY VIEW ---
 
-function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }: { transactions: Transaction[], onAdd: (t: Transaction) => void, onDelete: (i: number) => void, categories: { name: string, type: string }[], dateFormat: 'AD' | 'BS' }) {
+function DataEntryView({ transactions: propTransactions, onAdd, onBulkAdd, onDelete, categories, dateFormat }: { transactions?: Transaction[], onAdd?: (t: Transaction) => void, onBulkAdd?: (txs: Transaction[]) => Promise<void>, onDelete?: (i: number) => void, categories: { name: string, type: string }[], dateFormat: 'AD' | 'BS' }) {
   const { t } = React.useContext(LanguageContext);
+  const context = React.useContext(TransactionsContext);
+  const transactions = propTransactions || context.transactions || [];
+  const handleAdd = onAdd || context.addTransaction;
+  const handleBulkAdd = onBulkAdd || context.bulkAddTransactions;
+  const handleDelete = onDelete || context.deleteTransaction;
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     type: 'Inflow',
@@ -3638,6 +3688,123 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [csvPreview, setCsvPreview] = useState<Transaction[] | null>(null);
+  const [importSuccessCount, setImportSuccessCount] = useState<number | null>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCsvUploadClick = () => {
+    csvInputRef.current?.click();
+  };
+
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportSuccessCount(null);
+    setCsvError(null);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const data = results.data as any[];
+        if (data.length === 0) {
+          setCsvError("The CSV file is empty.");
+          return;
+        }
+
+        const keys = Object.keys(data[0]).map(k => k.trim().toLowerCase());
+        const required = ['date', 'description', 'amount'];
+        const missing = required.filter(r => !keys.includes(r));
+
+        if (missing.length > 0) {
+          setCsvError(`Missing required columns: ${missing.join(', ').toUpperCase()}`);
+          return;
+        }
+
+        const hasTypeColumn = keys.includes('type');
+        const hasCategoryColumn = keys.includes('category');
+
+        const parsedTxs: Transaction[] = [];
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
+          const getVal = (colName: string) => {
+            const key = Object.keys(row).find(k => k.trim().toLowerCase() === colName);
+            return key ? row[key] : '';
+          };
+
+          const dateVal = String(getVal('date')).trim();
+          const descVal = String(getVal('description')).trim();
+          const rawAmt = parseFloat(String(getVal('amount')).trim());
+
+          if (!dateVal || !descVal || isNaN(rawAmt)) {
+            continue;
+          }
+
+          const amtVal = Math.abs(rawAmt);
+
+          let resolvedType: 'Inflow' | 'Outflow';
+          if (hasTypeColumn && String(getVal('type')).trim()) {
+            const typeLower = String(getVal('type')).trim().toLowerCase();
+            if (typeLower === 'inflow' || typeLower === 'revenue' || typeLower === 'incoming' || typeLower === 'sales') {
+              resolvedType = 'Inflow';
+            } else {
+              resolvedType = 'Outflow';
+            }
+          } else {
+            resolvedType = rawAmt >= 0 ? 'Inflow' : 'Outflow';
+          }
+
+          const catVal = hasCategoryColumn ? String(getVal('category')).trim() : '';
+          const resolvedCategory = catVal || 'Uncategorized';
+
+          parsedTxs.push({
+            date: dateVal,
+            description: descVal,
+            amount: amtVal,
+            type: resolvedType,
+            category: resolvedCategory
+          });
+        }
+
+        if (parsedTxs.length === 0) {
+          setCsvError("No valid rows found to parse.");
+          return;
+        }
+
+        setCsvPreview(parsedTxs);
+      },
+      error: (err) => {
+        setCsvError(`Parsing error: ${err.message.toUpperCase()}`);
+      }
+    });
+
+    if (csvInputRef.current) {
+      csvInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmCsvImport = async () => {
+    if (!csvPreview) return;
+    console.log("[CSV Import] Confirming import for", csvPreview.length, "transactions...");
+    try {
+      await handleBulkAdd(csvPreview);
+      console.log("[CSV Import] Bulk insert completed successfully.");
+      setImportSuccessCount(csvPreview.length);
+      setCsvPreview(null);
+    } catch (err: any) {
+      console.error("[CSV Import] Error during bulk insert:", err);
+      const errMsg = err?.message || JSON.stringify(err);
+      setCsvError(`Bulk insert failed: ${errMsg}`);
+    }
+  };
+
+  const handleCancelCsvImport = () => {
+    setCsvPreview(null);
+    setCsvError(null);
+  };
 
   const handleInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -3668,7 +3835,7 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
     setIsSubmitting(true);
 
     setTimeout(() => {
-      onAdd({
+      handleAdd({
         date: formData.date,
         description: formData.description,
         amount: Number(formData.amount),
@@ -3690,7 +3857,7 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
   const currentTypeCategories = categories.filter(c => c.type === formData.type);
 
   const recentTransactions = transactions.slice(0, 10);
-  
+
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importTab, setImportTab] = useState<'eSewa' | 'Khalti' | 'ConnectIPS'>('eSewa');
   const [importStatus, setImportStatus] = useState<'IDLE' | 'MAPPING' | 'IMPORTING' | 'SUCCESS'>('IDLE');
@@ -3729,7 +3896,117 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-8">
+          {/* CSV Upload Section */}
+          <div className="glass p-8 border-white/10 bg-white/[0.01] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-intelligence/50 to-transparent"></div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-intelligence mb-1">
+                  CSV Ledger Ingestion
+                </h3>
+                <p className="text-[10px] font-mono text-gray-500 uppercase">
+                  Bulk load transactions from date, description, amount, type, category fields
+                </p>
+              </div>
+              <div>
+                <input
+                  type="file"
+                  accept=".csv"
+                  ref={csvInputRef}
+                  onChange={handleCsvFileChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={handleCsvUploadClick}
+                  className="bg-intelligence/20 border border-intelligence/40 text-intelligence px-6 py-4 font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:bg-intelligence hover:text-black transition-all cursor-pointer"
+                >
+                  <Upload size={16} />
+                  IMPORT CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {csvError && (
+              <div className="mt-6 p-4 bg-brand/10 border border-brand/20 flex items-center gap-3 text-brand animate-fadeIn">
+                <AlertCircle size={16} />
+                <span className="text-[10px] font-mono uppercase tracking-wider">{csvError}</span>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {importSuccessCount !== null && (
+              <div className="mt-6 p-4 bg-intelligence/10 border border-intelligence/20 flex items-center gap-3 text-intelligence animate-fadeIn">
+                <CheckCircle2 size={16} />
+                <span className="text-[10px] font-mono uppercase tracking-wider">
+                  SUCCESSFULLY INGESTED {importSuccessCount} TRANSACTIONS INTO THE KERNEL!
+                </span>
+              </div>
+            )}
+
+            {/* Preview Section */}
+            {csvPreview && (
+              <div className="mt-6 space-y-6 pt-6 border-t border-white/5 animate-fadeIn">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <h4 className="text-[10px] font-black text-intelligence uppercase tracking-widest">
+                    PREVIEW: {csvPreview.length} TRANSACTIONS READY
+                  </h4>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={handleCancelCsvImport}
+                      className="border border-white/10 text-gray-400 font-black uppercase text-[9px] tracking-widest px-4 py-2 hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      CANCEL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmCsvImport}
+                      className="bg-intelligence text-black font-black uppercase text-[9px] tracking-widest px-4 py-2 hover:shadow-[0_0_20px_rgba(0,242,255,0.4)] transition-all cursor-pointer"
+                    >
+                      CONFIRM IMPORT
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-[300px] overflow-y-auto border border-white/10 rounded-sm">
+                  <table className="w-full text-left border-collapse font-mono text-[9px]">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-white/[0.04] sticky top-0 backdrop-blur-md">
+                        <th className="px-4 py-3 text-gray-500 font-black uppercase tracking-wider">DATE</th>
+                        <th className="px-4 py-3 text-gray-500 font-black uppercase tracking-wider">DESCRIPTION</th>
+                        <th className="px-4 py-3 text-gray-500 font-black uppercase tracking-wider">CATEGORY</th>
+                        <th className="px-4 py-3 text-gray-500 font-black uppercase tracking-wider">TYPE</th>
+                        <th className="px-4 py-3 text-gray-500 font-black uppercase tracking-wider text-right">AMOUNT</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {csvPreview.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-white/[0.02]">
+                          <td className="px-4 py-2.5 text-gray-400">{row.date}</td>
+                          <td className="px-4 py-2.5 text-white font-bold uppercase">{row.description}</td>
+                          <td className="px-4 py-2.5 text-gray-500 italic uppercase">{row.category}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={row.type === 'Inflow' ? 'text-intelligence font-bold' : 'text-brand font-bold'}>
+                              {row.type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-bold">
+                            <span className={row.type === 'Inflow' ? 'text-intelligence' : 'text-brand'}>
+                              {row.type === 'Inflow' ? '+' : '-'}${row.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="glass p-10 border-white/10 bg-white/[0.01] relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
               <FileText size={160} className="text-white" />
@@ -3865,7 +4142,7 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
                         {t.type === 'Inflow' ? "+" : "-"}{formatCurrency(t.amount)}
                       </span>
                       <button
-                        onClick={() => onDelete(i)}
+                        onClick={() => handleDelete(i)}
                         className="text-gray-700 hover:text-brand transition-colors p-1"
                       >
                         <Trash2 size={12} />
@@ -3938,7 +4215,7 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
                       <span className="text-xs font-mono text-gray-400">File Detected:</span>
                       <span className="text-xs font-black text-white">{importTab}_settlement_export.csv</span>
                     </div>
-                    
+
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-black text-intelligence uppercase tracking-widest">Automatic Column Mapping</h4>
                       <div className="grid grid-cols-2 gap-4">
@@ -3961,14 +4238,14 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
                       onClick={() => {
                         setImportStatus('IMPORTING');
                         setTimeout(() => {
-                          onAdd({
+                          handleAdd({
                             date: new Date().toISOString().split('T')[0],
                             description: `${importTab} Settlement Payout`,
                             amount: Math.floor(Math.random() * 50000) + 10000,
                             category: 'Sales',
                             type: 'Inflow'
                           });
-                          onAdd({
+                          handleAdd({
                             date: new Date().toISOString().split('T')[0],
                             description: `${importTab} Gateway Fee`,
                             amount: Math.floor(Math.random() * 500) + 100,
@@ -4026,7 +4303,11 @@ function DataEntryView({ transactions, onAdd, onDelete, categories, dateFormat }
 
 // --- TRANSACTIONS VIEW ---
 
-const TransactionsView = React.memo(function TransactionsView({ transactions, onUpdate, dateFormat }: { transactions: Transaction[], onUpdate: (updatedTx: Transaction, index: number) => void, dateFormat: 'AD' | 'BS' }) {
+const TransactionsView = React.memo(function TransactionsView({ transactions: propTransactions, onUpdate, dateFormat }: { transactions?: Transaction[], onUpdate?: (updatedTx: Transaction, index: number) => void, dateFormat: 'AD' | 'BS' }) {
+  const context = React.useContext(TransactionsContext);
+  const transactions = propTransactions || context.transactions || [];
+  const handleUpdate = onUpdate || context.updateTransaction;
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     if (dateFormat === 'BS') {
@@ -4061,7 +4342,7 @@ const TransactionsView = React.memo(function TransactionsView({ transactions, on
     e.preventDefault();
     if (!editingTransaction) return;
 
-    onUpdate(editingTransaction.t, editingTransaction.index);
+    handleUpdate(editingTransaction.t, editingTransaction.index);
     setEditingTransaction(null);
   };
 
@@ -4393,7 +4674,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
   const avgResponseTime = useMemo(() => {
     const repliedQueries = queries.filter(q => q.status === 'Replied' || q.status === 'Auto-Sent');
     if (repliedQueries.length === 0) return 0;
-    
+
     let totalMs = 0;
     let validCount = 0;
     repliedQueries.forEach(q => {
@@ -4420,7 +4701,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
   const commonKeywords = useMemo(() => {
     const wordCounts: Record<string, number> = {};
     const stopWords = ['the', 'is', 'at', 'which', 'on', 'in', 'to', 'and', 'a', 'an', 'of', 'for', 'with', 'my', 'i', 'you', 'it', 'that', 'this', 'are', 'we', 'our', 'what', 'how', 'when', 'where', 'why', 'can', 'do', 'does', 'did', 'have', 'has', 'had', 'be', 'am', 'was', 'were', 'been', 'will', 'would', 'shall', 'should', 'may', 'might', 'must', 'but', 'or', 'so', 'if', 'then', 'than', 'as', 'about', 'from', 'by', 'up', 'down', 'out', 'into', 'over', 'under', 'all', 'any', 'some', 'many', 'much', 'more', 'most', 'other', 'another', 'such', 'only', 'own', 'same', 'too', 'very', 'just', 'now', 'there', 'here', 'not', 'no', 'yes', 'please', 'hi', 'hello', 'hey', 'thanks', 'thank'];
-    
+
     queries.forEach(q => {
       if (!q.message) return;
       const words = q.message.toLowerCase().replace(/[^\\w\\s]/g, '').split(/\\s+/);
@@ -4430,7 +4711,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
         }
       });
     });
-    
+
     return Object.entries(wordCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
@@ -4455,7 +4736,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
       const dateStr = d.toISOString().split('T')[0];
       trend[dateStr] = 0;
     }
-    
+
     queries.forEach(q => {
       if (q.created_at) {
         const dateStr = q.created_at.split('T')[0];
@@ -4464,7 +4745,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
         }
       }
     });
-    
+
     return Object.entries(trend).map(([date, volume]) => ({
       date: date.substring(5), // MM-DD
       volume
@@ -4489,7 +4770,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
           <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Queries</h3>
           <p className="text-3xl font-mono text-white">{queries.length}</p>
         </div>
-        
+
         <div className="glass p-6 border-white/5 relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Reply Rate</h3>
@@ -4521,7 +4802,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                 <XAxis dataKey="date" stroke="#666" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis stroke="#666" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
                   itemStyle={{ color: '#00f2ff' }}
                 />
@@ -4549,7 +4830,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
                     <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
               </PieChart>
@@ -4574,7 +4855,7 @@ function QueryAnalyticsView({ queries }: QueryAnalyticsViewProps) {
               <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
               <XAxis type="number" stroke="#666" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis dataKey="word" type="category" stroke="#666" tick={{ fill: '#aaa', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
               />
@@ -4837,13 +5118,13 @@ function CustomerQueriesView({
                   <div className={cn(
                     "inline-flex items-center gap-2 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em] border",
                     query.status === 'Pending' ? "text-brand border-brand/20 bg-brand/5 animate-pulse" :
-                    query.status === 'Auto-Sent' ? "text-intelligence border-intelligence/20 bg-intelligence/5" :
-                    "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
+                      query.status === 'Auto-Sent' ? "text-intelligence border-intelligence/20 bg-intelligence/5" :
+                        "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
                   )}>
                     <div className={cn("w-1 h-1 rounded-full",
                       query.status === 'Pending' ? "bg-brand animate-ping" :
-                      query.status === 'Auto-Sent' ? "bg-intelligence" :
-                      "bg-emerald-500"
+                        query.status === 'Auto-Sent' ? "bg-intelligence" :
+                          "bg-emerald-500"
                     )}></div>
                     {query.status === 'Auto-Sent' ? 'AUTO-SENT' : query.status}
                   </div>
@@ -5623,13 +5904,13 @@ function TeamManagementView() {
                 <tr key={log.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-all group">
                   <td className="p-6">
                     <div className="flex items-center gap-3">
-                       <div className="w-2 h-2 rounded-full bg-intelligence/40 animate-pulse"></div>
-                       <span className="text-xs font-bold text-white uppercase">{log.who}</span>
+                      <div className="w-2 h-2 rounded-full bg-intelligence/40 animate-pulse"></div>
+                      <span className="text-xs font-bold text-white uppercase">{log.who}</span>
                     </div>
                   </td>
                   <td className="p-6">
                     <span className="px-2 py-0.5 bg-white/5 border border-white/10 text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                       {log.action}
+                      {log.action}
                     </span>
                   </td>
                   <td className="p-6 font-mono text-xs text-intelligence/80 italic">
@@ -5714,7 +5995,7 @@ function SettingsView({
     api_calls: 8401,
     errors: 12
   });
-  
+
   useEffect(() => {
     if (activeSubTab === 'monitoring') {
       supabase.rpc('get_system_metrics').then(({ data, error }) => {
@@ -5729,13 +6010,13 @@ function SettingsView({
   const [clientIp, setClientIpState] = useState('103.102.114.42');
   const [lastLoginTime, setLastLoginTime] = useState<string>('');
   const [userEmail, setUserEmail] = useState<string>('');
-  
+
   const [sessions, setSessions] = useState<any[]>([
     { id: 'sess_current', current: true, browser: 'Chrome', os: 'Windows 11', ip: '103.102.114.42', location: 'Kathmandu, Nepal', lastActive: 'Active Now' },
     { id: 'sess_1', browser: 'Safari Mobile', os: 'iOS 17.4', ip: '27.34.42.110', location: 'Pokhara, Nepal', lastActive: '2 hours ago' },
     { id: 'sess_2', browser: 'Firefox', os: 'macOS Sonoma', ip: '103.102.114.15', location: 'Lalitpur, Nepal', lastActive: '1 day ago' },
   ]);
-  
+
   const [failedAttempts, setFailedAttempts] = useState<any[]>([]);
 
   useEffect(() => {
@@ -5743,7 +6024,7 @@ function SettingsView({
       try {
         const ip = await getClientIp();
         setClientIpState(ip);
-        
+
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setUserEmail(user.email || 'AGENT_042@NEURALIS.SYS');
@@ -5780,7 +6061,7 @@ function SettingsView({
           .select('*')
           .eq('event_type', 'LOGIN_FAILED')
           .order('created_at', { ascending: false });
-        
+
         if (data && data.length > 0) {
           setFailedAttempts(data);
         } else {
@@ -5806,7 +6087,7 @@ function SettingsView({
         if (!session?.user) return;
         const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
         if (!profile?.business_id) return;
-        
+
         const { data: logs } = await supabase
           .from('audit_logs')
           .select(`
@@ -5817,7 +6098,7 @@ function SettingsView({
           `)
           .eq('business_id', profile.business_id)
           .order('timestamp', { ascending: false });
-          
+
         if (logs) setAuditLogs(logs);
       } catch (err) {
         console.error('Failed to fetch audit logs:', err);
@@ -5865,7 +6146,7 @@ function SettingsView({
       });
 
       if (verifyError) throw verifyError;
-      
+
       setIs2FAEnabled(true);
       setQrCodeData(null);
       setVerifyCode('');
@@ -5935,12 +6216,12 @@ function SettingsView({
         knowledgeBase: knowledgeBase
       }
     };
-    
+
     const dataStr = JSON.stringify(backupData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
     const exportFileDefaultName = `ProjectN_Backup_${new Date().toISOString().split('T')[0]}.json`;
-    
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
@@ -5950,39 +6231,39 @@ function SettingsView({
   const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const importedData = JSON.parse(event.target?.result as string);
-        
+
         if (importedData.transactions) setTransactions(importedData.transactions);
         if (importedData.inventory) localStorage.setItem('quantum_inventory', JSON.stringify(importedData.inventory));
         if (importedData.settings) {
-           const s = importedData.settings;
-           if (s.businessName) localStorage.setItem('business_name', s.businessName);
-           if (s.businessType) localStorage.setItem('business_type', s.businessType);
-           if (s.ownerName) localStorage.setItem('owner_name', s.ownerName);
-           if (s.phone) localStorage.setItem('phone', s.phone);
-           if (s.address) localStorage.setItem('address', s.address);
-           if (s.panNumber) localStorage.setItem('pan_number', s.panNumber);
-           
-           if (s.businessName) onUpdateBusinessName(s.businessName);
-           if (s.categories) onUpdateCategories(s.categories);
-           if (s.knowledgeBase) onUpdateKnowledgeBase(s.knowledgeBase);
-           if (s.dateFormat) onChangeDateFormat(s.dateFormat);
-           
-           setProfile(prev => ({
-             ...prev,
-             businessName: s.businessName || prev.businessName,
-             businessType: s.businessType || prev.businessType,
-             ownerName: s.ownerName || prev.ownerName,
-             phone: s.phone || prev.phone,
-             address: s.address || prev.address,
-             panNumber: s.panNumber || prev.panNumber
-           }));
+          const s = importedData.settings;
+          if (s.businessName) localStorage.setItem('business_name', s.businessName);
+          if (s.businessType) localStorage.setItem('business_type', s.businessType);
+          if (s.ownerName) localStorage.setItem('owner_name', s.ownerName);
+          if (s.phone) localStorage.setItem('phone', s.phone);
+          if (s.address) localStorage.setItem('address', s.address);
+          if (s.panNumber) localStorage.setItem('pan_number', s.panNumber);
+
+          if (s.businessName) onUpdateBusinessName(s.businessName);
+          if (s.categories) onUpdateCategories(s.categories);
+          if (s.knowledgeBase) onUpdateKnowledgeBase(s.knowledgeBase);
+          if (s.dateFormat) onChangeDateFormat(s.dateFormat);
+
+          setProfile(prev => ({
+            ...prev,
+            businessName: s.businessName || prev.businessName,
+            businessType: s.businessType || prev.businessType,
+            ownerName: s.ownerName || prev.ownerName,
+            phone: s.phone || prev.phone,
+            address: s.address || prev.address,
+            panNumber: s.panNumber || prev.panNumber
+          }));
         }
-        
+
         setShowImportWarning(false);
         setMessage('DATA RESTORED SUCCESSFULLY');
         setTimeout(() => setMessage(''), 3000);
@@ -5993,9 +6274,9 @@ function SettingsView({
       }
     };
     reader.readAsText(file);
-    
+
     if (fileInputRef.current) {
-       fileInputRef.current.value = '';
+      fileInputRef.current.value = '';
     }
   };
 
@@ -6264,7 +6545,7 @@ function SettingsView({
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">{t('Language (Language Preference)')}</label>
                       <div className="relative group">
@@ -6284,7 +6565,7 @@ function SettingsView({
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2 md:col-span-2">
                       <div className="flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-sm">
                         <div>
@@ -6744,7 +7025,7 @@ function SettingsView({
                     <p className="text-[10px] font-mono text-gray-500 uppercase mt-1">Authorized instances currently communicating with neural kernel</p>
                   </div>
                 </div>
-                
+
                 <div className="divide-y divide-white/5 bg-black/20">
                   {sessions.map((sess) => (
                     <div key={sess.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-white/[0.01] transition-all">
@@ -6769,7 +7050,7 @@ function SettingsView({
                           </p>
                         </div>
                       </div>
-                      
+
                       {!sess.current && (
                         <button
                           onClick={async () => {
@@ -6805,7 +7086,7 @@ function SettingsView({
                   </h3>
                   <p className="text-[10px] font-mono text-gray-500 uppercase mt-1">Neutralized attack vectors and failed access validations</p>
                 </div>
-                
+
                 <div className="p-6 bg-black/40 font-mono text-[11px] text-brand/80 space-y-2 border-b border-white/5 max-h-[220px] overflow-y-auto custom-scrollbar">
                   {failedAttempts.map((att, i) => (
                     <div key={att.id || i} className="flex flex-col md:flex-row md:items-center justify-between py-1.5 border-b border-white/5 last:border-none">
@@ -6845,7 +7126,7 @@ function SettingsView({
                       Authentication protocol status: <span className={cn("font-black", is2FAEnabled ? "text-intelligence" : "text-brand")}>{is2FAEnabled ? "ENFORCED" : "BYPASSED"}</span>
                     </p>
                   </div>
-                  
+
                   {!qrCodeData && (
                     <button
                       onClick={is2FAEnabled ? disable2FA : setup2FA}
@@ -6917,7 +7198,7 @@ function SettingsView({
                     MANAGE PERMISSIONS
                   </button>
                 </div>
-                
+
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-white/5 bg-white/[0.02]">
@@ -6936,8 +7217,8 @@ function SettingsView({
                           <span className={cn(
                             "px-2 py-0.5 border",
                             log.action_type === 'CREATE' ? "text-emerald-500 border-emerald-500/30 bg-emerald-500/10" :
-                            log.action_type === 'UPDATE' ? "text-blue-500 border-blue-500/30 bg-blue-500/10" :
-                            "text-red-500 border-red-500/30 bg-red-500/10"
+                              log.action_type === 'UPDATE' ? "text-blue-500 border-blue-500/30 bg-blue-500/10" :
+                                "text-red-500 border-red-500/30 bg-red-500/10"
                           )}>
                             {log.action_type}
                           </span>
@@ -6983,8 +7264,8 @@ function SettingsView({
                             <span className={cn(
                               "px-2 py-1 border",
                               log.action_type === 'CREATE' ? "text-emerald-500 border-emerald-500/30 bg-emerald-500/10" :
-                              log.action_type === 'UPDATE' ? "text-blue-500 border-blue-500/30 bg-blue-500/10" :
-                              "text-red-500 border-red-500/30 bg-red-500/10"
+                                log.action_type === 'UPDATE' ? "text-blue-500 border-blue-500/30 bg-blue-500/10" :
+                                  "text-red-500 border-red-500/30 bg-red-500/10"
                             )}>
                               {log.action_type}
                             </span>
@@ -7002,7 +7283,7 @@ function SettingsView({
                       )}
                     </tbody>
                   </table>
-                  
+
                   {auditLogs.length > 0 && (
                     <div className="p-4 border-t border-white/5 bg-white/[0.01] flex justify-between items-center">
                       <button
@@ -7034,7 +7315,7 @@ function SettingsView({
                 <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">System Portability</h4>
                 <h2 className="text-5xl font-black italic uppercase">DATA BACKUP & RESTORE</h2>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                 <div className="glass p-8 border-white/10 bg-white/[0.01] space-y-6 relative overflow-hidden group">
                   <div className="absolute -top-4 -right-4 p-8 opacity-5 group-hover:scale-110 transition-transform pointer-events-none">
@@ -7062,7 +7343,7 @@ function SettingsView({
                     Import System Snapshot
                   </h3>
                   <p className="text-[10px] font-mono text-gray-400 relative z-10">Restore a previous snapshot. This action requires a valid JSON configuration file generated by the system.</p>
-                  
+
                   <input
                     type="file"
                     accept=".json"
@@ -7070,7 +7351,7 @@ function SettingsView({
                     onChange={handleImportData}
                     className="hidden"
                   />
-                  
+
                   <button
                     onClick={() => setShowImportWarning(true)}
                     className="w-full relative z-10 bg-brand/10 text-brand border border-brand/30 py-4 text-[10px] font-black uppercase tracking-widest hover:bg-brand hover:text-black transition-all cursor-pointer"
@@ -7095,7 +7376,7 @@ function SettingsView({
                   <Globe size={14} />
                   Custom Domain Status
                 </h3>
-                
+
                 <div className="p-6 bg-white/5 border border-white/10 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -7132,7 +7413,7 @@ function SettingsView({
                 <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-intelligence mb-2">System Telemetry</h4>
                 <h2 className="text-5xl font-black italic uppercase">PRODUCTION MONITORING</h2>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="glass p-6 border-white/10 space-y-4 relative overflow-hidden group">
                   <Building2 className="absolute -top-4 -right-4 w-32 h-32 text-white/5 group-hover:scale-110 transition-transform" />
@@ -7140,35 +7421,35 @@ function SettingsView({
                   <p className="text-4xl font-mono text-white">{systemMetrics.total_businesses}</p>
                   <p className="text-[9px] font-mono text-brand uppercase tracking-widest">+3 this week</p>
                 </div>
-                
+
                 <div className="glass p-6 border-white/10 space-y-4 relative overflow-hidden group">
                   <Database className="absolute -top-4 -right-4 w-32 h-32 text-intelligence/5 group-hover:scale-110 transition-transform" />
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Total System Transactions</h3>
                   <p className="text-4xl font-mono text-intelligence">{systemMetrics.total_transactions.toLocaleString()}</p>
                   <p className="text-[9px] font-mono text-intelligence/60 uppercase tracking-widest">Across all tenants</p>
                 </div>
-                
+
                 <div className="glass p-6 border-white/10 space-y-4 relative overflow-hidden group">
                   <Terminal className="absolute -top-4 -right-4 w-32 h-32 text-brand/5 group-hover:scale-110 transition-transform" />
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500">API Call Usage (Gemini)</h3>
                   <p className="text-4xl font-mono text-white">{systemMetrics.api_calls.toLocaleString()}</p>
                   <p className="text-[9px] font-mono text-brand uppercase tracking-widest">This Month</p>
                 </div>
-                
+
                 <div className="glass p-6 border-white/10 space-y-4 relative overflow-hidden group">
                   <Server className="absolute -top-4 -right-4 w-32 h-32 text-white/5 group-hover:scale-110 transition-transform" />
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Database Size</h3>
                   <p className="text-4xl font-mono text-white">{systemMetrics.db_size}</p>
                   <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">8% of 5GB Limit</p>
                 </div>
-                
+
                 <div className="glass p-6 border-white/10 space-y-4 relative overflow-hidden group">
                   <Activity className="absolute -top-4 -right-4 w-32 h-32 text-intelligence/5 group-hover:scale-110 transition-transform" />
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Uptime Status</h3>
                   <p className="text-4xl font-mono text-intelligence">{systemMetrics.uptime}</p>
                   <p className="text-[9px] font-mono text-intelligence/60 uppercase tracking-widest">All Systems Operational</p>
                 </div>
-                
+
                 <div className="glass p-6 border-white/10 space-y-4 relative overflow-hidden group bg-brand/5 border-brand/20">
                   <AlertTriangle className="absolute -top-4 -right-4 w-32 h-32 text-brand/10 group-hover:scale-110 transition-transform" />
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-brand">Server Error Log</h3>
@@ -7180,7 +7461,7 @@ function SettingsView({
           )}
         </motion.div>
       </AnimatePresence>
-      
+
       {/* Import Warning Modal */}
       <AnimatePresence>
         {showImportWarning && (
@@ -7269,9 +7550,9 @@ export const getBalanceSheet = async (businessId: string, startDate?: string, en
     const catLower = catName.toLowerCase();
 
     totalCash += val;
-    
+
     if (investingKeywords.some(kw => catLower.includes(kw))) {
-      totalFixedAssets -= val; 
+      totalFixedAssets -= val;
       bsDetails.assets.fixed -= val;
     } else if (liabilityKeywords.some(kw => catLower.includes(kw))) {
       totalLiabilities += val;
@@ -7286,7 +7567,7 @@ export const getBalanceSheet = async (businessId: string, startDate?: string, en
 
   const totalAssets = totalCash + totalFixedAssets;
   const totalEquity = totalPaidInCapital + retainedEarnings;
-  
+
   return {
     sections: [
       {
@@ -7331,8 +7612,10 @@ export const getBalanceSheet = async (businessId: string, startDate?: string, en
     }
   };
 };
-function BalanceSheetView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
+function BalanceSheetView({ dateFormat, transactions: propTransactions }: { dateFormat: 'AD' | 'BS', transactions?: Transaction[] }) {
   const { t } = React.useContext(LanguageContext);
+  const { transactions: contextTransactions } = React.useContext(TransactionsContext);
+  const transactions = propTransactions || contextTransactions || [];
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
@@ -7352,37 +7635,7 @@ function BalanceSheetView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
     const fetchBS = async () => {
       setIsLoading(true);
       try {
-        const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
-        if (isDemoMode) {
-          // For demo mode, balance sheet is derived from demo_transactions
-          const savedDemo = localStorage.getItem('demo_transactions');
-          const txList = savedDemo ? JSON.parse(savedDemo) : [];
-          const totalInflow = txList.filter((t: any) => t.type === 'Inflow').reduce((a: number, t: any) => a + Number(t.amount), 0);
-          const totalOutflow = txList.filter((t: any) => t.type === 'Outflow').reduce((a: number, t: any) => a + Number(t.amount), 0);
-          const retainedEarnings = totalInflow - totalOutflow;
-          const cash = totalInflow - totalOutflow * 0.8;
-          const receivables = totalInflow * 0.1;
-          const totalAssets = cash + receivables;
-          setBsData({
-            sections: [
-              { category: 'Current Assets', total: formatCurrency(totalAssets), items: [{ name: 'Cash & Equivalents', val: formatCurrency(cash) }, { name: 'Accounts Receivable', val: formatCurrency(receivables) }] },
-              { category: 'Fixed Assets', total: formatCurrency(0), items: [] },
-              { category: 'Current Liabilities', total: formatCurrency(0), items: [] },
-              { category: 'Long-term Liabilities', total: formatCurrency(0), items: [] },
-              { category: 'Equity', total: formatCurrency(retainedEarnings), items: [{ name: 'Retained Earnings', val: formatCurrency(retainedEarnings) }] }
-            ],
-            summary: { totalAssets: formatCurrency(totalAssets), totalLiabilitiesEquity: formatCurrency(retainedEarnings), isValid: Math.abs(totalAssets - retainedEarnings) < 1 }
-          });
-          setIsLoading(false);
-          return;
-        }
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) { setIsLoading(false); return; }
-        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-        if (!profile?.business_id) { setIsLoading(false); return; }
-
-        let endDate;
+        let endDate: Date | undefined;
         const now = new Date();
         if (range === 'This Month') {
           endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -7395,12 +7648,96 @@ function BalanceSheetView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
           endDate = new Date(customDates.end);
         }
 
-        const endStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
-
-        const result = await getBalanceSheet(profile.business_id, undefined, endStr);
-        if (result) {
-          setBsData(result);
+        let filtered = transactions;
+        if (endDate) {
+          endDate.setHours(23, 59, 59, 999);
+          filtered = transactions.filter((tx: any) => new Date(tx.date).getTime() <= endDate!.getTime());
         }
+
+        const investingKeywords = ['asset', 'equipment', 'infrastructure', 'investment', 'property', 'liquidation'];
+        const liabilityKeywords = ['loan', 'debt', 'payable'];
+        const equityKeywords = ['equity', 'venture', 'stakeholder', 'shareholder', 'capital', 'dividend'];
+
+        let totalCash = 0;
+        let totalFixedAssets = 0;
+        let totalLiabilities = 0;
+        let totalPaidInCapital = 0;
+        let retainedEarnings = 0;
+
+        const bsDetails = {
+          assets: { fixed: 0 },
+          liabilities: { loans: 0 },
+          equity: { capital: 0 }
+        };
+
+        filtered.forEach((tx: any) => {
+          const catName = tx.category || 'Uncategorized';
+          const amount = Number(tx.amount);
+          const val = tx.type === 'Inflow' ? amount : -amount;
+          const catLower = catName.toLowerCase();
+
+          totalCash += val;
+
+          if (investingKeywords.some(kw => catLower.includes(kw))) {
+            totalFixedAssets -= val;
+            bsDetails.assets.fixed -= val;
+          } else if (liabilityKeywords.some(kw => catLower.includes(kw))) {
+            totalLiabilities += val;
+            bsDetails.liabilities.loans += val;
+          } else if (equityKeywords.some(kw => catLower.includes(kw))) {
+            totalPaidInCapital += val;
+            bsDetails.equity.capital += val;
+          } else {
+            retainedEarnings += val;
+          }
+        });
+
+        const totalAssets = totalCash + totalFixedAssets;
+        const totalEquity = totalPaidInCapital + retainedEarnings;
+
+        setBsData({
+          sections: [
+            {
+              category: "Current Assets",
+              total: formatCurrency(totalCash),
+              items: [
+                { name: "Cash & Equivalents", val: formatCurrency(totalCash) }
+              ]
+            },
+            {
+              category: "Fixed Assets",
+              total: formatCurrency(totalFixedAssets),
+              items: [
+                { name: "Property, Plant & Equipment", val: formatCurrency(totalFixedAssets) }
+              ]
+            },
+            {
+              category: "Current Liabilities",
+              total: formatCurrency(0),
+              items: []
+            },
+            {
+              category: "Long-term Liabilities",
+              total: formatCurrency(totalLiabilities),
+              items: [
+                { name: "Long-Term Debt", val: formatCurrency(totalLiabilities) }
+              ]
+            },
+            {
+              category: "Equity",
+              total: formatCurrency(totalEquity),
+              items: [
+                { name: "Paid-In Capital", val: formatCurrency(totalPaidInCapital) },
+                { name: "Retained Earnings", val: formatCurrency(retainedEarnings) }
+              ]
+            }
+          ],
+          summary: {
+            totalAssets: formatCurrency(totalAssets),
+            totalLiabilitiesEquity: formatCurrency(totalLiabilities + totalEquity),
+            isValid: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01
+          }
+        });
       } catch (err) {
         console.error('Error fetching Balance Sheet', err);
       } finally {
@@ -7408,7 +7745,7 @@ function BalanceSheetView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
       }
     };
     fetchBS();
-  }, [range, customDates]);
+  }, [range, customDates, transactions]);
 
   const exportPDF = () => {
     if ((window as any).requestPdfPassword) {
@@ -7416,7 +7753,7 @@ function BalanceSheetView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
         if (pwd === null) return;
         const businessName = localStorage.getItem('business_name') || 'NEPAL VENTURES GLOBAL';
         const period = dateFormat === 'BS' ? `As at ${convertGregorianToBS(new Date().toISOString().split('T')[0])}` : `As at ${new Date().toLocaleDateString()}`;
-        
+
         const body: any[] = [];
         bsData.sections.forEach(section => {
           body.push([section.category.toUpperCase(), '', section.total]);
@@ -7500,16 +7837,16 @@ function BalanceSheetView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
 
 // --- MAIN PLATFORM APP ---
 
-function CommandPalette({ 
-  isOpen, 
-  onClose, 
-  onSelectTab, 
+function CommandPalette({
+  isOpen,
+  onClose,
+  onSelectTab,
   onSelectRecord,
   transactions,
   queries
-}: { 
-  isOpen: boolean, 
-  onClose: () => void, 
+}: {
+  isOpen: boolean,
+  onClose: () => void,
   onSelectTab: (tab: string) => void,
   onSelectRecord: (type: string, record: any) => void,
   transactions: any[],
@@ -7542,9 +7879,9 @@ function CommandPalette({
 
   const results = useMemo(() => {
     if (!query) return [];
-    
+
     const lowerQuery = query.toLowerCase();
-    
+
     const filteredNav = navigationItems.filter(i => i.label.toLowerCase().includes(lowerQuery));
     const filteredTx = transactions.filter(t => t.description.toLowerCase().includes(lowerQuery)).map(t => ({ ...t, label: t.description, type: 'Transaction' }));
     const filteredInv = inventory.filter((i: any) => i.name.toLowerCase().includes(lowerQuery)).map((i: any) => ({ ...i, label: i.name, type: 'Inventory' }));
@@ -7587,14 +7924,14 @@ function CommandPalette({
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-start justify-center pt-[15vh] px-6">
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        exit={{ opacity: 0 }} 
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         onClick={onClose}
         className="absolute inset-0 bg-black/80 backdrop-blur-md"
       ></motion.div>
-      
+
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: -20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -7613,64 +7950,64 @@ function CommandPalette({
             className="w-full bg-transparent border-none text-xl font-mono text-white placeholder:text-gray-700 focus:outline-none uppercase tracking-widest"
           />
           <div className="flex items-center gap-1">
-             <span className="px-2 py-1 bg-white/10 text-[9px] font-mono text-gray-500 rounded">ESC</span>
+            <span className="px-2 py-1 bg-white/10 text-[9px] font-mono text-gray-500 rounded">ESC</span>
           </div>
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
-           {!query && (
-             <div className="p-12 text-center">
-                <Terminal size={40} className="text-gray-800 mx-auto mb-4 opacity-20" />
-                <p className="text-[10px] font-mono text-gray-600 uppercase italic tracking-widest leading-loose">
-                  Waiting for kernel instructions...<br/>
-                  Search for Navigation, Transactions, Inventory, or Queries.
-                </p>
-             </div>
-           )}
+          {!query && (
+            <div className="p-12 text-center">
+              <Terminal size={40} className="text-gray-800 mx-auto mb-4 opacity-20" />
+              <p className="text-[10px] font-mono text-gray-600 uppercase italic tracking-widest leading-loose">
+                Waiting for kernel instructions...<br />
+                Search for Navigation, Transactions, Inventory, or Queries.
+              </p>
+            </div>
+          )}
 
-           {results.length > 0 && (
-             <div className="divide-y divide-white/5">
-                {results.map((result, idx) => (
-                  <div 
-                    key={idx}
-                    className={cn(
-                      "p-4 flex items-center justify-between transition-all cursor-pointer",
-                      idx === selectedIndex ? "bg-intelligence/10 border-l-4 border-intelligence" : "hover:bg-white/[0.02] border-l-4 border-transparent"
-                    )}
-                    onClick={() => {
-                      if (result.type === 'Nav') onSelectTab(result.id);
-                      else onSelectRecord(result.type, result);
-                      onClose();
-                    }}
-                  >
-                    <div className="flex items-center gap-4">
-                       <div className="w-8 h-8 bg-white/5 flex items-center justify-center text-gray-500">
-                          {result.type === 'Nav' && <LayoutDashboard size={14} />}
-                          {result.type === 'Transaction' && <List size={14} />}
-                          {result.type === 'Inventory' && <Package size={14} />}
-                          {result.type === 'Query' && <MessageSquare size={14} />}
-                       </div>
-                       <div>
-                          <p className={cn("text-[11px] font-black uppercase tracking-widest", idx === selectedIndex ? "text-intelligence" : "text-white")}>
-                            {result.label}
-                          </p>
-                          <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">{result.type}</p>
-                       </div>
+          {results.length > 0 && (
+            <div className="divide-y divide-white/5">
+              {results.map((result, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    "p-4 flex items-center justify-between transition-all cursor-pointer",
+                    idx === selectedIndex ? "bg-intelligence/10 border-l-4 border-intelligence" : "hover:bg-white/[0.02] border-l-4 border-transparent"
+                  )}
+                  onClick={() => {
+                    if (result.type === 'Nav') onSelectTab(result.id);
+                    else onSelectRecord(result.type, result);
+                    onClose();
+                  }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 bg-white/5 flex items-center justify-center text-gray-500">
+                      {result.type === 'Nav' && <LayoutDashboard size={14} />}
+                      {result.type === 'Transaction' && <List size={14} />}
+                      {result.type === 'Inventory' && <Package size={14} />}
+                      {result.type === 'Query' && <MessageSquare size={14} />}
                     </div>
-                    {idx === selectedIndex && (
-                      <span className="text-[9px] font-mono text-intelligence animate-pulse">{"[ENTER_TO_SELECT]"}</span>
-                    )}
+                    <div>
+                      <p className={cn("text-[11px] font-black uppercase tracking-widest", idx === selectedIndex ? "text-intelligence" : "text-white")}>
+                        {result.label}
+                      </p>
+                      <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">{result.type}</p>
+                    </div>
                   </div>
-                ))}
-             </div>
-           )}
-           
-           {query && results.length === 0 && (
-             <div className="p-12 text-center">
-                <Search size={32} className="text-gray-800 mx-auto mb-4 opacity-20" />
-                <p className="text-[10px] font-mono text-gray-600 uppercase italic">No records found matching "{query}"</p>
-             </div>
-           )}
+                  {idx === selectedIndex && (
+                    <span className="text-[9px] font-mono text-intelligence animate-pulse">{"[ENTER_TO_SELECT]"}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {query && results.length === 0 && (
+            <div className="p-12 text-center">
+              <Search size={32} className="text-gray-800 mx-auto mb-4 opacity-20" />
+              <p className="text-[10px] font-mono text-gray-600 uppercase italic">No records found matching "{query}"</p>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>
@@ -7687,7 +8024,7 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('metis_is_muted') === 'true');
   const [lastMetisResponse, setLastMetisResponse] = useState('');
-  
+
   const recognitionRef = useRef<any>(null);
   const wakeWordDetected = useRef(false);
   const silenceTimeoutRef = useRef<any>(null);
@@ -7719,22 +8056,22 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
       window.speechSynthesis.cancel();
     }
   };
-  
+
   const handleSendToMetis = async (queryText: string) => {
     if (!queryText.trim()) return;
-    
+
     // Add user message to log
     setMessages(prev => [...prev, { sender: 'user', text: queryText }]);
     setIsProcessing(true);
     setStatus('Processing vocal query...');
-    
+
     // Generate context data (P&L and Transaction summary)
     const inflows = transactions.filter(t => t.type === 'Inflow');
     const outflows = transactions.filter(t => t.type === 'Outflow');
     const totalInflow = inflows.reduce((sum, t) => sum + t.amount, 0);
     const totalOutflow = outflows.reduce((sum, t) => sum + t.amount, 0);
     const netProfit = totalInflow - totalOutflow;
-    
+
     const financeData = `
       --- TRANSACTION SUMMARY ---
       Total Transactions: ${transactions.length}
@@ -7745,7 +8082,7 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
       --- RECENT TRANSACTIONS ---
       ${transactions.slice(0, 10).map(t => `- ${t.date}: ${t.description} (${t.type} of NPR ${t.amount.toLocaleString()})`).join('\n')}
     `;
-    
+
     try {
       const response = await askMetis(queryText, financeData);
       setMessages(prev => [...prev, { sender: 'metis', text: response }]);
@@ -7788,19 +8125,19 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
         currentTranscript += event.results[i][0].transcript;
         latestConfidence = event.results[i][0].confidence;
       }
-      
+
       if (latestConfidence !== null && latestConfidence > 0) {
         setConfidence(latestConfidence);
       }
-      
+
       if (!wakeWordDetected.current) {
-         if (currentTranscript.toLowerCase().includes('hey project n')) {
-           wakeWordDetected.current = true;
-           setIsListening(true);
-           setStatus('Listening...');
-           setTranscript('');
-           setConfidence(null);
-         }
+        if (currentTranscript.toLowerCase().includes('hey project n')) {
+          wakeWordDetected.current = true;
+          setIsListening(true);
+          setStatus('Listening...');
+          setTranscript('');
+          setConfidence(null);
+        }
       } else {
         setTranscript(currentTranscript);
 
@@ -7825,7 +8162,7 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
         setTimeout(() => {
           try {
             recognition.start();
-          } catch(e) {}
+          } catch (e) { }
         }, 1000);
       }
     };
@@ -7887,7 +8224,7 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
             )}
           </AnimatePresence>
 
-          <button 
+          <button
             onClick={toggleMic}
             className={cn(
               "w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center relative z-20 transition-all duration-300 shadow-[0_0_25px_rgba(0,242,255,0.2)] hover:shadow-[0_0_40px_rgba(0,242,255,0.4)] border-2 cursor-pointer",
@@ -7905,7 +8242,7 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
           )}>
             {status}
           </p>
-          
+
           <div className="h-16 bg-black/40 border border-white/5 p-3 flex flex-col items-center justify-center w-full rounded-sm relative overflow-hidden">
             <div className="absolute inset-0 scanlines opacity-50"></div>
             <p className="text-[11px] font-mono text-white italic relative z-10 break-words w-full px-2 text-center">
@@ -7934,11 +8271,11 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
               <p className="text-[7px] font-mono text-gray-500 uppercase tracking-widest">Global Heuristics Active</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* Replay Button */}
             {lastMetisResponse && (
-              <button 
+              <button
                 onClick={() => speakText(lastMetisResponse)}
                 title="Replay last METIS response"
                 className="p-1 hover:bg-white/5 text-gray-400 hover:text-intelligence transition-all border border-transparent hover:border-intelligence/20 rounded"
@@ -7946,9 +8283,9 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
                 <Volume2 size={13} className="animate-pulse" />
               </button>
             )}
-            
+
             {/* Mute Toggle */}
-            <button 
+            <button
               onClick={toggleMute}
               title={isMuted ? "Unmute METIS voice" : "Mute METIS voice"}
               className={cn(
@@ -7958,7 +8295,7 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
             >
               {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
             </button>
-            
+
             <Sparkles size={14} className="text-intelligence animate-pulse" />
           </div>
         </div>
@@ -7969,19 +8306,19 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
             <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40 py-8">
               <Brain size={36} className="text-gray-500 mb-3 animate-pulse" />
               <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest leading-loose">
-                Initiate verbal handshake...<br/>
+                Initiate verbal handshake...<br />
                 Or speak wake word to query Metis.
               </p>
             </div>
           )}
 
           {messages.map((msg, idx) => (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               className={cn(
                 "flex flex-col max-w-[85%] rounded-sm p-3 relative overflow-hidden border",
-                msg.sender === 'user' 
-                  ? "bg-white/[0.02] border-white/10 ml-auto items-end" 
+                msg.sender === 'user'
+                  ? "bg-white/[0.02] border-white/10 ml-auto items-end"
                   : "bg-intelligence/5 border-intelligence/20 mr-auto items-start"
               )}
             >
@@ -7994,7 +8331,7 @@ function VoiceCommandView({ transactions, dateFormat }: { transactions: Transact
                   {msg.sender === 'user' ? "TRANSCRIPTION_NODE" : "METIS_CORE"}
                 </span>
                 {msg.sender === 'metis' && (
-                  <button 
+                  <button
                     onClick={() => speakText(msg.text)}
                     title="Speak this response"
                     className="p-0.5 hover:bg-white/5 text-gray-500 hover:text-intelligence transition-all rounded"
@@ -8049,21 +8386,21 @@ function EmployeePerformanceView({
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
-  
+
   // Form states
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('');
   const [newDept, setNewDept] = useState('');
   const [newTarget, setNewTarget] = useState(0);
-  
+
   // Link states
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [selectedTxId, setSelectedTxId] = useState('');
-  
+
   // Filter states
   const [selectedDept, setSelectedDept] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const isDemo = localStorage.getItem('is_demo_mode') === 'true';
 
   const defaultDemoEmployees: Employee[] = [
@@ -8284,8 +8621,8 @@ function EmployeePerformanceView({
 
   const filteredEmployees = employeePerformanceData.filter(emp => {
     const matchesDept = selectedDept === 'All' || emp.department === selectedDept;
-    const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          emp.role.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.role.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesDept && matchesSearch;
   });
 
@@ -8389,13 +8726,13 @@ function EmployeePerformanceView({
                       </span>
                     </div>
                     <div className="w-full h-1.5 bg-white/5 overflow-hidden relative">
-                      <div 
+                      <div
                         className={cn("h-full transition-all duration-500", isOverTarget ? "bg-intelligence" : "bg-brand")}
                         style={{ width: `${Math.min(100, emp.perfPercent)}%` }}
                       ></div>
                       {isOverTarget && (
-                        <div 
-                          className="h-full bg-intelligence absolute top-0 right-0 animate-pulse" 
+                        <div
+                          className="h-full bg-intelligence absolute top-0 right-0 animate-pulse"
                           style={{ width: `${Math.max(0, emp.perfPercent - 100)}%` }}
                         ></div>
                       )}
@@ -8625,14 +8962,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   useEffect(() => {
-      const isRestricted = (
-        (userRole === 'Accountant' && ['Team Management', 'Customer Queries', 'Query Analytics'].includes(activeTab)) ||
-       (userRole === 'Marketer' && ['P&L Statement', 'Cash Flow', 'Balance Sheet'].includes(activeTab)) ||
-       (userRole === 'Manager' && activeTab === 'Team Management')
-     );
-     if (isRestricted) {
-       setActiveTab('Overview');
-     }
+    const isRestricted = (
+      (userRole === 'Accountant' && ['Team Management', 'Customer Queries', 'Query Analytics'].includes(activeTab)) ||
+      (userRole === 'Marketer' && ['P&L Statement', 'Cash Flow', 'Balance Sheet'].includes(activeTab)) ||
+      (userRole === 'Manager' && activeTab === 'Team Management')
+    );
+    if (isRestricted) {
+      setActiveTab('Overview');
+    }
   }, [userRole, activeTab]);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -8714,6 +9051,83 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     loadQueries();
   }, []);
 
+  // ── SHARED PROFILE AUTO-PROVISIONER ──────────────────────────────────────
+  // Fetches the public.users row for the current session. If none exists
+  // (users table empty after fresh signup / missing onboarding), it automatically
+  // creates a businesses row + users row so all DB writes work immediately.
+  const ensureUserProfile = async (session: any): Promise<{ business_id: string; role: string }> => {
+    console.log('[Profile] Resolving profile for auth_id:', session.user.id);
+
+    const { data: existing, error: lookupError } = await supabase
+      .from('users')
+      .select('business_id, role')
+      .eq('auth_id', session.user.id)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error('[Profile] Error querying users table:', lookupError);
+      throw new Error(`Profile lookup failed: ${lookupError.message}`);
+    }
+
+    if (existing?.business_id) {
+      console.log('[Profile] ✅ Found existing profile. business_id:', existing.business_id);
+      return { business_id: existing.business_id, role: existing.role || 'Owner' };
+    }
+
+    // ── AUTO-PROVISION: auth user exists but no public profile row yet ────────
+    console.warn('[Profile] No public profile found — auto-provisioning business + user row...');
+    const businessName =
+      localStorage.getItem('business_name') ||
+      session.user.user_metadata?.business_name ||
+      'My Business';
+    const fullName =
+      session.user.user_metadata?.full_name ||
+      session.user.email?.split('@')[0] ||
+      'Agent';
+    const email = session.user.email || `agent-${session.user.id}@neuralis.sys`;
+
+    const { data: newBusiness, error: bizError } = await supabase
+      .from('businesses')
+      .insert({ name: businessName, industry: 'Retail' })
+      .select('id')
+      .single();
+
+    if (bizError || !newBusiness) {
+      console.error('[Profile] Failed to create business row:', bizError);
+      throw new Error(
+        `Auto-provisioning failed — could not create business. ${bizError?.message || 'Unknown error'}`
+      );
+    }
+    console.log('[Profile] Created business row. id:', newBusiness.id);
+
+    const { data: newUser, error: userError } = await supabase
+      .from('users')
+      .insert({
+        auth_id: session.user.id,
+        email,
+        full_name: fullName,
+        business_id: newBusiness.id,
+        role: 'Owner',
+        status: 'Active',
+      })
+      .select('business_id, role')
+      .single();
+
+    if (userError || !newUser) {
+      console.error('[Profile] Failed to create user row:', userError);
+      throw new Error(
+        `Auto-provisioning failed — could not create user profile. ${userError?.message || 'Unknown error'}`
+      );
+    }
+
+    console.log('[Profile] ✅ Auto-provisioned profile. business_id:', newUser.business_id);
+    // Persist to localStorage so the rest of the app (e.g. business name display) is consistent
+    localStorage.setItem('business_name', businessName);
+    localStorage.setItem('user_role', 'Owner');
+    localStorage.setItem('onboarding_completed', 'true');
+    return { business_id: newUser.business_id, role: 'Owner' };
+  };
+
   const addTransaction = async (t: Transaction) => {
     const isDemo = localStorage.getItem('is_demo_mode') === 'true';
     if (isDemo) {
@@ -8730,13 +9144,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('business_id')
-        .eq('auth_id', session.user.id)
-        .single();
-
-      if (!profile?.business_id) return;
+      const profile = await ensureUserProfile(session);
 
       let categoryId = null;
       if (t.category) {
@@ -8807,13 +9215,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
 
-        const { data: profile } = await supabase
-          .from('users')
-          .select('business_id')
-          .eq('auth_id', session.user.id)
-          .single();
-
-        if (!profile?.business_id) return;
+        const profile = await ensureUserProfile(session);
 
         let categoryId = null;
         if (updatedTx.category) {
@@ -8910,73 +9312,76 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       const next = [...withIds, ...prev];
       localStorage.setItem('demo_transactions', JSON.stringify(next));
       setTransactions(next);
+      console.log(`[CSV Import] Demo mode: inserted ${txs.length} transactions into local storage.`);
       return;
     }
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) throw new Error('No active session. Please log in again.');
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('business_id')
-        .eq('auth_id', session.user.id)
-        .single();
+    // ensureUserProfile resolves existing profile or auto-provisions one
+    const profile = await ensureUserProfile(session);
 
-      if (!profile?.business_id) return;
+    // ── FIX 1: Deduplicate categories BEFORE the loop ──────────────────────
+    // Collect only unique "category + type" combos so we make 1 query per
+    // unique combo instead of 1 query per row (was 332 serial awaits for 332 rows).
+    const uniqueCombos = Array.from(
+      new Map(
+        txs
+          .filter(t => t.category)
+          .map(t => [`${t.category}__${t.type}`, { name: t.category, type: t.type }])
+      ).values()
+    );
 
-      // Build category lookup/creation cache
-      const categoryCache: Record<string, string> = {};
+    const categoryCache: Record<string, string> = {};
 
-      for (const t of txs) {
-        const cacheKey = `${t.category}__${t.type}`;
-        if (!categoryCache[cacheKey] && t.category) {
-          const { data: existing } = await supabase
-            .from('categories')
-            .select('id')
-            .eq('business_id', profile.business_id)
-            .eq('name', t.category)
-            .eq('type', t.type)
-            .maybeSingle();
+    for (const combo of uniqueCombos) {
+      const cacheKey = `${combo.name}__${combo.type}`;
+      const { data: existing } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('business_id', profile.business_id)
+        .eq('name', combo.name)
+        .eq('type', combo.type)
+        .maybeSingle();
 
-          if (existing) {
-            categoryCache[cacheKey] = existing.id;
-          } else {
-            const { data: newCat } = await supabase
-              .from('categories')
-              .insert({
-                business_id: profile.business_id,
-                name: t.category,
-                type: t.type
-              })
-              .select('id')
-              .single();
-            if (newCat) {
-              categoryCache[cacheKey] = newCat.id;
-            }
-          }
-        }
+      if (existing) {
+        categoryCache[cacheKey] = existing.id;
+      } else {
+        const { data: newCat, error: catError } = await supabase
+          .from('categories')
+          .insert({ business_id: profile.business_id, name: combo.name, type: combo.type })
+          .select('id')
+          .single();
+        if (catError) throw new Error(`Failed to create category "${combo.name}": ${catError.message}`);
+        if (newCat) categoryCache[cacheKey] = newCat.id;
       }
-
-      // Batch insert all transactions
-      const rows = txs.map(t => ({
-        business_id: profile.business_id,
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
-        category_id: categoryCache[`${t.category}__${t.type}`] || null,
-        type: t.type
-      }));
-
-      const { error } = await supabase
-        .from('transactions')
-        .insert(rows);
-
-      if (error) throw error;
-      await loadTransactions();
-    } catch (e) {
-      console.error('Failed to bulk-insert transactions:', e);
     }
+
+    // ── FIX 2: Chunk the insert to avoid Supabase payload limits ───────────
+    // Insert in batches of 100 rows instead of one giant payload.
+    const BATCH_SIZE = 100;
+    const rows = txs.map(t => ({
+      business_id: profile.business_id,
+      date: t.date,
+      description: t.description,
+      amount: t.amount,
+      category_id: categoryCache[`${t.category}__${t.type}`] || null,
+      type: t.type
+    }));
+
+    let totalInserted = 0;
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      const { error: insertError } = await supabase.from('transactions').insert(batch);
+      // ── FIX 3: Re-throw so the caller (handleConfirmCsvImport) sees the error ──
+      if (insertError) throw new Error(`Batch insert failed at row ${i + 1}: ${insertError.message}`);
+      totalInserted += batch.length;
+      console.log(`[CSV Import] Inserted batch ${Math.ceil((i + 1) / BATCH_SIZE)}: ${totalInserted}/${rows.length} rows committed.`);
+    }
+
+    console.log(`[CSV Import] ✅ All ${totalInserted} transactions saved to Supabase. Refreshing state...`);
+    await loadTransactions();
   };
 
   const [categories, setCategories] = useState<{ name: string, type: 'Inflow' | 'Outflow' }[]>(() => {
@@ -9026,14 +9431,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           Pricing: ${knowledgeBase.pricing}
           FAQs: ${knowledgeBase.faqs.map((f: any) => `Q: ${f.q} A: ${f.a}`).join(' | ')}
         `;
-        
+
         // Generate the reply via Gemini API
         const reply = await generateCustomerReply(q.customer_name || q.name, q.message, kbContext, businessName);
-        
+
         // Auto-send: Update the database or local storage to 'Auto-Sent'
         const isDemo = localStorage.getItem('is_demo_mode') === 'true';
         const repliedAt = new Date().toISOString();
-        
+
         if (isDemo) {
           const savedDemo = localStorage.getItem('demo_queries');
           if (savedDemo) {
@@ -9056,14 +9461,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               replied_at: repliedAt
             })
             .eq('id', q.id);
-            
+
           if (error) throw error;
         }
       } catch (e) {
         console.error('Failed to auto-send reply for query id:', q.id, e);
       }
     }
-    
+
     // Refresh queries list if online
     const isDemo = localStorage.getItem('is_demo_mode') === 'true';
     if (!isDemo) {
@@ -9369,445 +9774,447 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   return (
     <LanguageContext.Provider value={{ t, language, setLanguage }}>
-    <div className="h-screen bg-dark-bg text-white overflow-hidden flex font-sans noise scanlines">
-      {/* Main Sidebar */}
-      <aside className="w-48 border-r border-white/5 flex flex-col py-8 bg-black/40 backdrop-blur-3xl z-50 overflow-hidden">
-        <div className="flex flex-col items-center mb-10 px-4">
-          <Activity className="text-intelligence w-10 h-10 mb-2 shadow-[0_0_15px_#00f2ff]" />
-          <span className="text-[10px] font-black text-intelligence tracking-[0.3em] uppercase">{t('Control_Unit')}</span>
-        </div>
-
-        <div className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar px-2">
-          {[
-            { id: 'Overview', icon: LayoutDashboard, label: 'OVERVIEW' },
-            { id: 'Inventory', icon: Package, label: 'INVENTORY' },
-            { id: 'Transactions', icon: List, label: 'TRANSACTIONS' },
-            { id: 'P&L Statement', icon: BarChart3, label: 'P&L_REPORT' },
-            { id: 'Cash Flow', icon: TrendingUp, label: 'CASH_FLOW' },
-            { id: 'Balance Sheet', icon: Scale, label: 'BALANCE_SHEET' },
-            { id: 'Customer Queries', icon: MessageSquare, label: 'QUERIES' },
-            { id: 'Query Analytics', icon: BarChartIcon, label: 'QUERY ANALYTICS' },
-            { id: 'Team Management', icon: Users, label: 'TEAM_INTEL' },
-            { id: 'Employee Performance', icon: Award, label: 'EMPLOYEE_PERFORMANCE' },
-            { id: 'Data Entry', icon: Plus, label: 'DATA_INPUT' },
-            { id: 'Voice', icon: Mic, label: 'VOICE_CONTROL' },
-          ].filter(item => {
-            if (userRole === 'Accountant') {
-              return !['Team Management', 'Customer Queries', 'Query Analytics'].includes(item.id);
-            }
-            if (userRole === 'Marketer') {
-              return !['P&L Statement', 'Cash Flow', 'Balance Sheet'].includes(item.id);
-            }
-            if (userRole === 'Manager') {
-              return item.id !== 'Team Management';
-            }
-            return true;
-          }).map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as PlatformTab)}
-              className={cn(
-                "w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all group relative",
-                activeTab === item.id ? "bg-intelligence/10 text-intelligence border-l-2 border-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
-              )}
-            >
-              <div className="relative">
-                <item.icon size={18} className={cn(activeTab === item.id ? "text-intelligence" : "text-gray-600 group-hover:text-white")} />
-                {item.id === 'Customer Queries' && pendingQueriesCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-brand text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full animate-pulse shadow-[0_0_10px_rgba(255,46,115,0.4)]">
-                    {pendingQueriesCount}
-                  </span>
-                )}
-              </div>
-              <span className="text-[9px] font-black tracking-widest uppercase truncate">
-                {t(item.label)}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-2 mt-auto px-2 pt-4 border-t border-white/5">
-          <button
-            onClick={() => setActiveTab('Settings')}
-            className={cn(
-              "w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all group",
-              activeTab === 'Settings' ? "bg-intelligence/10 text-intelligence border-l-2 border-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
-            )}
-          >
-            <Settings size={18} />
-            <span className="text-[9px] font-black tracking-widest uppercase">{t('SETTINGS')}</span>
-          </button>
-
-          <button
-            onClick={onLogout}
-            className="w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all text-brand/60 hover:text-brand hover:bg-brand/5"
-          >
-            <Lock size={18} />
-            <span className="text-[9px] font-black tracking-widest uppercase">{t('LOGOUT')}</span>
-          </button>
-        </div>
-      </aside>
-
-      <div className="flex-1 flex flex-col min-w-0">
-        {localStorage.getItem('is_demo_mode') === 'true' && (
-          <div className="bg-brand text-black py-2.5 text-center text-[10px] font-black uppercase tracking-[0.3em] z-50 animate-pulse border-b border-brand/40 shadow-[0_0_15px_rgba(220,20,60,0.5)] flex items-center justify-center gap-3">
-            <AlertTriangle size={14} className="text-black" />
-            <span>⚠️ DEMO MODE ACTIVE - PERSISTENT ENGINE OFFLINE - ALL DATA CHANGES WILL BE RESET UPON LOGOUT ⚠️</span>
-          </div>
-        )}
-        {/* Dashboard Header */}
-        <header className="h-20 border-b border-white/5 flex items-center justify-between px-10 bg-black/20 backdrop-blur-md">
-          <div className="flex items-center gap-6">
-            {/* PROJECT-N Logo Area */}
-            <div className="flex items-center gap-3 pr-6 border-r border-white/10">
-              <div className="w-8 h-8 border border-intelligence flex items-center justify-center relative overflow-hidden group">
-                <div className="absolute inset-0 bg-intelligence/10 animate-pulse"></div>
-                <Activity className="text-intelligence w-5 h-5 relative z-10" />
-              </div>
-              <h2 className="text-lg font-black italic tracking-tighter uppercase glow-text">PROJECT-N</h2>
+      <TransactionsContext.Provider value={{ transactions, isLoadingTransactions: false, addTransaction, updateTransaction, deleteTransaction, bulkAddTransactions, loadTransactions }}>
+        <div className="h-screen bg-dark-bg text-white overflow-hidden flex font-sans noise scanlines">
+          {/* Main Sidebar */}
+          <aside className="w-48 border-r border-white/5 flex flex-col py-8 bg-black/40 backdrop-blur-3xl z-50 overflow-hidden">
+            <div className="flex flex-col items-center mb-10 px-4">
+              <Activity className="text-intelligence w-10 h-10 mb-2 shadow-[0_0_15px_#00f2ff]" />
+              <span className="text-[10px] font-black text-intelligence tracking-[0.3em] uppercase">{t('Control_Unit')}</span>
             </div>
 
-            {/* Business Name / Entity Context */}
-            <div className="flex flex-col">
-              <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest leading-none mb-1">Corporate Entity</p>
-              <div className="flex items-center gap-3">
-                {businessLogo && (
-                  <div className="w-6 h-6 border border-white/10 overflow-hidden">
-                    <img src={businessLogo} alt="Logo" className="w-full h-full object-cover" />
+            <div className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar px-2">
+              {[
+                { id: 'Overview', icon: LayoutDashboard, label: 'OVERVIEW' },
+                { id: 'Inventory', icon: Package, label: 'INVENTORY' },
+                { id: 'Transactions', icon: List, label: 'TRANSACTIONS' },
+                { id: 'P&L Statement', icon: BarChart3, label: 'P&L_REPORT' },
+                { id: 'Cash Flow', icon: TrendingUp, label: 'CASH_FLOW' },
+                { id: 'Balance Sheet', icon: Scale, label: 'BALANCE_SHEET' },
+                { id: 'Customer Queries', icon: MessageSquare, label: 'QUERIES' },
+                { id: 'Query Analytics', icon: BarChartIcon, label: 'QUERY ANALYTICS' },
+                { id: 'Team Management', icon: Users, label: 'TEAM_INTEL' },
+                { id: 'Employee Performance', icon: Award, label: 'EMPLOYEE_PERFORMANCE' },
+                { id: 'Data Entry', icon: Plus, label: 'DATA_INPUT' },
+                { id: 'Voice', icon: Mic, label: 'VOICE_CONTROL' },
+              ].filter(item => {
+                if (userRole === 'Accountant') {
+                  return !['Team Management', 'Customer Queries', 'Query Analytics'].includes(item.id);
+                }
+                if (userRole === 'Marketer') {
+                  return !['P&L Statement', 'Cash Flow', 'Balance Sheet'].includes(item.id);
+                }
+                if (userRole === 'Manager') {
+                  return item.id !== 'Team Management';
+                }
+                return true;
+              }).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as PlatformTab)}
+                  className={cn(
+                    "w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all group relative",
+                    activeTab === item.id ? "bg-intelligence/10 text-intelligence border-l-2 border-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <div className="relative">
+                    <item.icon size={18} className={cn(activeTab === item.id ? "text-intelligence" : "text-gray-600 group-hover:text-white")} />
+                    {item.id === 'Customer Queries' && pendingQueriesCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-brand text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full animate-pulse shadow-[0_0_10px_rgba(255,46,115,0.4)]">
+                        {pendingQueriesCount}
+                      </span>
+                    )}
                   </div>
+                  <span className="text-[9px] font-black tracking-widest uppercase truncate">
+                    {t(item.label)}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-2 mt-auto px-2 pt-4 border-t border-white/5">
+              <button
+                onClick={() => setActiveTab('Settings')}
+                className={cn(
+                  "w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all group",
+                  activeTab === 'Settings' ? "bg-intelligence/10 text-intelligence border-l-2 border-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
                 )}
-                <h3 className="text-xs font-bold text-white uppercase tracking-widest">
-                  {businessName}
-                </h3>
+              >
+                <Settings size={18} />
+                <span className="text-[9px] font-black tracking-widest uppercase">{t('SETTINGS')}</span>
+              </button>
+
+              <button
+                onClick={onLogout}
+                className="w-full h-12 rounded-sm flex items-center gap-4 px-4 transition-all text-brand/60 hover:text-brand hover:bg-brand/5"
+              >
+                <Lock size={18} />
+                <span className="text-[9px] font-black tracking-widest uppercase">{t('LOGOUT')}</span>
+              </button>
+            </div>
+          </aside>
+
+          <div className="flex-1 flex flex-col min-w-0">
+            {localStorage.getItem('is_demo_mode') === 'true' && (
+              <div className="bg-brand text-black py-2.5 text-center text-[10px] font-black uppercase tracking-[0.3em] z-50 animate-pulse border-b border-brand/40 shadow-[0_0_15px_rgba(220,20,60,0.5)] flex items-center justify-center gap-3">
+                <AlertTriangle size={14} className="text-black" />
+                <span>⚠️ DEMO MODE ACTIVE - PERSISTENT ENGINE OFFLINE - ALL DATA CHANGES WILL BE RESET UPON LOGOUT ⚠️</span>
               </div>
-            </div>
+            )}
+            {/* Dashboard Header */}
+            <header className="h-20 border-b border-white/5 flex items-center justify-between px-10 bg-black/20 backdrop-blur-md">
+              <div className="flex items-center gap-6">
+                {/* PROJECT-N Logo Area */}
+                <div className="flex items-center gap-3 pr-6 border-r border-white/10">
+                  <div className="w-8 h-8 border border-intelligence flex items-center justify-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-intelligence/10 animate-pulse"></div>
+                    <Activity className="text-intelligence w-5 h-5 relative z-10" />
+                  </div>
+                  <h2 className="text-lg font-black italic tracking-tighter uppercase glow-text">PROJECT-N</h2>
+                </div>
 
-            <div className="h-8 w-px bg-white/10 mx-2"></div>
+                {/* Business Name / Entity Context */}
+                <div className="flex flex-col">
+                  <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest leading-none mb-1">Corporate Entity</p>
+                  <div className="flex items-center gap-3">
+                    {businessLogo && (
+                      <div className="w-6 h-6 border border-white/10 overflow-hidden">
+                        <img src={businessLogo} alt="Logo" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <h3 className="text-xs font-bold text-white uppercase tracking-widest">
+                      {businessName}
+                    </h3>
+                  </div>
+                </div>
 
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse shadow-[0_0_8px_#00f2ff]"></div>
-              <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest font-black">
-                {activeTab} COMMAND ACTIVE
-              </span>
-            </div>
-          </div>
+                <div className="h-8 w-px bg-white/10 mx-2"></div>
 
-          <div className="flex items-center gap-8">
-            <div className="flex flex-col items-end">
-               <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest leading-none mb-1">Clearance_Level</p>
-               <div className="flex items-center gap-2">
-                  <Shield size={10} className="text-intelligence" />
-                  <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{userRole}</span>
-               </div>
-            </div>
-
-            <div className="h-10 w-px bg-white/5"></div>
-
-            <div className="hidden lg:flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 hover:bg-white/10 transition-colors group">
-              <Search size={14} className="text-gray-500 group-hover:text-intelligence transition-colors" />
-              <input
-                type="text"
-                placeholder="SCAN_ENTITIES..."
-                className="bg-transparent border-none focus:outline-none text-[10px] font-mono text-white placeholder:text-gray-700 uppercase tracking-widest w-32"
-              />
-            </div>
-
-            <button 
-              onClick={() => setIsHelpModalOpen(true)}
-              className="p-3 rounded-full text-gray-500 hover:text-white hover:bg-white/5 transition-all group"
-            >
-              <HelpCircle size={20} />
-            </button>
-
-            <div className="relative">
-               <button 
-                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} 
-                 className={cn(
-                   "p-3 rounded-full transition-all relative group",
-                   isNotificationsOpen ? "bg-intelligence/10 text-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
-                 )}
-               >
-                  <Bell size={20} className={cn(unreadCount > 0 && !isNotificationsOpen && "animate-bounce")} />
-                  {unreadCount > 0 && (
-                     <span className="absolute top-2 right-2 w-4 h-4 bg-brand text-white text-[8px] font-black flex items-center justify-center rounded-full border border-dark-bg shadow-[0_0_10px_rgba(255,46,115,0.6)]">
-                        {unreadCount}
-                     </span>
-                  )}
-               </button>
-
-               <AnimatePresence>
-                  {isNotificationsOpen && (
-                     <>
-                        <div className="fixed inset-0 z-[90]" onClick={() => setIsNotificationsOpen(false)}></div>
-                        <motion.div 
-                           initial={{ opacity: 0, y: 15, scale: 0.95 }}
-                           animate={{ opacity: 1, y: 0, scale: 1 }}
-                           exit={{ opacity: 0, y: 15, scale: 0.95 }}
-                           className="absolute right-0 mt-4 w-96 bg-black/80 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] glass backdrop-blur-2xl overflow-hidden"
-                        >
-                           <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
-                              <div>
-                                 <h4 className="text-[10px] font-black text-intelligence uppercase tracking-[0.2em] mb-0.5">Telemetry Notifications</h4>
-                                 <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest">{unreadCount} Active Signal{unreadCount !== 1 ? 's' : ''}</p>
-                              </div>
-                              <button 
-                                onClick={markAllRead}
-                                className="text-[8px] font-black text-gray-400 hover:text-white uppercase tracking-widest border border-white/10 px-3 py-1.5 hover:bg-white/5 transition-all"
-                              >
-                                 MARK_ALL_READ
-                              </button>
-                           </div>
-
-                           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                              {notifications.length === 0 ? (
-                                 <div className="p-12 text-center">
-                                    <Bell size={32} className="text-gray-800 mx-auto mb-4 opacity-20" />
-                                    <p className="text-[10px] font-mono text-gray-600 uppercase italic">No signals detected in the network buffer</p>
-                                 </div>
-                              ) : (
-                                 <div className="divide-y divide-white/5">
-                                    {notifications.map((n) => (
-                                       <div 
-                                         key={n.id} 
-                                         className={cn(
-                                           "p-5 transition-all relative group",
-                                           n.read ? "opacity-50" : "bg-intelligence/[0.03]"
-                                         )}
-                                       >
-                                          <div className="flex items-start gap-4">
-                                             <div className={cn(
-                                               "mt-1 w-2 h-2 rounded-full shrink-0",
-                                               n.type === 'alert' ? "bg-brand" : n.type === 'finance' ? "bg-orange-500" : "bg-intelligence"
-                                             )}></div>
-                                             <div className="flex-1 space-y-1">
-                                                <p className="text-[11px] font-bold text-white uppercase leading-tight">{n.message}</p>
-                                                <div className="flex items-center justify-between gap-4">
-                                                   <span className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">{n.time}</span>
-                                                   {!n.read && (
-                                                      <button 
-                                                        onClick={() => markAsRead(n.id)}
-                                                        className="text-[8px] font-black text-intelligence uppercase tracking-widest hover:underline"
-                                                      >
-                                                         MARK_AS_READ
-                                                      </button>
-                                                   )}
-                                                </div>
-                                             </div>
-                                          </div>
-                                       </div>
-                                    ))}
-                                 </div>
-                              )}
-                           </div>
-
-                           <div className="p-4 bg-white/[0.02] border-t border-white/5 text-center">
-                              <button className="text-[9px] font-black text-gray-500 hover:text-intelligence uppercase tracking-[0.2em] transition-colors">
-                                 VIEW_ALL_HISTORY
-                              </button>
-                           </div>
-                        </motion.div>
-                     </>
-                  )}
-               </AnimatePresence>
-            </div>
-
-            {/* Prominent Logout Button */}
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-3 px-6 py-2 border border-brand/40 bg-brand/5 text-brand hover:bg-brand/20 hover:border-brand/60 transition-all font-black text-[10px] uppercase tracking-[0.25em] group relative overflow-hidden"
-            >
-              <Lock size={12} className="group-hover:scale-110 transition-transform relative z-10" />
-              <span className="relative z-10">TERMINATE_SESSION</span>
-              <div className="absolute inset-0 bg-brand/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-            </button>
-
-            <div className="flex items-center gap-4 pl-4 border-l border-white/5">
-              <div className="text-right">
-                <p className="text-[10px] font-bold text-white uppercase italic">Agent_042</p>
-                <p className="text-[8px] text-intelligence font-black uppercase tracking-widest">CLEARANCE_L7</p>
-              </div>
-              <div className="w-10 h-10 border border-intelligence/30 p-1 group cursor-pointer hover:border-intelligence/60 transition-colors">
-                <div className="w-full h-full bg-intelligence/10 flex items-center justify-center group-hover:bg-intelligence/20">
-                  <Shield size={18} className="text-intelligence opacity-70 group-hover:opacity-100 transition-opacity" />
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-intelligence rounded-full animate-pulse shadow-[0_0_8px_#00f2ff]"></div>
+                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest font-black">
+                    {activeTab} COMMAND ACTIVE
+                  </span>
                 </div>
               </div>
-            </div>
+
+              <div className="flex items-center gap-8">
+                <div className="flex flex-col items-end">
+                  <p className="text-[8px] font-mono text-gray-600 uppercase tracking-widest leading-none mb-1">Clearance_Level</p>
+                  <div className="flex items-center gap-2">
+                    <Shield size={10} className="text-intelligence" />
+                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{userRole}</span>
+                  </div>
+                </div>
+
+                <div className="h-10 w-px bg-white/5"></div>
+
+                <div className="hidden lg:flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 hover:bg-white/10 transition-colors group">
+                  <Search size={14} className="text-gray-500 group-hover:text-intelligence transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="SCAN_ENTITIES..."
+                    className="bg-transparent border-none focus:outline-none text-[10px] font-mono text-white placeholder:text-gray-700 uppercase tracking-widest w-32"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setIsHelpModalOpen(true)}
+                  className="p-3 rounded-full text-gray-500 hover:text-white hover:bg-white/5 transition-all group"
+                >
+                  <HelpCircle size={20} />
+                </button>
+
+                <div className="relative">
+                  <button
+                    onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                    className={cn(
+                      "p-3 rounded-full transition-all relative group",
+                      isNotificationsOpen ? "bg-intelligence/10 text-intelligence" : "text-gray-500 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Bell size={20} className={cn(unreadCount > 0 && !isNotificationsOpen && "animate-bounce")} />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-2 right-2 w-4 h-4 bg-brand text-white text-[8px] font-black flex items-center justify-center rounded-full border border-dark-bg shadow-[0_0_10px_rgba(255,46,115,0.6)]">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <AnimatePresence>
+                    {isNotificationsOpen && (
+                      <>
+                        <div className="fixed inset-0 z-[90]" onClick={() => setIsNotificationsOpen(false)}></div>
+                        <motion.div
+                          initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                          className="absolute right-0 mt-4 w-96 bg-black/80 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] glass backdrop-blur-2xl overflow-hidden"
+                        >
+                          <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                            <div>
+                              <h4 className="text-[10px] font-black text-intelligence uppercase tracking-[0.2em] mb-0.5">Telemetry Notifications</h4>
+                              <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest">{unreadCount} Active Signal{unreadCount !== 1 ? 's' : ''}</p>
+                            </div>
+                            <button
+                              onClick={markAllRead}
+                              className="text-[8px] font-black text-gray-400 hover:text-white uppercase tracking-widest border border-white/10 px-3 py-1.5 hover:bg-white/5 transition-all"
+                            >
+                              MARK_ALL_READ
+                            </button>
+                          </div>
+
+                          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                            {notifications.length === 0 ? (
+                              <div className="p-12 text-center">
+                                <Bell size={32} className="text-gray-800 mx-auto mb-4 opacity-20" />
+                                <p className="text-[10px] font-mono text-gray-600 uppercase italic">No signals detected in the network buffer</p>
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-white/5">
+                                {notifications.map((n) => (
+                                  <div
+                                    key={n.id}
+                                    className={cn(
+                                      "p-5 transition-all relative group",
+                                      n.read ? "opacity-50" : "bg-intelligence/[0.03]"
+                                    )}
+                                  >
+                                    <div className="flex items-start gap-4">
+                                      <div className={cn(
+                                        "mt-1 w-2 h-2 rounded-full shrink-0",
+                                        n.type === 'alert' ? "bg-brand" : n.type === 'finance' ? "bg-orange-500" : "bg-intelligence"
+                                      )}></div>
+                                      <div className="flex-1 space-y-1">
+                                        <p className="text-[11px] font-bold text-white uppercase leading-tight">{n.message}</p>
+                                        <div className="flex items-center justify-between gap-4">
+                                          <span className="text-[8px] font-mono text-gray-600 uppercase tracking-widest">{n.time}</span>
+                                          {!n.read && (
+                                            <button
+                                              onClick={() => markAsRead(n.id)}
+                                              className="text-[8px] font-black text-intelligence uppercase tracking-widest hover:underline"
+                                            >
+                                              MARK_AS_READ
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="p-4 bg-white/[0.02] border-t border-white/5 text-center">
+                            <button className="text-[9px] font-black text-gray-500 hover:text-intelligence uppercase tracking-[0.2em] transition-colors">
+                              VIEW_ALL_HISTORY
+                            </button>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Prominent Logout Button */}
+                <button
+                  onClick={onLogout}
+                  className="flex items-center gap-3 px-6 py-2 border border-brand/40 bg-brand/5 text-brand hover:bg-brand/20 hover:border-brand/60 transition-all font-black text-[10px] uppercase tracking-[0.25em] group relative overflow-hidden"
+                >
+                  <Lock size={12} className="group-hover:scale-110 transition-transform relative z-10" />
+                  <span className="relative z-10">TERMINATE_SESSION</span>
+                  <div className="absolute inset-0 bg-brand/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                </button>
+
+                <div className="flex items-center gap-4 pl-4 border-l border-white/5">
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold text-white uppercase italic">Agent_042</p>
+                    <p className="text-[8px] text-intelligence font-black uppercase tracking-widest">CLEARANCE_L7</p>
+                  </div>
+                  <div className="w-10 h-10 border border-intelligence/30 p-1 group cursor-pointer hover:border-intelligence/60 transition-colors">
+                    <div className="w-full h-full bg-intelligence/10 flex items-center justify-center group-hover:bg-intelligence/20">
+                      <Shield size={18} className="text-intelligence opacity-70 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            {/* Content Area */}
+            <main className="flex-1 overflow-y-auto p-10 custom-scrollbar relative">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {activeTab === 'Overview' && (
+                    <OverviewTab
+                      transactions={transactions}
+                      setTransactions={setTransactions}
+                      onViewReport={() => setActiveTab('Financial Summary')}
+                      dateFormat={dateFormat}
+                      onBulkAdd={bulkAddTransactions}
+                      userRole={userRole}
+                      queries={queries}
+                      loadTransactions={loadTransactions}
+                      handleMarkAsReplied={handleMarkAsReplied}
+                      onSelectTab={(tab) => setActiveTab(tab as PlatformTab)}
+                    />
+                  )}
+                  {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
+                  {activeTab === 'P&L Statement' && <PandLView dateFormat={dateFormat} transactions={transactions} />}
+                  {activeTab === 'Cash Flow' && <CashFlowView dateFormat={dateFormat} transactions={transactions} />}
+                  {activeTab === 'Balance Sheet' && <BalanceSheetView dateFormat={dateFormat} transactions={transactions} />}
+                  {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={updateTransaction} dateFormat={dateFormat} />}
+                  {activeTab === 'Inventory' && <InventoryView dateFormat={dateFormat} />}
+                  {activeTab === 'Customer Queries' && (
+                    <CustomerQueriesView
+                      queries={queries}
+                      onMarkAsReplied={handleMarkAsReplied}
+                      onDelete={handleDeleteQuery}
+                      onBulkMarkAsReplied={handleBulkMarkAsReplied}
+                      onBulkDelete={handleBulkDeleteQueries}
+                      knowledgeBase={knowledgeBase}
+                      businessName={businessName}
+                    />
+                  )}
+                  {activeTab === 'Team Management' && <TeamManagementView />}
+                  {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onBulkAdd={bulkAddTransactions} onDelete={deleteTransaction} categories={categories} dateFormat={dateFormat} />}
+                  {activeTab === 'Settings' && <SettingsView transactions={transactions} setTransactions={setTransactions} onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} dateFormat={dateFormat} onChangeDateFormat={setDateFormat} autoSendReplies={autoSendReplies} setAutoSendReplies={setAutoSendReplies} userRole={userRole} setUserRole={setUserRole} />}
+                  {activeTab === 'Voice' && <VoiceCommandView transactions={transactions} dateFormat={dateFormat} />}
+                  {activeTab === 'Query Analytics' && <QueryAnalyticsView queries={dbQueries} />}
+                  {activeTab === 'Employee Performance' && <EmployeePerformanceView transactions={transactions} onAddTransaction={loadTransactions} dateFormat={dateFormat} />}
+                  {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings', 'Voice', 'Query Analytics', 'Employee Performance'].includes(activeTab) && <PlaceholderView name={activeTab} />}
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Terminal Output Layer */}
+              <div className="mt-12 glass border-white/5 p-8 relative overflow-hidden bg-white/[0.01]">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-2 h-2 bg-intelligence rounded-full"></div>
+                  <p className="text-[11px] font-black text-white uppercase tracking-[0.4em]">PROJECT-N KERNEL OUTPUT</p>
+                </div>
+                <div className="space-y-2 font-mono text-xs text-gray-600">
+                  <p className="text-intelligence">{"$ SYSTEM_READY: LOADING GLOBAL INTELLIGENCE GRAPH..."}</p>
+                  <p>{"[INFO] CLUSTER ALPHA COMMUNICATING AT 10.42.0.1"}</p>
+                  <p>{"[WARN] UNEXPECTED CAPITAL FLOW DETECTED IN SECTOR 4"}</p>
+                  <p>{"[SUCCESS] ENCRYPTION HANDSHAKE VERIFIED: RSA-4096"}</p>
+                  <p className="text-brand">{"$ ANOMALY DETECTED: HIGH SIGNAL FREQUENCY SPOTTED IN OFFSHORE ENTITIES"}</p>
+                  <p className="animate-pulse">{"_ BLINKING CURSOR WAITING FOR INPUT..."}</p>
+                </div>
+              </div>
+            </main>
           </div>
-        </header>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar relative">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              {activeTab === 'Overview' && (
-                <OverviewTab
-                  transactions={transactions}
-                  setTransactions={setTransactions}
-                  onViewReport={() => setActiveTab('Financial Summary')}
-                  dateFormat={dateFormat}
-                  onBulkAdd={bulkAddTransactions}
-                  userRole={userRole}
-                  queries={queries}
-                  loadTransactions={loadTransactions}
-                  handleMarkAsReplied={handleMarkAsReplied}
-                  onSelectTab={(tab) => setActiveTab(tab as PlatformTab)}
-                />
-              )}
-              {activeTab === 'Financial Summary' && <FinancialSummaryView onBack={() => setActiveTab('Overview')} />}
-              {activeTab === 'P&L Statement' && <PandLView dateFormat={dateFormat} />}
-              {activeTab === 'Cash Flow' && <CashFlowView dateFormat={dateFormat} />}
-              {activeTab === 'Balance Sheet' && <BalanceSheetView dateFormat={dateFormat} />}
-              {activeTab === 'Transactions' && <TransactionsView transactions={transactions} onUpdate={updateTransaction} dateFormat={dateFormat} />}
-              {activeTab === 'Inventory' && <InventoryView dateFormat={dateFormat} />}
-              {activeTab === 'Customer Queries' && (
-                <CustomerQueriesView
-                  queries={queries}
-                  onMarkAsReplied={handleMarkAsReplied}
-                  onDelete={handleDeleteQuery}
-                  onBulkMarkAsReplied={handleBulkMarkAsReplied}
-                  onBulkDelete={handleBulkDeleteQueries}
-                  knowledgeBase={knowledgeBase}
-                  businessName={businessName}
-                />
-              )}
-              {activeTab === 'Team Management' && <TeamManagementView />}
-              {activeTab === 'Data Entry' && <DataEntryView transactions={transactions} onAdd={addTransaction} onDelete={deleteTransaction} categories={categories} dateFormat={dateFormat} />}
-              {activeTab === 'Settings' && <SettingsView transactions={transactions} setTransactions={setTransactions} onUpdateBusinessName={setBusinessName} categories={categories} onUpdateCategories={setCategories} knowledgeBase={knowledgeBase} onUpdateKnowledgeBase={setKnowledgeBase} dateFormat={dateFormat} onChangeDateFormat={setDateFormat} autoSendReplies={autoSendReplies} setAutoSendReplies={setAutoSendReplies} userRole={userRole} setUserRole={setUserRole} />}
-              {activeTab === 'Voice' && <VoiceCommandView transactions={transactions} dateFormat={dateFormat} />}
-              {activeTab === 'Query Analytics' && <QueryAnalyticsView queries={dbQueries} />}
-              {activeTab === 'Employee Performance' && <EmployeePerformanceView transactions={transactions} onAddTransaction={loadTransactions} dateFormat={dateFormat} />}
-              {!['Overview', 'Financial Summary', 'P&L Statement', 'Cash Flow', 'Balance Sheet', 'Transactions', 'Inventory', 'Data Entry', 'Customer Queries', 'Team Management', 'Settings', 'Voice', 'Query Analytics', 'Employee Performance'].includes(activeTab) && <PlaceholderView name={activeTab} />}
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Terminal Output Layer */}
-          <div className="mt-12 glass border-white/5 p-8 relative overflow-hidden bg-white/[0.01]">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-2 h-2 bg-intelligence rounded-full"></div>
-              <p className="text-[11px] font-black text-white uppercase tracking-[0.4em]">PROJECT-N KERNEL OUTPUT</p>
-            </div>
-            <div className="space-y-2 font-mono text-xs text-gray-600">
-              <p className="text-intelligence">{"$ SYSTEM_READY: LOADING GLOBAL INTELLIGENCE GRAPH..."}</p>
-              <p>{"[INFO] CLUSTER ALPHA COMMUNICATING AT 10.42.0.1"}</p>
-              <p>{"[WARN] UNEXPECTED CAPITAL FLOW DETECTED IN SECTOR 4"}</p>
-              <p>{"[SUCCESS] ENCRYPTION HANDSHAKE VERIFIED: RSA-4096"}</p>
-              <p className="text-brand">{"$ ANOMALY DETECTED: HIGH SIGNAL FREQUENCY SPOTTED IN OFFSHORE ENTITIES"}</p>
-              <p className="animate-pulse">{"_ BLINKING CURSOR WAITING FOR INPUT..."}</p>
-            </div>
+          {/* Floating Global Stats Overlays */}
+          <div className="fixed top-1/2 -right-8 -rotate-90 origin-right transition-all hover:translate-x-2 pointer-events-none opacity-40">
+            <p className="text-[10px] font-mono text-intelligence font-bold tracking-[1em] uppercase">SYSTEM.STATUS.OPTIMAL</p>
           </div>
-        </main>
-      </div>
+          <div className="fixed top-1/2 -left-8 rotate-90 origin-left transition-all hover:translate-x-2 pointer-events-none opacity-40">
+            <p className="text-[10px] font-mono text-brand font-bold tracking-[1em] uppercase">SECURITY.LEVEL.7</p>
+          </div>
 
-      {/* Floating Global Stats Overlays */}
-      <div className="fixed top-1/2 -right-8 -rotate-90 origin-right transition-all hover:translate-x-2 pointer-events-none opacity-40">
-        <p className="text-[10px] font-mono text-intelligence font-bold tracking-[1em] uppercase">SYSTEM.STATUS.OPTIMAL</p>
-      </div>
-      <div className="fixed top-1/2 -left-8 rotate-90 origin-left transition-all hover:translate-x-2 pointer-events-none opacity-40">
-        <p className="text-[10px] font-mono text-brand font-bold tracking-[1em] uppercase">SECURITY.LEVEL.7</p>
-      </div>
+          <CommandPalette
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+            onSelectTab={(tab) => setActiveTab(tab as PlatformTab)}
+            onSelectRecord={(type, record) => {
+              if (type === 'Transaction') setActiveTab('Transactions');
+              else if (type === 'Inventory') setActiveTab('Inventory');
+              else if (type === 'Query') setActiveTab('Customer Queries');
+            }}
+            transactions={transactions}
+            queries={queries}
+          />
 
-      <CommandPalette 
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
-        onSelectTab={(tab) => setActiveTab(tab as PlatformTab)}
-        onSelectRecord={(type, record) => {
-          if (type === 'Transaction') setActiveTab('Transactions');
-          else if (type === 'Inventory') setActiveTab('Inventory');
-          else if (type === 'Query') setActiveTab('Customer Queries');
-        }}
-        transactions={transactions}
-        queries={queries}
-      />
+          {/* Help & Shortcuts Modal */}
+          <AnimatePresence>
+            {isHelpModalOpen && (
+              <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsHelpModalOpen(false)}
+                  className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+                ></motion.div>
 
-      {/* Help & Shortcuts Modal */}
-      <AnimatePresence>
-         {isHelpModalOpen && (
-           <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6">
-              <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                exit={{ opacity: 0 }} 
-                onClick={() => setIsHelpModalOpen(false)}
-                className="absolute inset-0 bg-black/90 backdrop-blur-xl"
-              ></motion.div>
-              
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="bg-dark-bg border border-white/10 w-full max-w-4xl overflow-hidden relative z-10 glass p-10 grid grid-cols-1 md:grid-cols-2 gap-12"
-              >
-                 <button onClick={() => setIsHelpModalOpen(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white p-2">
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                  className="bg-dark-bg border border-white/10 w-full max-w-4xl overflow-hidden relative z-10 glass p-10 grid grid-cols-1 md:grid-cols-2 gap-12"
+                >
+                  <button onClick={() => setIsHelpModalOpen(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white p-2">
                     <X size={24} />
-                 </button>
+                  </button>
 
-                 <div className="space-y-10">
+                  <div className="space-y-10">
                     <div>
-                       <h4 className="text-[10px] font-black text-intelligence uppercase tracking-[0.4em] mb-2">Protocol Assistance</h4>
-                       <h3 className="text-4xl font-black italic uppercase italic">SYSTEM_HELP</h3>
+                      <h4 className="text-[10px] font-black text-intelligence uppercase tracking-[0.4em] mb-2">Protocol Assistance</h4>
+                      <h3 className="text-4xl font-black italic uppercase italic">SYSTEM_HELP</h3>
                     </div>
 
                     <div className="space-y-6">
-                       <h4 className="text-xs font-black uppercase tracking-widest text-white border-l-2 border-intelligence pl-4">KEYBOARD_HOTKEYS</h4>
-                       <div className="grid grid-cols-1 gap-3">
-                          {[
-                             { key: 'CTRL + K', desc: 'OPEN_COMMAND_PALETTE' },
-                             { key: 'ESC', desc: 'CLOSE_MODALS_PANELS' },
-                             { key: 'ALT + ↑/↓', desc: 'NAVIGATE_RESULTS' },
-                             { key: 'ENTER', desc: 'SELECT_OR_EXECUTE' },
-                          ].map(hk => (
-                             <div key={hk.key} className="flex items-center justify-between p-3 bg-white/5 border border-white/5">
-                                <span className="px-2 py-1 bg-intelligence/20 text-intelligence font-mono text-[10px] font-black">{hk.key}</span>
-                                <span className="text-[10px] font-mono text-gray-500 uppercase">{hk.desc}</span>
-                             </div>
-                          ))}
-                       </div>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-white border-l-2 border-intelligence pl-4">KEYBOARD_HOTKEYS</h4>
+                      <div className="grid grid-cols-1 gap-3">
+                        {[
+                          { key: 'CTRL + K', desc: 'OPEN_COMMAND_PALETTE' },
+                          { key: 'ESC', desc: 'CLOSE_MODALS_PANELS' },
+                          { key: 'ALT + ↑/↓', desc: 'NAVIGATE_RESULTS' },
+                          { key: 'ENTER', desc: 'SELECT_OR_EXECUTE' },
+                        ].map(hk => (
+                          <div key={hk.key} className="flex items-center justify-between p-3 bg-white/5 border border-white/5">
+                            <span className="px-2 py-1 bg-intelligence/20 text-intelligence font-mono text-[10px] font-black">{hk.key}</span>
+                            <span className="text-[10px] font-mono text-gray-500 uppercase">{hk.desc}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="pt-6">
-                       <a 
-                         href="mailto:support@neuralis.sys" 
-                         className="flex items-center gap-3 text-intelligence hover:text-white transition-colors group"
-                       >
-                          <Mail size={18} className="group-hover:animate-bounce" />
-                          <span className="text-xs font-black uppercase tracking-widest">CONTACT_NEURAL_SUPPORT</span>
-                       </a>
+                      <a
+                        href="mailto:support@neuralis.sys"
+                        className="flex items-center gap-3 text-intelligence hover:text-white transition-colors group"
+                      >
+                        <Mail size={18} className="group-hover:animate-bounce" />
+                        <span className="text-xs font-black uppercase tracking-widest">CONTACT_NEURAL_SUPPORT</span>
+                      </a>
                     </div>
-                 </div>
+                  </div>
 
-                 <div className="space-y-10">
+                  <div className="space-y-10">
                     <div className="space-y-6">
-                       <h4 className="text-xs font-black uppercase tracking-widest text-white border-l-2 border-brand pl-4">QUICK_START_PROTOCOL</h4>
-                       <div className="space-y-6">
-                          {[
-                             { step: '01', title: 'INITIALIZE_PROFILE', desc: 'HEAD TO SETTINGS TO CONFIGURE YOUR BUSINESS ENTITY AND KNOWLEDGE BASE.' },
-                             { step: '02', title: 'IMPORT_INVENTORY', desc: 'SCAN OR MANUALLY INPUT YOUR ASSETS INTO THE QUANTUM INVENTORY TRACKER.' },
-                             { step: '03', title: 'LOG_TRANSACTIONS', desc: 'USE THE DATA_INPUT COMMAND TO SYNC REVENUE AND EXPENSE STREAMS.' },
-                             { step: '04', title: 'ASSIGN_PERSONNEL', desc: 'INVITE AGENTS IN TEAM_INTEL AND CONFIGURE THEIR CLEARANCE LEVELS.' },
-                             { step: '05', title: 'MONITOR_TELEMETRY', desc: 'USE THE OVERVIEW AND P&L REPORTS TO TRACK SYSTEM PERFORMANCE.' },
-                          ].map(item => (
-                             <div key={item.step} className="flex gap-4">
-                                <span className="text-lg font-black italic text-brand/40">{item.step}</span>
-                                <div>
-                                   <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">{item.title}</p>
-                                   <p className="text-[9px] font-mono text-gray-600 uppercase leading-relaxed">{item.desc}</p>
-                                </div>
-                             </div>
-                          ))}
-                       </div>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-white border-l-2 border-brand pl-4">QUICK_START_PROTOCOL</h4>
+                      <div className="space-y-6">
+                        {[
+                          { step: '01', title: 'INITIALIZE_PROFILE', desc: 'HEAD TO SETTINGS TO CONFIGURE YOUR BUSINESS ENTITY AND KNOWLEDGE BASE.' },
+                          { step: '02', title: 'IMPORT_INVENTORY', desc: 'SCAN OR MANUALLY INPUT YOUR ASSETS INTO THE QUANTUM INVENTORY TRACKER.' },
+                          { step: '03', title: 'LOG_TRANSACTIONS', desc: 'USE THE DATA_INPUT COMMAND TO SYNC REVENUE AND EXPENSE STREAMS.' },
+                          { step: '04', title: 'ASSIGN_PERSONNEL', desc: 'INVITE AGENTS IN TEAM_INTEL AND CONFIGURE THEIR CLEARANCE LEVELS.' },
+                          { step: '05', title: 'MONITOR_TELEMETRY', desc: 'USE THE OVERVIEW AND P&L REPORTS TO TRACK SYSTEM PERFORMANCE.' },
+                        ].map(item => (
+                          <div key={item.step} className="flex gap-4">
+                            <span className="text-lg font-black italic text-brand/40">{item.step}</span>
+                            <div>
+                              <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">{item.title}</p>
+                              <p className="text-[9px] font-mono text-gray-600 uppercase leading-relaxed">{item.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                 </div>
-              </motion.div>
-           </div>
-         )}
-      </AnimatePresence>
-    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+      </TransactionsContext.Provider>
     </LanguageContext.Provider>
   );
 }
@@ -9822,9 +10229,9 @@ const PdfPasswordModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, onC
       <div className="bg-dark-bg border border-white/10 w-full max-w-md p-8 glass shadow-[0_0_30px_rgba(0,242,255,0.1)]">
         <h3 className="text-xl font-black italic uppercase mb-2 text-white">Export Encrypted PDF</h3>
         <p className="text-[10px] font-mono text-gray-400 mb-6">Password required to open this PDF.</p>
-        <input 
-          type="password" 
-          placeholder="ENTER PASSWORD" 
+        <input
+          type="password"
+          placeholder="ENTER PASSWORD"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full bg-white/5 border border-white/10 px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-intelligence/50 mb-6 uppercase tracking-[0.2em]"
@@ -9886,12 +10293,12 @@ export default function App() {
         if (openModals.length > 0) {
           const topModal = openModals[openModals.length - 1] as HTMLElement;
           const buttons = Array.from(topModal.querySelectorAll('button'));
-          const closeBtn = buttons.find(btn => 
-            btn.innerHTML.includes('lucide-x') || 
+          const closeBtn = buttons.find(btn =>
+            btn.innerHTML.includes('lucide-x') ||
             btn.textContent?.toUpperCase().includes('CANCEL') ||
             btn.textContent?.toUpperCase().includes('CLOSE')
-          ) || buttons[0]; 
-          
+          ) || buttons[0];
+
           if (closeBtn) closeBtn.click();
         }
       }
@@ -9920,7 +10327,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (localStorage.getItem('is_demo_mode') === 'true') return;
       if (localStorage.getItem('is_registering') === 'true') return;
-      
+
       if (session?.user) {
         fetchUserProfileAndRedirect(session.user.id);
       } else {
@@ -10059,80 +10466,80 @@ export default function App() {
   return (
     <>
       <AnimatePresence mode="wait">
-      {view === 'dashboard' && (
-        <motion.div
-          key="dashboard"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="w-full h-full"
-        >
-          <Dashboard onLogout={handleLogout} />
-        </motion.div>
-      )}
+        {view === 'dashboard' && (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="w-full h-full"
+          >
+            <Dashboard onLogout={handleLogout} />
+          </motion.div>
+        )}
 
-      {view === 'onboarding' && (
-        <motion.div
-          key="onboarding"
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          className="w-full h-full"
-        >
-          <OnboardingPage onComplete={() => setView('dashboard')} />
-        </motion.div>
-      )}
+        {view === 'onboarding' && (
+          <motion.div
+            key="onboarding"
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="w-full h-full"
+          >
+            <OnboardingPage onComplete={() => setView('dashboard')} />
+          </motion.div>
+        )}
 
-      {view === 'login' && (
-        <motion.div
-          key="login"
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="w-full h-full"
-        >
-          <LoginPage
-            onLogin={handleLoginSuccess}
-            onBack={() => setView('landing')}
-            onRegister={() => setView('register')}
-          />
-        </motion.div>
-      )}
+        {view === 'login' && (
+          <motion.div
+            key="login"
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="w-full h-full"
+          >
+            <LoginPage
+              onLogin={handleLoginSuccess}
+              onBack={() => setView('landing')}
+              onRegister={() => setView('register')}
+            />
+          </motion.div>
+        )}
 
-      {view === 'register' && (
-        <motion.div
-          key="register"
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="w-full h-full"
-        >
-          <RegisterPage onRegistered={() => setView('login')} onBack={() => setView('landing')} onLogin={() => setView('login')} />
-        </motion.div>
-      )}
+        {view === 'register' && (
+          <motion.div
+            key="register"
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="w-full h-full"
+          >
+            <RegisterPage onRegistered={() => setView('login')} onBack={() => setView('landing')} onLogin={() => setView('login')} />
+          </motion.div>
+        )}
 
-      {view === 'landing' && (
-        <motion.div
-          key="landing"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="w-full h-full"
-        >
-          <LandingPage onLogin={() => setView('login')} onRegister={() => setView('register')} />
-        </motion.div>
-      )}
-    </AnimatePresence>
-      <PdfPasswordModal 
-        isOpen={pdfModalOpen} 
+        {view === 'landing' && (
+          <motion.div
+            key="landing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="w-full h-full"
+          >
+            <LandingPage onLogin={() => setView('login')} onRegister={() => setView('register')} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <PdfPasswordModal
+        isOpen={pdfModalOpen}
         onClose={() => {
           if (pdfModalCallback) pdfModalCallback.fn(null);
           setPdfModalOpen(false);
-        }} 
+        }}
         onConfirm={(pwd) => {
           if (pdfModalCallback) pdfModalCallback.fn(pwd);
           setPdfModalOpen(false);
-        }} 
+        }}
       />
 
       {/* PWA Install Prompt */}
@@ -10180,28 +10587,28 @@ export function convertGregorianToBS(gregorianDateString: string): string {
   if (!gregorianDateString) return '';
   const date = new Date(gregorianDateString);
   if (isNaN(date.getTime())) return gregorianDateString;
-  
+
   const year = date.getFullYear();
   const month = date.getMonth() + 1; // 1-12
   const day = date.getDate();
-  
+
   const transitions = [
     { m: 1, d: 15, bsM: 10, offset: 56 }, // Jan 15 starts Magh (10)
     { m: 2, d: 13, bsM: 11, offset: 56 }, // Feb 13 starts Fagun (11)
     { m: 3, d: 14, bsM: 12, offset: 56 }, // Mar 14 starts Chaitra (12)
-    { m: 4, d: 14, bsM: 1,  offset: 57 }, // Apr 14 starts Baishakh (1)
-    { m: 5, d: 15, bsM: 2,  offset: 57 }, // May 15 starts Jestha (2)
-    { m: 6, d: 15, bsM: 3,  offset: 57 }, // Jun 15 starts Asar (3)
-    { m: 7, d: 16, bsM: 4,  offset: 57 }, // Jul 16 starts Shrawan (4)
-    { m: 8, d: 17, bsM: 5,  offset: 57 }, // Aug 17 starts Bhadra (5)
-    { m: 9, d: 17, bsM: 6,  offset: 57 }, // Sep 17 starts Ashwin (6)
-    { m: 10, d: 18, bsM: 7,  offset: 57 }, // Oct 18 starts Kartik (7)
-    { m: 11, d: 17, bsM: 8,  offset: 57 }, // Nov 17 starts Mangsir (8)
-    { m: 12, d: 16, bsM: 9,  offset: 57 }  // Dec 16 starts Poush (9)
+    { m: 4, d: 14, bsM: 1, offset: 57 }, // Apr 14 starts Baishakh (1)
+    { m: 5, d: 15, bsM: 2, offset: 57 }, // May 15 starts Jestha (2)
+    { m: 6, d: 15, bsM: 3, offset: 57 }, // Jun 15 starts Asar (3)
+    { m: 7, d: 16, bsM: 4, offset: 57 }, // Jul 16 starts Shrawan (4)
+    { m: 8, d: 17, bsM: 5, offset: 57 }, // Aug 17 starts Bhadra (5)
+    { m: 9, d: 17, bsM: 6, offset: 57 }, // Sep 17 starts Ashwin (6)
+    { m: 10, d: 18, bsM: 7, offset: 57 }, // Oct 18 starts Kartik (7)
+    { m: 11, d: 17, bsM: 8, offset: 57 }, // Nov 17 starts Mangsir (8)
+    { m: 12, d: 16, bsM: 9, offset: 57 }  // Dec 16 starts Poush (9)
   ];
-  
+
   let transition = transitions[transitions.length - 1];
-  
+
   for (let i = 0; i < transitions.length; i++) {
     const current = transitions[i];
     if (month === current.m) {
@@ -10213,15 +10620,15 @@ export function convertGregorianToBS(gregorianDateString: string): string {
       break;
     }
   }
-  
+
   const bsYr = year + transition.offset;
   const bsMn = transition.bsM;
-  
+
   let bsDy = 1;
   const transitionDate = new Date(year, transition.m - 1, transition.d);
   const diffTime = date.getTime() - transitionDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays >= 0) {
     bsDy = diffDays + 1;
   } else {
@@ -10229,11 +10636,11 @@ export function convertGregorianToBS(gregorianDateString: string): string {
     const diffTimePrev = date.getTime() - prevTransitionDate.getTime();
     bsDy = Math.floor(diffTimePrev / (1000 * 60 * 60 * 24)) + 1;
   }
-  
+
   if (bsDy > 32) bsDy = 32;
   if (bsDy < 1) bsDy = 1;
-  
+
   const pad = (n: number) => n.toString().padStart(2, '0');
-  
+
   return `${bsYr}-${pad(bsMn)}-${pad(bsDy)} BS`;
 }

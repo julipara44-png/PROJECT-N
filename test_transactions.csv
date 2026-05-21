@@ -1,0 +1,4 @@
+date,description,amount,type,category
+2026-05-20,Test Sales Revenue,1500,Inflow,Sales
+2026-05-19,Office Supplies Rent,500,Outflow,Infrastructure
+2026-05-18,Marketing Ad Campaign,350,Outflow,Marketing

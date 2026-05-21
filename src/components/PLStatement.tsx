@@ -12,8 +12,11 @@ import {
   convertGregorianToBS,
   formatCurrency,
   generateProfessionalPDF,
-  saveEncryptedPdf
+  saveEncryptedPdf,
+  TransactionsContext,
+  Transaction
 } from '../App';
+
 
 export const getPLStatement = async (businessId: string, startDate?: string, endDate?: string) => {
   let query = supabase.from('transactions').select(`
@@ -174,8 +177,10 @@ export function PLSection({ section }: { section: any }) {
   );
 }
 
-export function PandLView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
+export function PandLView({ dateFormat, transactions: propTransactions }: { dateFormat: 'AD' | 'BS', transactions?: Transaction[] }) {
   const { t } = React.useContext(LanguageContext);
+  const { transactions: contextTransactions } = React.useContext(TransactionsContext);
+  const transactions = propTransactions || contextTransactions || [];
   const [range, setRange] = useState<'This Month' | 'Last Month' | 'This Quarter' | 'Custom'>('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   
@@ -187,152 +192,8 @@ export function PandLView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
     const fetchPL = async () => {
       setIsLoading(true);
       try {
-        const isDemo = localStorage.getItem('is_demo_mode') === 'true';
-        if (isDemo) {
-          const savedDemo = localStorage.getItem('demo_transactions');
-          let transactionsList: any[] = [];
-          if (savedDemo) {
-            transactionsList = JSON.parse(savedDemo);
-          } else {
-            const currentYear = new Date().getFullYear();
-            const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
-            const prevMonth = String(new Date().getMonth() === 0 ? 12 : new Date().getMonth()).padStart(2, '0');
-            const prevMonthYear = new Date().getMonth() === 0 ? currentYear - 1 : currentYear;
-
-            transactionsList = [
-              { id: '1', date: `${currentYear}-${currentMonth}-15`, description: 'Room Booking Suite 402', amount: 45000, category: 'Sales', type: 'Inflow', employee_id: 'emp-2' },
-              { id: '2', date: `${currentYear}-${currentMonth}-14`, description: 'Restaurant Banquet Dining Inflow', amount: 120000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
-              { id: '3', date: `${currentYear}-${currentMonth}-12`, description: 'Monthly Laundry Supplies Vendor', amount: 25000, category: 'Logistics', type: 'Outflow' },
-              { id: '4', date: `${currentYear}-${currentMonth}-10`, description: 'Pokhara Electricity Authority', amount: 85000, category: 'Infrastructure', type: 'Outflow' },
-              { id: '5', date: `${currentYear}-${currentMonth}-08`, description: 'Spa Therapy Package Sales', amount: 65000, category: 'Sales', type: 'Inflow', employee_id: 'emp-3' },
-              { id: '6', date: `${currentYear}-${currentMonth}-05`, description: 'Staff Salaries', amount: 450000, category: 'Payroll', type: 'Outflow' },
-              { id: '7', date: `${currentYear}-${currentMonth}-02`, description: 'Fresh Organic Kitchen Groceries', amount: 68000, category: 'Inventory', type: 'Outflow' },
-              { id: '8', date: `${prevMonthYear}-${prevMonth}-28`, description: 'Premium Wine & Beverage Restock', amount: 110000, category: 'Inventory', type: 'Outflow' },
-              { id: '9', date: `${prevMonthYear}-${prevMonth}-25`, description: 'Corporate Seminar Hall Booking', amount: 250000, category: 'Sales', type: 'Inflow', employee_id: 'emp-1' },
-              { id: '10', date: `${prevMonthYear}-${prevMonth}-20`, description: 'Digital Marketing Pokhara Tourism', amount: 40000, category: 'Marketing', type: 'Outflow' }
-            ];
-            localStorage.setItem('demo_transactions', JSON.stringify(transactionsList));
-          }
-
-          let startDate: Date | null = null;
-          let endDate: Date | null = null;
-          const now = new Date();
-          if (range === 'This Month') {
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          } else if (range === 'Last Month') {
-            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-          } else if (range === 'This Quarter') {
-            const quarter = Math.floor(now.getMonth() / 3);
-            startDate = new Date(now.getFullYear(), quarter * 3, 1);
-            endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0);
-          } else if (range === 'Custom' && customDates.start && customDates.end) {
-            startDate = new Date(customDates.start);
-            endDate = new Date(customDates.end);
-          }
-
-          let filtered = transactionsList;
-          if (startDate && endDate) {
-            startDate.setHours(0, 0, 0, 0);
-            endDate.setHours(23, 59, 59, 999);
-            const startMs = startDate.getTime();
-            const endMs = endDate.getTime();
-            filtered = transactionsList.filter(tx => {
-              const txDate = new Date(tx.date).getTime();
-              return txDate >= startMs && txDate <= endMs;
-            });
-          }
-
-          const localPlData = {
-            revenue: [] as { name: string, val: number }[],
-            cogs: [] as { name: string, val: number }[],
-            operatingExpenses: [] as { name: string, val: number }[]
-          };
-
-          const categoryTotals: Record<string, number> = {};
-          const cogsKeywords = ['raw material', 'labor', 'production', 'cogs', 'inventory', 'supplier', 'manufacturing', 'freight', 'direct'];
-
-          filtered.forEach((tx: any) => {
-            const catName = tx.category || 'Uncategorized';
-            const amount = Number(tx.amount);
-            const key = `${tx.type}_${catName}`;
-            categoryTotals[key] = (categoryTotals[key] || 0) + amount;
-          });
-
-          Object.entries(categoryTotals).forEach(([key, val]) => {
-            const [type, ...nameParts] = key.split('_');
-            const name = nameParts.join('_');
-            if (type === 'Inflow') {
-              localPlData.revenue.push({ name, val });
-            } else {
-              const isCogs = cogsKeywords.some(kw => name.toLowerCase().includes(kw));
-              if (isCogs) {
-                 localPlData.cogs.push({ name, val: -val });
-              } else {
-                 localPlData.operatingExpenses.push({ name, val: -val });
-              }
-            }
-          });
-
-          const revTotal = localPlData.revenue.reduce((acc, i) => acc + i.val, 0);
-          const cogsTotal = localPlData.cogs.reduce((acc, i) => acc + i.val, 0);
-          const grossProfit = revTotal + cogsTotal;
-          const expTotal = localPlData.operatingExpenses.reduce((acc, i) => acc + i.val, 0);
-          const netProfit = grossProfit + expTotal;
-
-          const localPlList = [
-            {
-              category: "Revenue",
-              total: formatCurrency(revTotal),
-              items: localPlData.revenue.map(i => ({ ...i, val: formatCurrency(i.val) }))
-            },
-            {
-              category: "COGS",
-              total: formatCurrency(cogsTotal),
-              items: localPlData.cogs.map(i => ({ ...i, val: formatCurrency(i.val) }))
-            },
-            {
-              category: "Gross Profit",
-              total: formatCurrency(grossProfit),
-              isResult: true,
-              items: []
-            },
-            {
-              category: "Operating Expenses",
-              total: formatCurrency(expTotal),
-              items: localPlData.operatingExpenses.map(i => ({ ...i, val: formatCurrency(i.val) }))
-            },
-            {
-              category: "Net Profit",
-              total: formatCurrency(netProfit),
-              isResult: true,
-              highlight: true,
-              items: []
-            }
-          ];
-
-          setPlData(localPlList);
-
-          const taxableSales = revTotal;
-          const vatCollected = taxableSales * 0.13;
-          const rawCogs = cogsTotal;
-          const rawExp = expTotal;
-          const taxablePurchases = (Math.abs(rawCogs) + Math.abs(rawExp)) * 0.6;
-          const vatPaid = taxablePurchases * 0.13;
-          const netVATPayable = vatCollected - vatPaid;
-          setTaxData({ taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable });
-          
-          setIsLoading(false);
-          return;
-        }
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return;
-        const { data: profile } = await supabase.from('users').select('business_id').eq('auth_id', session.user.id).single();
-        if (!profile?.business_id) return;
-
-        let startDate, endDate;
+        let startDate: Date | null = null;
+        let endDate: Date | null = null;
         const now = new Date();
         if (range === 'This Month') {
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -349,21 +210,96 @@ export function PandLView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
           endDate = new Date(customDates.end);
         }
 
-        const startStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
-        const endStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
-
-        const result = await getPLStatement(profile.business_id, startStr, endStr);
-        if (result) {
-          setPlData(result.plList);
-          const taxableSales = result.rawTotals.revTotal;
-          const vatCollected = taxableSales * 0.13;
-          const rawCogs = result.rawTotals.cogsTotal;
-          const rawExp = result.rawTotals.expTotal;
-          const taxablePurchases = (Math.abs(rawCogs) + Math.abs(rawExp)) * 0.6;
-          const vatPaid = taxablePurchases * 0.13;
-          const netVATPayable = vatCollected - vatPaid;
-          setTaxData({ taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable });
+        let filtered = transactions;
+        if (startDate && endDate) {
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
+          const startMs = startDate.getTime();
+          const endMs = endDate.getTime();
+          filtered = transactions.filter(tx => {
+            const txDate = new Date(tx.date).getTime();
+            return txDate >= startMs && txDate <= endMs;
+          });
         }
+
+        const localPlData = {
+          revenue: [] as { name: string, val: number }[],
+          cogs: [] as { name: string, val: number }[],
+          operatingExpenses: [] as { name: string, val: number }[]
+        };
+
+        const categoryTotals: Record<string, number> = {};
+        const cogsKeywords = ['raw material', 'labor', 'production', 'cogs', 'inventory', 'supplier', 'manufacturing', 'freight', 'direct'];
+
+        filtered.forEach((tx: any) => {
+          const catName = tx.category || 'Uncategorized';
+          const amount = Number(tx.amount);
+          const key = `${tx.type}_${catName}`;
+          categoryTotals[key] = (categoryTotals[key] || 0) + amount;
+        });
+
+        Object.entries(categoryTotals).forEach(([key, val]) => {
+          const [type, ...nameParts] = key.split('_');
+          const name = nameParts.join('_');
+          if (type === 'Inflow') {
+            localPlData.revenue.push({ name, val });
+          } else {
+            const isCogs = cogsKeywords.some(kw => name.toLowerCase().includes(kw));
+            if (isCogs) {
+               localPlData.cogs.push({ name, val: -val });
+            } else {
+               localPlData.operatingExpenses.push({ name, val: -val });
+            }
+          }
+        });
+
+        const revTotal = localPlData.revenue.reduce((acc, i) => acc + i.val, 0);
+        const cogsTotal = localPlData.cogs.reduce((acc, i) => acc + i.val, 0);
+        const grossProfit = revTotal + cogsTotal;
+        const expTotal = localPlData.operatingExpenses.reduce((acc, i) => acc + i.val, 0);
+        const netProfit = grossProfit + expTotal;
+
+        const localPlList = [
+          {
+            category: "Revenue",
+            total: formatCurrency(revTotal),
+            items: localPlData.revenue.map(i => ({ ...i, val: formatCurrency(i.val) }))
+          },
+          {
+            category: "COGS",
+            total: formatCurrency(cogsTotal),
+            items: localPlData.cogs.map(i => ({ ...i, val: formatCurrency(i.val) }))
+          },
+          {
+            category: "Gross Profit",
+            total: formatCurrency(grossProfit),
+            isResult: true,
+            items: []
+          },
+          {
+            category: "Operating Expenses",
+            total: formatCurrency(expTotal),
+            items: localPlData.operatingExpenses.map(i => ({ ...i, val: formatCurrency(i.val) }))
+          },
+          {
+            category: "Net Profit",
+            total: formatCurrency(netProfit),
+            isResult: true,
+            highlight: true,
+            items: []
+          }
+        ];
+
+        setPlData(localPlList);
+
+        const taxableSales = revTotal;
+        const vatCollected = taxableSales * 0.13;
+        const rawCogs = cogsTotal;
+        const rawExp = expTotal;
+        const taxablePurchases = (Math.abs(rawCogs) + Math.abs(rawExp)) * 0.6;
+        const vatPaid = taxablePurchases * 0.13;
+        const netVATPayable = vatCollected - vatPaid;
+        setTaxData({ taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable });
       } catch (err) {
         console.error('Error fetching P&L', err);
       } finally {
@@ -371,7 +307,7 @@ export function PandLView({ dateFormat }: { dateFormat: 'AD' | 'BS' }) {
       }
     };
     fetchPL();
-  }, [range, customDates]);
+  }, [range, customDates, transactions]);
 
   const { taxableSales, vatCollected, rawCogs, rawExp, taxablePurchases, vatPaid, netVATPayable } = taxData;
 
